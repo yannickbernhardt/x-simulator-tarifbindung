@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Wand · X-Simulator ELTM2</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/x.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+  :root { --fs: 22px; }
+  body { min-height: 100vh; }
+
+  /* ---------- Kopfzeile ---------- */
+  .kopf {
+    position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px;
+    padding: 12px 24px; border-bottom: 1px solid var(--border);
+    background: var(--topbar); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  }
+  .kopf .logo .ic { width: 34px; height: 34px; }
+  .kopf h1 { font-size: 22px; line-height: 26px; margin: 0; font-weight: 800; }
+  .kopf .unter { color: var(--muted); font-size: 15px; }
+  .kopf .mitte { flex: 1 1 320px; min-width: 0; }
+  @media (max-width: 700px) { .kopf, .leiste, .wand { padding-left: 12px; padding-right: 12px; } .kopf h1 { font-size: 18px; } .qr-mini { display: none; } }
+  .zahlen { display: flex; gap: 20px; align-items: baseline; }
+  .zahlen b { font-size: 28px; font-weight: 800; }
+  .zahlen span { color: var(--muted); font-size: 14px; margin-left: 4px; }
+
+  .timer {
+    display: flex; align-items: center; gap: 6px; border: 1px solid var(--border-input); border-radius: 9999px; padding: 4px 6px 4px 14px;
+  }
+  .timer .zeit { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 84px; text-align: center; cursor: pointer; }
+  .timer.laeuft .zeit { color: var(--blue); }
+  .timer.aus .zeit { color: var(--red); animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0.3; } }
+  .timer button.k { width: 30px; height: 30px; border-radius: 50%; color: var(--muted); font-weight: 700; font-size: 16px; }
+  .timer button.k:hover { background: var(--bg-hover); color: var(--text); }
+
+  .qr-mini { width: 64px; height: 64px; background: #fff; border-radius: 8px; padding: 4px; display: block; }
+  .qr-mini svg { width: 100%; height: 100%; display: block; }
+
+  .leiste {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    padding: 12px 24px; border-bottom: 1px solid var(--border);
+  }
+  .chip {
+    border: 1px solid var(--border-input); border-radius: 9999px; padding: 6px 14px; font-size: 14px; font-weight: 700;
+    display: inline-flex; align-items: center; gap: 6px; transition: background-color 0.15s;
+  }
+  .chip:hover { background: var(--bg-hover); }
+  .chip.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .chip .ic { width: 16px; height: 16px; }
+  .chip.gefahr { color: var(--red); border-color: rgba(244, 33, 46, 0.5); }
+  .leiste .spacer { flex: 1; }
+  .leiste select {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border-input); border-radius: 9999px;
+    padding: 6px 12px; font: inherit; font-size: 14px; font-weight: 700;
+  }
+
+  /* ---------- Wand ---------- */
+  .wand { padding: 20px 24px 80px; columns: 3 400px; column-gap: 16px; }
+  .karte {
+    break-inside: avoid; margin: 0 0 16px; border: 1px solid var(--border); border-radius: 16px;
+    background: var(--bg); position: relative; cursor: pointer; transition: border-color 0.15s, transform 0.15s;
+  }
+  .karte:hover { border-color: var(--muted); }
+  .karte .post { border: 0; padding: 16px 18px 6px; }
+  .karte .post-text { font-size: var(--fs); line-height: 1.35; margin-top: 6px; }
+  .karte .post-head { font-size: calc(var(--fs) * 0.75); line-height: 1.3; }
+  .karte .actions { pointer-events: none; }
+  .karte.neu { animation: neu 2s ease-out; }
+  @keyframes neu { from { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(29, 155, 240, 0.4); } }
+  .karte.versteckt { opacity: 0.4; border-style: dashed; }
+  .karte .marken { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 18px 12px 66px; }
+  .marke { font-size: 13px; font-weight: 700; border-radius: 9999px; padding: 3px 10px; }
+  .marke.ok { background: rgba(0, 186, 124, 0.15); color: var(--green); }
+  .marke.fehler { background: rgba(244, 33, 46, 0.15); color: var(--red); }
+  .marke.kr { background: rgba(29, 155, 240, 0.12); color: var(--blue); }
+  .marke.aus { background: var(--bg-hover); color: var(--muted); border: 1px solid var(--border); }
+
+  .werkzeug {
+    position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s;
+    background: var(--bg); border-radius: 9999px; padding: 2px; box-shadow: var(--shadow);
+  }
+  .karte:hover .werkzeug, body.moderieren .werkzeug { opacity: 1; }
+  .werkzeug button { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 16px; color: var(--muted); }
+  .werkzeug button:hover { background: var(--bg-hover); color: var(--text); }
+  .werkzeug button.rot:hover { color: var(--red); }
+  .werkzeug .ic { width: 18px; height: 18px; }
+
+  .zahl-ok { background: rgba(0, 186, 124, 0.22); border-radius: 4px; padding: 0 2px; }
+  .zahl-pruef { background: rgba(255, 212, 0, 0.3); border-radius: 4px; padding: 0 2px; }
+
+  .leer-wand { text-align: center; padding: 80px 24px; color: var(--muted); }
+  .leer-wand h2 { color: var(--text); font-size: 34px; margin: 0 0 12px; }
+  .leer-wand .qr-gross { width: 320px; height: 320px; margin: 24px auto 12px; background: #fff; padding: 14px; border-radius: 16px; }
+  .leer-wand .url { font-size: 22px; color: var(--text); font-weight: 700; word-break: break-all; }
+
+  /* ---------- Spotlight ---------- */
+  .spot-back { position: fixed; inset: 0; z-index: 50; background: var(--bg); overflow-y: auto; }
+  .spot { max-width: 1100px; margin: 0 auto; padding: 88px 48px 120px; }
+  @media (max-width: 700px) { .spot { padding: 80px 20px 80px; } }
+  .spot-nav { position: fixed; top: 16px; left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: center; z-index: 51; }
+  .rund { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--bg-hover); border: 1px solid var(--border); }
+  .rund:hover { background: rgba(29, 155, 240, 0.12); }
+  .rund .ic { width: 22px; height: 22px; }
+  .spot-zaehler { color: var(--muted); font-weight: 700; font-size: 17px; }
+  .spot .kopfzeile { display: flex; align-items: center; gap: 16px; }
+  .spot .kopfzeile .nm { font-weight: 800; font-size: 30px; line-height: 1.2; }
+  .spot .kopfzeile .hd { color: var(--muted); font-size: 24px; }
+  .spot .text { font-size: clamp(34px, 3.4vw, 52px); line-height: 1.3; margin: 32px 0 28px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .spot .meta { color: var(--muted); font-size: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+  .spot .meta b { color: var(--text); }
+  .spot .likes { font-size: 20px; padding: 18px 0; border-bottom: 1px solid var(--border); color: var(--muted); }
+  .spot .likes b { color: var(--text); font-size: 22px; }
+  .spot .bewertung { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .spot .bewertung .chip { font-size: 17px; padding: 10px 18px; }
+  .spot .bewertung .chip.ok.on { background: var(--green); border-color: var(--green); }
+  .spot .bewertung .chip.fehler.on { background: var(--red); border-color: var(--red); }
+  .spot .bewertung .chip.kr.on { background: var(--blue); border-color: var(--blue); }
+  .spot .trenn { width: 1px; background: var(--border); margin: 0 6px; }
+  .spot .zeichen { color: var(--muted); font-size: 16px; margin-top: 14px; }
+
+  /* ---------- Seitenleiste Erwartungshorizont ---------- */
+  .panel-back { position: fixed; inset: 0; z-index: 60; background: var(--backdrop); }
+  .panel {
+    position: fixed; z-index: 61; top: 0; right: 0; bottom: 0; width: min(520px, 92vw); background: var(--bg);
+    border-left: 1px solid var(--border); overflow-y: auto; padding: 24px 28px 40px; animation: links 0.2s ease-out;
+  }
+  @keyframes links { from { transform: translateX(100%); } }
+  .panel h2 { font-size: 24px; margin: 0 0 4px; }
+  .panel h3 { font-size: 17px; margin: 24px 0 8px; }
+  .panel p, .panel li { color: var(--text); font-size: 15px; line-height: 1.45; }
+  .panel .muted { color: var(--muted); }
+  .panel table { width: 100%; border-collapse: collapse; font-size: 15px; margin-top: 8px; }
+  .panel td, .panel th { border-bottom: 1px solid var(--border); padding: 8px 6px; text-align: left; }
+  .panel th { color: var(--muted); font-weight: 700; font-size: 13px; }
+  .panel td.z { text-align: right; font-variant-numeric: tabular-nums; }
+  .panel .bsp { border: 1px solid var(--border); border-radius: 16px; padding: 12px 14px; margin: 8px 0; font-size: 15px; }
+  .panel .schliessen { position: absolute; top: 16px; right: 16px; }
+
+  /* ---------- Großer QR / M4 ---------- */
+  .gross-back { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, 0.9); display: grid; place-items: center; cursor: zoom-out; }
+  .gross-qr { background: #fff; padding: 28px; border-radius: 24px; text-align: center; color: #0f1419; }
+  .gross-qr .qr { width: min(72vh, 80vw); height: min(72vh, 80vw); }
+  .gross-qr .qr svg { width: 100%; height: 100%; }
+  .gross-qr p { font-size: 26px; font-weight: 800; margin: 12px 0 0; }
+  .gross-m4 { max-width: 94vw; max-height: 92vh; border-radius: 8px; background: #fff; }
+
+  .fehlerbanner { margin: 16px 24px 0; padding: 14px 18px; border-radius: 16px; border: 1px solid var(--red); }
+
+  /* ---------- Druckansicht ---------- */
+  #druck { display: none; }
+  @media print {
+    body > *:not(#druck) { display: none !important; }
+    #druck { display: block; color: #000; font-family: var(--font); }
+    #druck h1 { font-size: 18pt; margin: 0 0 4pt; }
+    #druck .d-post { border-bottom: 1px solid #ccc; padding: 8pt 0; break-inside: avoid; font-size: 11pt; }
+    #druck .d-kopf { font-weight: 700; }
+    #druck .d-kopf span { font-weight: 400; color: #555; }
+    #druck .d-text { white-space: pre-wrap; margin: 4pt 0; }
+    #druck .d-meta { color: #555; font-size: 9pt; }
+  }
+</style>
+</head>
+<body>
+
+<header class="kopf">
+  <span class="logo" id="logo"></span>
+  <div class="mitte">
+    <h1>ELTM2 · A4 Tarifbindung &amp; Betriebsräte</h1>
+    <div class="unter" id="unter">Live-Wand · aktualisiert alle 3 Sekunden</div>
+  </div>
+  <div class="zahlen"><div><b id="nPosts">0</b><span>Posts</span></div><div><b id="nGeraete">0</b><span>Geräte</span></div></div>
+  <div class="timer" id="timer">
+    <span class="zeit" id="zeit" title="Klick: Start/Pause">08:00</span>
+    <button class="k" data-t="-60" title="1 Minute weniger">−</button>
+    <button class="k" data-t="60" title="1 Minute mehr">+</button>
+    <button class="k" data-t="reset" title="Zurücksetzen">↺</button>
+  </div>
+  <button class="qr-mini" id="qrMini" title="QR-Code groß zeigen"></button>
+</header>
+
+<div class="leiste">
+  <select id="sort" aria-label="Sortierung">
+    <option value="neu">Neueste zuerst</option>
+    <option value="alt">Älteste zuerst</option>
+    <option value="likes">Meiste Likes</option>
+    <option value="zufall">Zufällig</option>
+  </select>
+  <button class="chip" id="bAnonym">Anonym</button>
+  <button class="chip" id="bZahlen" title="Grün: Zahl kommt in M4 vor (oder ist daraus berechnet). Gelb: bitte prüfen. Ob die Zahl richtig gedeutet ist, zeigt die Markierung nicht.">Zahlen markieren</button>
+  <button class="chip" id="bModer">Moderieren</button>
+  <span class="spacer"></span>
+  <button class="chip" id="bM4">M4 zeigen</button>
+  <button class="chip" id="bEH">Erwartungshorizont</button>
+  <button class="chip" id="bKlein" title="Schrift kleiner">A−</button>
+  <button class="chip" id="bGross" title="Schrift größer">A+</button>
+  <button class="chip" id="bTheme">Hell</button>
+  <button class="chip" id="bCsv">CSV</button>
+  <button class="chip" id="bDruck">Drucken</button>
+  <button class="chip gefahr" id="bReset">Neue Runde</button>
+</div>
+
+<div id="fehler"></div>
+<main class="wand" id="wand"></main>
+<div id="overlay"></div>
+<div id="druck"></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script type="module">
+import { icon, esc, formatiere, avatarHtml, relativ, langesDatum, zahl } from "/x.js";
+import { analysiere } from "/zaehlen.js";
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const TOKEN = new URLSearchParams(location.search).get("lehrer") ?? "";
+const KLASSEN_URL = location.origin + "/";
+
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem("xwand." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("xwand." + k, JSON.stringify(v)); } catch {} },
+};
+
+/* Bewertungskriterien – werden per Klick an einzelne Posts geheftet */
+const KRITERIEN = [
+  { id: "quelle", label: "Zeitraum/Quelle genannt" },
+  { id: "kern", label: "„weder noch“ 26 → 41 %" },
+  { id: "tarif", label: "Tarifbindung 68 → 51 %" },
+  { id: "br", label: "Betriebsrat 51 → 43 %" },
+  { id: "deutung", label: "Folgen für Beschäftigte" },
+  { id: "x", label: "X-typisch auf den Punkt" },
+];
+/* Zahlen, die sich direkt aus M4 ergeben (Werte, Summen, Differenzen, relative Änderungen) */
+const BEKANNT = new Set([45, 23, 6, 26, 35, 16, 8, 41, 68, 51, 43, 15, 17, 10, 7, 2, 22, 58, 25, 2000, 2022, 100]);
+
+let stand = { posts: [], geraete: 0, now: Date.now() };
+let versatz = 0;
+let opt = {
+  sort: LS.get("sort", "neu"),
+  anonym: LS.get("anonym", false),
+  zahlen: LS.get("zahlen", false),
+  moder: LS.get("moder", false),
+  fs: LS.get("fs", 22),
+  theme: LS.get("theme", "dark"),
+};
+let zufallsRang = new Map();
+let bekannteIds = null;
+let spotId = null;
+
+/* ---------- Grundgerüst ---------- */
+$("#logo").innerHTML = icon("logo");
+function setzeTheme() {
+  if (opt.theme === "light") document.documentElement.dataset.theme = "light";
+  else delete document.documentElement.dataset.theme;
+  $("#bTheme").textContent = opt.theme === "light" ? "Dunkel" : "Hell";
+}
+function setzeOptionen() {
+  document.documentElement.style.setProperty("--fs", opt.fs + "px");
+  $("#sort").value = opt.sort;
+  $("#bAnonym").classList.toggle("on", opt.anonym);
+  $("#bZahlen").classList.toggle("on", opt.zahlen);
+  $("#bModer").classList.toggle("on", opt.moder);
+  document.body.classList.toggle("moderieren", opt.moder);
+  setzeTheme();
+  for (const k of Object.keys(opt)) LS.set(k, opt[k]);
+}
+setzeOptionen();
+
+function qrSvg(text) {
+  if (typeof qrcode !== "function") return "";
+  const qr = qrcode(0, "M");
+  qr.addData(text);
+  qr.make();
+  return qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+}
+$("#qrMini").innerHTML = qrSvg(KLASSEN_URL);
+
+let toastT;
+function toast(t) {
+  const el = $("#toast");
+  el.textContent = t;
+  el.classList.add("show");
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove("show"), 2600);
+}
+
+async function api(pfad, o = {}) {
+  const sep = pfad.includes("?") ? "&" : "?";
+  const r = await fetch(`${pfad}${sep}lehrer=${encodeURIComponent(TOKEN)}`, {
+    method: o.method ?? "GET",
+    headers: o.body ? { "content-type": "application/json" } : {},
+    body: o.body ? JSON.stringify(o.body) : undefined,
+  });
+  let d = {};
+  try { d = await r.json(); } catch {}
+  if (!r.ok) throw Object.assign(new Error(d.error ?? "Fehler"), { status: r.status });
+  return d;
+}
+
+/* ---------- Daten ---------- */
+async function lade() {
+  try {
+    const d = await api("/api/state");
+    versatz = d.now - Date.now();
+    stand = d;
+    $("#fehler").innerHTML = "";
+    render();
+  } catch (e) {
+    $("#fehler").innerHTML = `<div class="fehlerbanner">⚠️ ${esc(e.message)}</div>`;
+  }
+}
+setInterval(lade, 3000);
+lade();
+
+function sortiert() {
+  let l = stand.posts.filter((p) => opt.moder || !p.hidden);
+  if (opt.sort === "neu") l.sort((a, b) => b.ts - a.ts);
+  if (opt.sort === "alt") l.sort((a, b) => a.ts - b.ts);
+  if (opt.sort === "likes") l.sort((a, b) => b.likes - a.likes || a.ts - b.ts);
+  if (opt.sort === "zufall") {
+    for (const p of l) if (!zufallsRang.has(p.id)) zufallsRang.set(p.id, Math.random());
+    l.sort((a, b) => zufallsRang.get(a.id) - zufallsRang.get(b.id));
+  }
+  return l;
+}
+
+function anzeigePerson(p) {
+  if (!opt.anonym) return p;
+  return { ...p, name: "Anonym", handle: "anonym", avatar: { e: "👤", c: "#536471" } };
+}
+
+/* Zahlen im Text markieren: grün = steht so (oder abgeleitet) in M4, gelb = prüfen */
+function mitZahlen(html) {
+  if (!opt.zahlen) return html;
+  return html.replace(/(?<![\p{L}\d#.,])(\d{1,4}(?:[.,]\d+)?)(\s?(?:%|Prozent|Prozentpunkte))?/gu, (m, n, einheit) => {
+    const wert = Number(n.replace(",", "."));
+    const ok = BEKANNT.has(wert) || BEKANNT.has(Math.round(wert));
+    return `<mark class="${ok ? "zahl-ok" : "zahl-pruef"}" style="color:inherit">${m}</mark>`;
+  });
+}
+
+function markenHtml(p) {
+  const m = [];
+  if (p.badge === "ok") m.push(`<span class="marke ok">✓ Zahlen korrekt</span>`);
+  if (p.badge === "fehler") m.push(`<span class="marke fehler">⚠ Fehler</span>`);
+  for (const id of p.checks ?? []) {
+    const k = KRITERIEN.find((x) => x.id === id);
+    if (k) m.push(`<span class="marke kr">${esc(k.label)}</span>`);
+  }
+  if (p.hidden) m.push(`<span class="marke aus">ausgeblendet</span>`);
+  return m.length ? `<div class="marken">${m.join("")}</div>` : "";
+}
+
+function karteHtml(p, jetzt) {
+  const a = anzeigePerson(p);
+  return `<div class="karte${p.hidden ? " versteckt" : ""}" data-id="${esc(p.id)}">
+    <div class="werkzeug">
+      <button data-w="auge" title="${p.hidden ? "Wieder einblenden" : "Ausblenden"}">${p.hidden ? "👁" : "🙈"}</button>
+      <button data-w="ok" title="Zahlen korrekt">✓</button>
+      <button data-w="fehler" title="Fehler">⚠</button>
+      <button data-w="del" class="rot" title="Löschen">${icon("trash")}</button>
+    </div>
+    <article class="post">
+      <div class="post-row">
+        <div class="post-av">${avatarHtml(a.avatar, 44)}</div>
+        <div class="post-main">
+          <div class="post-head"><span class="nm">${esc(a.name)}</span><span class="hd">@${esc(a.handle)}</span><span class="dot">·</span><time>${relativ(p.ts, jetzt)}</time></div>
+          <div class="post-text">${mitZahlen(formatiere(p.text))}</div>
+          <div class="actions">
+            <span class="act">${icon("reply")}<span></span></span>
+            <span class="act">${icon("repost")}<span></span></span>
+            <span class="act ${p.likes ? "a-like on" : ""}">${icon(p.likes ? "liked" : "like")}<span>${zahl(p.likes)}</span></span>
+            <span class="act">${icon("views")}<span>${zahl(p.views)}</span></span>
+            <span class="act">${icon("bookmark")}</span>
+          </div>
+        </div>
+      </div>
+    </article>
+    ${markenHtml(p)}
+  </div>`;
+}
+
+let letzteSignatur = "";
+function render() {
+  const jetzt = Date.now() + versatz;
+  const liste = sortiert();
+  const sichtbar = stand.posts.filter((p) => !p.hidden).length;
+  $("#nPosts").textContent = sichtbar;
+  $("#nGeraete").textContent = stand.geraete;
+
+  const sig = JSON.stringify([liste, opt, Math.floor(jetzt / 30000)]);
+  if (sig === letzteSignatur) return;
+  letzteSignatur = sig;
+
+  if (!liste.length) {
+    $("#wand").style.columns = "auto";
+    $("#wand").innerHTML = `<div class="leer-wand">
+      <h2>Noch keine Posts</h2>
+      <p>Scannt den QR-Code und postet eure Auswertung von M4 – max. 280 Zeichen.</p>
+      <div class="qr-gross">${qrSvg(KLASSEN_URL)}</div>
+      <div class="url">${esc(KLASSEN_URL.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</div>
+    </div>`;
+  } else {
+    $("#wand").style.columns = "";
+    $("#wand").innerHTML = liste.map((p) => karteHtml(p, jetzt)).join("");
+    if (bekannteIds) for (const p of liste) if (!bekannteIds.has(p.id)) $(`.karte[data-id="${CSS.escape(p.id)}"]`)?.classList.add("neu");
+  }
+  bekannteIds = new Set(stand.posts.map((p) => p.id));
+  if (spotId) zeigeSpot(spotId);
+}
+
+/* ---------- Aktionen an Karten ---------- */
+async function patch(id, body) {
+  const p = stand.posts.find((x) => x.id === id);
+  if (p) Object.assign(p, body);
+  letzteSignatur = "";
+  render();
+  try { await api(`/api/posts/${encodeURIComponent(id)}`, { method: "PATCH", body }); }
+  catch (e) { toast(e.message); lade(); }
+}
+
+$("#wand").addEventListener("click", async (e) => {
+  const karte = e.target.closest(".karte");
+  if (!karte) return;
+  const id = karte.dataset.id;
+  const p = stand.posts.find((x) => x.id === id);
+  const w = e.target.closest("[data-w]")?.dataset.w;
+  if (!w) return zeigeSpot(id);
+  if (w === "auge") return patch(id, { hidden: !p.hidden });
+  if (w === "ok") return patch(id, { badge: p.badge === "ok" ? null : "ok" });
+  if (w === "fehler") return patch(id, { badge: p.badge === "fehler" ? null : "fehler" });
+  if (w === "del") {
+    if (!confirm(`Post von @${p.handle} endgültig löschen?`)) return;
+    try {
+      await api(`/api/posts/${encodeURIComponent(id)}`, { method: "DELETE" });
+      stand.posts = stand.posts.filter((x) => x.id !== id);
+      letzteSignatur = ""; render();
+    } catch (err) { toast(err.message); }
+  }
+});
+
+/* ---------- Spotlight ---------- */
+function overlay(html) { $("#overlay").innerHTML = html; }
+
+function zeigeSpot(id) {
+  const liste = sortiert();
+  const i = liste.findIndex((p) => p.id === id);
+  if (i < 0) { spotId = null; overlay(""); return; }
+  spotId = id;
+  const p = liste[i];
+  const a = anzeigePerson(p);
+  const kr = KRITERIEN.map((k) => `<button class="chip kr ${p.checks?.includes(k.id) ? "on" : ""}" data-k="${k.id}">${esc(k.label)}</button>`).join("");
+  overlay(`<div class="spot-back" id="spotBack">
+    <div class="spot-nav">
+      <button class="rund" data-s="zu" aria-label="Schließen">${icon("close")}</button>
+      <span class="spot-zaehler">${i + 1} / ${liste.length}</span>
+      <span style="display:flex;gap:8px">
+        <button class="rund" data-s="vor" aria-label="Vorheriger Post" ${i === 0 ? "disabled style=opacity:.3" : ""}>${icon("back")}</button>
+        <button class="rund" data-s="nach" aria-label="Nächster Post" ${i === liste.length - 1 ? "disabled style=opacity:.3" : ""}><span style="transform:scaleX(-1);display:grid">${icon("back")}</span></button>
+      </span>
+    </div>
+    <div class="spot">
+      <div class="kopfzeile">${avatarHtml(a.avatar, 64)}<div><div class="nm">${esc(a.name)}</div><div class="hd">@${esc(a.handle)}</div></div></div>
+      <div class="text">${mitZahlen(formatiere(p.text))}</div>
+      <div class="meta">${langesDatum(p.ts)} · <b>${zahl(p.views) || 0}</b> Aufrufe${p.edited ? " · bearbeitet" : ""}</div>
+      <div class="likes"><b>${p.likes}</b> ${p.likes === 1 ? "Gefällt mir" : "„Gefällt mir“-Angaben"}</div>
+      <div class="bewertung">
+        <button class="chip ok ${p.badge === "ok" ? "on" : ""}" data-b="ok">✓ Zahlen korrekt</button>
+        <button class="chip fehler ${p.badge === "fehler" ? "on" : ""}" data-b="fehler">⚠ Fehler</button>
+        <span class="trenn"></span>
+        ${kr}
+      </div>
+      <div class="zeichen">${analysiere(p.text).gewicht} / 280 Zeichen</div>
+    </div>
+  </div>`);
+}
+
+$("#overlay").addEventListener("click", (e) => {
+  const s = e.target.closest("[data-s]")?.dataset.s;
+  const b = e.target.closest("[data-b]")?.dataset.b;
+  const k = e.target.closest("[data-k]")?.dataset.k;
+  if (e.target.closest("[data-zu]") || e.target.matches(".panel-back, .gross-back, .gross-back *")) { overlay(""); spotId = null; return; }
+  if (s === "zu") { overlay(""); spotId = null; return; }
+  if (s === "vor" || s === "nach") return blaettern(s === "vor" ? -1 : 1);
+  if (!spotId) return;
+  const p = stand.posts.find((x) => x.id === spotId);
+  if (b) return patch(spotId, { badge: p.badge === b ? null : b });
+  if (k) {
+    const c = new Set(p.checks ?? []);
+    c.has(k) ? c.delete(k) : c.add(k);
+    return patch(spotId, { checks: [...c] });
+  }
+});
+
+function blaettern(r) {
+  const liste = sortiert();
+  const i = liste.findIndex((p) => p.id === spotId);
+  const n = liste[i + r];
+  if (n) zeigeSpot(n.id);
+}
+document.addEventListener("keydown", (e) => {
+  if (e.target?.matches?.("input, select, textarea")) return;
+  if (e.key === "Escape") { overlay(""); spotId = null; }
+  if (spotId && (e.key === "ArrowRight" || e.key === " ")) { e.preventDefault(); blaettern(1); }
+  if (spotId && e.key === "ArrowLeft") blaettern(-1);
+  if (!spotId && e.key === "Enter" && !$("#overlay").innerHTML) { const l = sortiert(); if (l[0]) zeigeSpot(l[0].id); }
+});
+
+/* ---------- Leiste ---------- */
+$("#sort").addEventListener("change", (e) => { opt.sort = e.target.value; zufallsRang = new Map(); setzeOptionen(); letzteSignatur = ""; render(); });
+$("#bAnonym").onclick = () => { opt.anonym = !opt.anonym; setzeOptionen(); letzteSignatur = ""; render(); };
+$("#bZahlen").onclick = () => { opt.zahlen = !opt.zahlen; setzeOptionen(); letzteSignatur = ""; render(); };
+$("#bModer").onclick = () => { opt.moder = !opt.moder; setzeOptionen(); letzteSignatur = ""; render(); };
+$("#bKlein").onclick = () => { opt.fs = Math.max(14, opt.fs - 2); setzeOptionen(); };
+$("#bGross").onclick = () => { opt.fs = Math.min(40, opt.fs + 2); setzeOptionen(); };
+$("#bTheme").onclick = () => { opt.theme = opt.theme === "light" ? "dark" : "light"; setzeOptionen(); };
+$("#qrMini").onclick = () => overlay(`<div class="gross-back"><div class="gross-qr"><div class="qr">${qrSvg(KLASSEN_URL)}</div><p>${esc(KLASSEN_URL.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</p></div></div>`);
+$("#bM4").onclick = () => overlay(`<div class="gross-back"><img class="gross-m4" src="/m4.svg" alt="Schaubild M4"></div>`);
+
+$("#bEH").onclick = () => overlay(`<div class="panel-back"></div><aside class="panel">
+  <button class="rund schliessen" data-zu aria-label="Schließen">${icon("close")}</button>
+  <h2>Erwartungshorizont A4</h2>
+  <p class="muted">Nur für dich – nicht auf den Beamer.</p>
+  <h3>Werte aus M4</h3>
+  <table>
+    <tr><th>Anteil aller Beschäftigten</th><th class="z">2000</th><th class="z">2022</th><th class="z">Δ</th></tr>
+    <tr><td>Betriebsrat + Tarifvertrag</td><td class="z">45 %</td><td class="z">35 %</td><td class="z">−10</td></tr>
+    <tr><td>nur Tarifvertrag</td><td class="z">23 %</td><td class="z">16 %</td><td class="z">−7</td></tr>
+    <tr><td>nur Betriebsrat</td><td class="z">6 %</td><td class="z">8 %</td><td class="z">+2</td></tr>
+    <tr><td><b>weder noch</b></td><td class="z">26 %</td><td class="z">41 %</td><td class="z"><b>+15</b></td></tr>
+    <tr><td>Tarifbindung gesamt (1+2)</td><td class="z">68 %</td><td class="z">51 %</td><td class="z">−17</td></tr>
+    <tr><td>Betriebsrat gesamt (1+3)</td><td class="z">51 %</td><td class="z">43 %</td><td class="z">−8</td></tr>
+  </table>
+  <p class="muted">Veränderungen in Prozentpunkten. Relativ: „weder noch“ +58 %, Tarifbindung −25 %.</p>
+  <h3>Kriterien für einen gelungenen Post</h3>
+  <ul>
+    <li><b>Beschreiben:</b> Zeitraum (2000 → 2022) und Bezug (alle Beschäftigten) nennen, ggf. Quelle (Hans-Böckler-Stiftung).</li>
+    <li><b>Kernbefund:</b> Der Anteil ohne Betriebsrat und ohne Tarifvertrag steigt von gut einem Viertel auf rund vier von zehn.</li>
+    <li><b>Tendenz:</b> Tarifbindung und Mitbestimmung nehmen ab – nur „nur Betriebsrat“ wächst leicht.</li>
+    <li><b>Deuten:</b> Folgen für Beschäftigte (Löhne, Arbeitszeit, Urlaub, Mitsprache im Betrieb).</li>
+    <li><b>Format:</b> ≤ 280 Zeichen, adressatengerecht, zugespitzt, aber sachlich korrekt; Hashtags sinnvoll.</li>
+  </ul>
+  <h3>Typische Fehler</h3>
+  <ul>
+    <li>Prozentpunkte und Prozent verwechselt („41 % mehr“ statt „+15 Prozentpunkte“).</li>
+    <li>„Nur Tarifvertrag“ als ganze Tarifbindung gelesen (16 % statt 51 %).</li>
+    <li>Bezugsgröße vertauscht: Beschäftigte ≠ Betriebe.</li>
+    <li>Wertung ohne Befund („Skandal!!!“ ohne Zahl).</li>
+  </ul>
+  <h3>Beispielposts</h3>
+  <div class="bsp">📉 2000 hatten 26 % der Beschäftigten weder Tarifvertrag noch Betriebsrat – 2022 schon 41 %. Die Tarifbindung sank von 68 auf 51 %. Heißt: Immer mehr verhandeln Lohn &amp; Urlaub allein. #Tarifbindung</div>
+  <div class="bsp">Fast jede*r Zweite ohne Schutz? 🤔 Laut Böckler-Stiftung arbeiten 41 % ohne Tarifvertrag UND ohne Betriebsrat (2000: 26 %). Mitbestimmung schrumpft – wer redet da noch mit? #Mitbestimmung #Arbeitswelt</div>
+</aside>`);
+
+/* CSV mit BOM und Semikolon, damit Excel Umlaute und Spalten richtig liest */
+$("#bCsv").onclick = () => {
+  const zelle = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const kopf = ["Zeit", "Name", "Handle", "Text", "Zeichen", "Likes", "Aufrufe", "Bewertung", "Kriterien", "Ausgeblendet"];
+  const zeilen = [...stand.posts].sort((a, b) => a.ts - b.ts).map((p) => [
+    new Date(p.ts).toLocaleString("de-DE"), p.name, "@" + p.handle, p.text, analysiere(p.text).gewicht, p.likes, p.views,
+    p.badge === "ok" ? "Zahlen korrekt" : p.badge === "fehler" ? "Fehler" : "",
+    (p.checks ?? []).map((id) => KRITERIEN.find((k) => k.id === id)?.label).filter(Boolean).join(", "),
+    p.hidden ? "ja" : "",
+  ]);
+  const csv = "\ufeff" + [kopf, ...zeilen].map((z) => z.map(zelle).join(";")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  a.download = `X-Posts_ELTM2_A4_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+
+$("#bDruck").onclick = () => {
+  const liste = [...stand.posts].filter((p) => !p.hidden).sort((a, b) => a.ts - b.ts);
+  $("#druck").innerHTML = `<h1>ELTM2 · A4 – X-Nachrichten zu M4 (${new Date().toLocaleDateString("de-DE")})</h1>` +
+    liste.map((p, i) => `<div class="d-post"><div class="d-kopf">${i + 1}. ${esc(p.name)} <span>@${esc(p.handle)}</span></div><div class="d-text">${esc(p.text)}</div><div class="d-meta">${analysiere(p.text).gewicht}/280 Zeichen · ${p.likes} Likes</div></div>`).join("");
+  window.print();
+};
+
+$("#bReset").onclick = async () => {
+  if (!confirm("Wirklich alle Posts, Likes und Benutzernamen löschen und eine neue Runde starten?")) return;
+  try {
+    await api("/api/posts", { method: "DELETE" });
+    stand.posts = []; bekannteIds = null; letzteSignatur = ""; render();
+    toast("Alles gelöscht – neue Runde.");
+  } catch (e) { toast(e.message); }
+};
+
+/* ---------- Timer ---------- */
+let dauer = LS.get("dauer", 480), rest = dauer, laeuft = false, tick = null;
+function zeigeZeit() {
+  const r = Math.max(0, rest);
+  $("#zeit").textContent = `${String(Math.floor(r / 60)).padStart(2, "0")}:${String(r % 60).padStart(2, "0")}`;
+  $("#timer").classList.toggle("laeuft", laeuft);
+  $("#timer").classList.toggle("aus", rest <= 0);
+}
+$("#zeit").onclick = () => {
+  if (rest <= 0) rest = dauer;
+  laeuft = !laeuft;
+  clearInterval(tick);
+  if (laeuft) tick = setInterval(() => { rest--; if (rest <= 0) { laeuft = false; clearInterval(tick); } zeigeZeit(); }, 1000);
+  zeigeZeit();
+};
+$$("#timer [data-t]").forEach((b) => b.onclick = () => {
+  const t = b.dataset.t;
+  if (t === "reset") { laeuft = false; clearInterval(tick); rest = dauer; }
+  else {
+    rest = Math.max(0, rest + Number(t));
+    if (!laeuft) { dauer = Math.max(60, rest); LS.set("dauer", dauer); }
+  }
+  zeigeZeit();
+});
+zeigeZeit();
+</script>
+</body>
+</html>
