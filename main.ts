@@ -200,10 +200,29 @@ async function statisch(rel: string): Promise<Response> {
 /* ---------- Server ---------- */
 const PORT = Number(Deno.env.get("PORT") ?? 8000);
 
+/* Seite abgeschaltet: auf false setzen und pushen, um sie wieder freizugeben.
+   Die Posts in KV bleiben erhalten (bis sie nach 14 Tagen ablaufen). */
+const DEAKTIVIERT = true;
+
+const ABGESCHALTET_HTML = `<!doctype html><html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>Nicht verfügbar</title></head>
+<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#000;color:#e7e9ea;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-align:center;padding:24px">
+<div><h1 style="font-size:28px;margin:0 0 8px">Diese Seite ist gerade nicht verfügbar.</h1>
+<p style="color:#71767b;margin:0">Die Unterrichtssimulation wurde von der Lehrkraft beendet.</p></div></body></html>`;
+
 Deno.serve({ port: PORT }, async (req: Request) => {
   const url = new URL(req.url);
   const pfad = url.pathname;
   const lehrer = istLehrer(url);
+
+  if (DEAKTIVIERT) {
+    if (pfad.startsWith("/api/")) return fehler("Die Simulation ist beendet.", 503);
+    return new Response(ABGESCHALTET_HTML, {
+      status: 503,
+      headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+    });
+  }
 
   /* Gesamtstand: Posts, Likes, Aufrufe. Gleichzeitig „gesehen" vermerken. */
   if (pfad === "/api/state" && req.method === "GET") {
