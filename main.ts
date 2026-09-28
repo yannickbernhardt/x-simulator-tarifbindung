@@ -202,7 +202,7 @@ const PORT = Number(Deno.env.get("PORT") ?? 8000);
 
 /* Seite abgeschaltet: auf false setzen und pushen, um sie wieder freizugeben.
    Die Posts in KV bleiben erhalten (bis sie nach 14 Tagen ablaufen). */
-const DEAKTIVIERT = true;
+const DEAKTIVIERT = false;
 
 const ABGESCHALTET_HTML = `<!doctype html><html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
