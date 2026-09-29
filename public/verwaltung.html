@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Räume · X-Simulator</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/x.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+  body { min-height: 100vh; }
+  .kopf {
+    position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 14px 24px; border-bottom: 1px solid var(--border);
+    background: var(--topbar); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  }
+  .kopf .logo .ic { width: 30px; height: 30px; }
+  .kopf h1 { font-size: 22px; margin: 0; font-weight: 800; flex: 1; }
+  .kopf .unter { color: var(--muted); font-size: 14px; font-weight: 400; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 24px 80px; }
+
+  .raeume { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+  .raum { border: 1px solid var(--border); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+  .raum .zeile { display: flex; align-items: center; gap: 8px; }
+  .raum .klasse { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .raum h2 { font-size: 19px; line-height: 24px; margin: 0; font-weight: 800; }
+  .raum .meta { color: var(--muted); font-size: 14px; }
+  .raum .code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); font-size: 14px; }
+  .raum .knoepfe { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 6px; }
+  .status { font-size: 13px; font-weight: 700; border-radius: 9999px; padding: 3px 10px; margin-left: auto; white-space: nowrap; }
+  .status.offen { background: rgba(0, 186, 124, 0.15); color: var(--green); }
+  .status.pausiert { background: rgba(255, 212, 0, 0.15); color: #d4a800; }
+  .status.geschlossen { background: rgba(244, 33, 46, 0.12); color: var(--red); }
+
+  .chip {
+    border: 1px solid var(--border-input); border-radius: 9999px; padding: 6px 14px; font-size: 14px; font-weight: 700;
+    display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: var(--text);
+  }
+  .chip:hover { background: var(--bg-hover); }
+  .chip.blau { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .chip.rot { color: var(--red); border-color: rgba(244, 33, 46, 0.5); }
+
+  .leer { text-align: center; color: var(--muted); padding: 64px 16px; }
+  .leer h2 { color: var(--text); font-size: 28px; margin: 0 0 8px; }
+
+  /* ---------- Editor ---------- */
+  .editor { position: fixed; inset: 0; z-index: 50; background: var(--bg); overflow-y: auto; }
+  .ed-kopf {
+    position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 12px 24px;
+    border-bottom: 1px solid var(--border); background: var(--topbar); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  }
+  .ed-kopf h2 { flex: 1; margin: 0; font-size: 20px; }
+  .ed-raster { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 32px; max-width: 1200px; margin: 0 auto; padding: 24px; }
+  @media (max-width: 960px) { .ed-raster { grid-template-columns: 1fr; } }
+  fieldset { border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px 6px; margin: 0 0 20px; }
+  legend { font-weight: 800; font-size: 16px; padding: 0 6px; }
+  .feld { margin-bottom: 14px; }
+  .feld > label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+  .feld .hilfe { font-size: 13px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+  .feld input[type="text"], .feld textarea {
+    width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border-input); border-radius: 6px;
+    padding: 10px 12px; font: inherit; font-size: 15px; outline: none;
+  }
+  .feld input[type="text"]:focus, .feld textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+  .feld textarea { resize: vertical; min-height: 90px; line-height: 1.4; }
+  .zwei { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .emojis { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .emojis button { width: 36px; height: 36px; border-radius: 50%; font-size: 20px; background: var(--bg-hover); }
+  .farben { display: flex; gap: 8px; flex-wrap: wrap; }
+  .farben button { width: 32px; height: 32px; border-radius: 50%; background: var(--f); border: 3px solid var(--bg); box-shadow: 0 0 0 2px transparent; }
+  .farben button.on { box-shadow: 0 0 0 2px var(--blue); }
+  .zaehl { font-size: 13px; color: var(--muted); text-align: right; margin-top: 4px; }
+  .zaehl.warn { color: #d4a800; }
+  .bildfeld { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .bildfeld img { max-width: 160px; max-height: 100px; border-radius: 8px; border: 1px solid var(--border); background: #fff; }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+
+  .vorschau { position: sticky; top: 90px; align-self: start; }
+  .vorschau .titel { font-size: 13px; font-weight: 700; color: var(--muted); margin: 0 0 8px; }
+  .handy { border: 1px solid var(--border); border-radius: 24px; overflow: hidden; background: var(--bg); }
+  .handy .tabs { display: flex; border-bottom: 1px solid var(--border); height: 48px; }
+  .handy .tabs span { flex: 1; display: grid; place-items: center; color: var(--muted); font-weight: 500; position: relative; }
+  .handy .tabs span.on { color: var(--text); font-weight: 700; }
+  .handy .tabs span.on::after { content: ""; position: absolute; bottom: 0; width: 56px; height: 4px; border-radius: 9999px; background: var(--blue); }
+  .handy .post { border-bottom: 0; }
+
+  /* ---------- Dialoge ---------- */
+  .back { position: fixed; inset: 0; z-index: 70; background: var(--backdrop); display: grid; place-items: center; padding: 16px; }
+  .dialog { width: min(440px, 100%); background: var(--bg); border-radius: 16px; padding: 28px; box-shadow: var(--shadow); }
+  .dialog h3 { margin: 0 0 6px; font-size: 20px; }
+  .dialog p { color: var(--muted); margin: 0 0 18px; }
+  .dialog .knoepfe { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+  .qr-box { background: #fff; color: #0f1419; border-radius: 24px; padding: 28px; text-align: center; width: min(560px, 100%); }
+  .qr-box .qr svg { width: 100%; height: auto; display: block; }
+  .qr-box .url { font-size: 22px; font-weight: 800; margin: 14px 0 4px; word-break: break-all; }
+  .qr-box .hint { color: #536471; margin: 0 0 16px; }
+  .qr-box .chip { color: #0f1419; border-color: #cfd9de; }
+</style>
+</head>
+<body>
+
+<header class="kopf">
+  <span class="logo" id="logo"></span>
+  <h1>Räume <span class="unter">· X-Simulator</span></h1>
+  <button class="chip" id="bTheme">Hell</button>
+  <button class="chip blau" id="bNeu">+ Neuer Raum</button>
+</header>
+<main>
+  <div id="fehler"></div>
+  <div class="raeume" id="raeume"></div>
+</main>
+<div id="overlay"></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script type="module">
+import { icon, esc, postHtml, pinAusRaum, relativ, ehHtml } from "/x.js";
+import { analysiere } from "/zaehlen.js";
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const TOKEN = new URLSearchParams(location.search).get("lehrer") ?? "";
+const FARBEN = ["#536471", "#1D9BF0", "#7856FF", "#F91880", "#FF7A00", "#00BA7C", "#FFD400", "#F4212E", "#0F1419"];
+const PIN_EMOJIS = ["🏛️", "📊", "⚖️", "📰", "🎙️", "🗳️", "🏭", "💶", "🧑\u200d🏫", "📚", "🌍", "🔌"];
+const STATUS_TEXT = { offen: "🟢 offen", pausiert: "⏸️ pausiert", geschlossen: "⛔ geschlossen" };
+
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem("xwand." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("xwand." + k, JSON.stringify(v)); } catch {} },
+};
+let theme = LS.get("theme", "dark");
+function setzeTheme() {
+  if (theme === "light") document.documentElement.dataset.theme = "light";
+  else delete document.documentElement.dataset.theme;
+  $("#bTheme").textContent = theme === "light" ? "Dunkel" : "Hell";
+  LS.set("theme", theme);
+}
+setzeTheme();
+$("#bTheme").onclick = () => { theme = theme === "light" ? "dark" : "light"; setzeTheme(); };
+$("#logo").innerHTML = icon("logo");
+
+let toastT;
+function toast(t) {
+  const el = $("#toast");
+  el.textContent = t;
+  el.classList.add("show");
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove("show"), 2800);
+}
+
+async function api(pfad, o = {}) {
+  const sep = pfad.includes("?") ? "&" : "?";
+  const r = await fetch(`${pfad}${sep}lehrer=${encodeURIComponent(TOKEN)}`, {
+    method: o.method ?? "GET",
+    headers: o.roh ? { "content-type": o.typ } : o.body ? { "content-type": "application/json" } : {},
+    body: o.roh ?? (o.body ? JSON.stringify(o.body) : undefined),
+  });
+  let d = {};
+  try { d = await r.json(); } catch {}
+  if (!r.ok) throw Object.assign(new Error(d.error ?? "Fehler"), { status: r.status });
+  return d;
+}
+
+const klassenUrl = (code) => `${location.origin}/r/${code}`;
+const wandUrl = (code) => `/r/${encodeURIComponent(code)}?lehrer=${encodeURIComponent(TOKEN)}`;
+
+/* ---------- Liste ---------- */
+let raeume = [];
+async function lade() {
+  try {
+    raeume = (await api("/api/rooms")).raeume;
+    $("#fehler").innerHTML = "";
+    render();
+  } catch (e) {
+    $("#fehler").innerHTML = `<div class="raum" style="border-color:var(--red);margin-bottom:16px">⚠️ ${esc(e.message)}</div>`;
+  }
+}
+
+function render() {
+  if (!raeume.length) {
+    $("#raeume").innerHTML = `<div class="leer" style="grid-column:1/-1"><h2>Noch keine Räume</h2><p>Lege für jede Klasse oder Aufgabe einen Raum an.</p><button class="chip blau" data-a="neu">+ Neuer Raum</button></div>`;
+    return;
+  }
+  $("#raeume").innerHTML = raeume.map((r) => `
+    <article class="raum" data-code="${esc(r.code)}">
+      <div class="zeile"><span class="klasse">${esc(r.klasse || "ohne Klasse")}</span><span class="status ${r.status}">${STATUS_TEXT[r.status]}</span></div>
+      <h2>${esc(r.titel)}</h2>
+      <div class="meta"><span class="code">/r/${esc(r.code)}</span> · ${r.n} ${r.n === 1 ? "Post" : "Posts"}${r.letzte ? ` · zuletzt vor ${relativ(r.letzte)}` : ""}</div>
+      <div class="knoepfe">
+        <a class="chip blau" href="${wandUrl(r.code)}">Wand öffnen</a>
+        <button class="chip" data-a="qr">QR-Code</button>
+        <button class="chip" data-a="bearbeiten">Bearbeiten</button>
+        <button class="chip" data-a="kopie">Für andere Klasse kopieren</button>
+        <select class="chip" data-a="status" aria-label="Status" style="background:var(--bg)">
+          ${Object.entries(STATUS_TEXT).map(([k, t]) => `<option value="${k}" ${k === r.status ? "selected" : ""}>${t}</option>`).join("")}
+        </select>
+        <button class="chip rot" data-a="loeschen">Löschen</button>
+      </div>
+    </article>`).join("");
+}
+
+$("#bNeu").onclick = () => oeffneEditor(null);
+$("#raeume").addEventListener("click", async (e) => {
+  const a = e.target.closest("[data-a]")?.dataset.a;
+  if (!a || a === "status") return;
+  if (a === "neu") return oeffneEditor(null);
+  const code = e.target.closest(".raum").dataset.code;
+  const r = raeume.find((x) => x.code === code);
+  if (a === "qr") return zeigeQr(r);
+  if (a === "bearbeiten") return oeffneEditor(r);
+  if (a === "kopie") return kopieren(r);
+  if (a === "loeschen") {
+    if (!confirm(`Raum „${r.titel}“ (${r.klasse}) mit allen ${r.n} Posts endgültig löschen?`)) return;
+    try { await api(`/api/rooms/${encodeURIComponent(code)}`, { method: "DELETE" }); toast("Raum gelöscht."); lade(); }
+    catch (err) { toast(err.message); }
+  }
+});
+$("#raeume").addEventListener("change", async (e) => {
+  if (e.target.dataset.a !== "status") return;
+  const code = e.target.closest(".raum").dataset.code;
+  try { await api(`/api/rooms/${encodeURIComponent(code)}/status`, { method: "POST", body: { status: e.target.value } }); lade(); }
+  catch (err) { toast(err.message); }
+});
+
+/* ---------- QR-Code ---------- */
+function qrObjekt(text) {
+  const qr = qrcode(0, "M");
+  qr.addData(text);
+  qr.make();
+  return qr;
+}
+function zeigeQr(r) {
+  const url = klassenUrl(r.code);
+  $("#overlay").innerHTML = `<div class="back" data-zu><div class="qr-box">
+    <div class="qr">${qrObjekt(url).createSvgTag({ cellSize: 4, margin: 0, scalable: true })}</div>
+    <div class="url">${esc(url.replace(/^https?:\/\//, ""))}</div>
+    <p class="hint">${esc([r.klasse, r.titel].filter(Boolean).join(" · "))} · Code: <b>${esc(r.code)}</b></p>
+    <button class="chip" id="qrPng">Als PNG speichern</button> <button class="chip" id="qrLink">Link kopieren</button>
+  </div></div>`;
+  $("#qrPng").onclick = () => {
+    const qr = qrObjekt(url), n = qr.getModuleCount(), z = 16, rand = 2;
+    const c = document.createElement("canvas");
+    c.width = c.height = (n + rand * 2) * z;
+    const g = c.getContext("2d");
+    g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.fillStyle = "#000";
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.isDark(y, x)) g.fillRect((x + rand) * z, (y + rand) * z, z, z);
+    const a = document.createElement("a");
+    a.href = c.toDataURL("image/png");
+    a.download = `QR X-Simulator ${[r.klasse, r.titel].filter(Boolean).join(" ")}.png`.replace(/[\/\\:*?"<>|]/g, "-");
+    a.click();
+  };
+  $("#qrLink").onclick = async () => { try { await navigator.clipboard.writeText(url); toast("Link kopiert"); } catch { toast(url); } };
+}
+$("#overlay").addEventListener("click", (e) => { if (e.target.matches("[data-zu]")) $("#overlay").innerHTML = ""; });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("#overlay .back")) $("#overlay").innerHTML = ""; });
+
+/* ---------- Kopieren für eine andere Klasse ---------- */
+function kopieren(r) {
+  $("#overlay").innerHTML = `<div class="back" data-zu><form class="dialog" id="kForm">
+    <h3>Für andere Klasse kopieren</h3>
+    <p>Übernimmt Aufgaben-Post, Bild, Kriterien und Erwartungshorizont – ohne Posts.</p>
+    <div class="feld"><label for="kKlasse">Klasse</label><input type="text" id="kKlasse" value="" placeholder="z. B. KFZU1" required></div>
+    <div class="feld"><label for="kCode">Code (optional)</label><input type="text" id="kCode" placeholder="leer = zufällig, z. B. kfz-a4" maxlength="20"><div class="hilfe">Nur a–z, 0–9 und Bindestrich. Kommt in die Adresse /r/…</div></div>
+    <div class="knoepfe"><button type="button" class="chip" data-zu>Abbrechen</button><button class="chip blau">Kopieren</button></div>
+  </form></div>`;
+  $("#kKlasse").focus();
+  $("#kForm").onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const d = await api(`/api/rooms/${encodeURIComponent(r.code)}/kopie`, { method: "POST", body: { klasse: $("#kKlasse").value, code: $("#kCode").value.trim().toLowerCase() } });
+      $("#overlay").innerHTML = "";
+      toast(`Raum /r/${d.raum.code} angelegt.`);
+      lade();
+    } catch (err) { toast(err.message); }
+  };
+}
+
+/* ---------- Editor ---------- */
+let entwurf = null; // Raum-Einstellungen im Editor
+let neuesBild = null; // { blob, typ, url } oder "weg"
+let editorNeu = true; // neuer Raum oder bestehender
+
+function leererRaum() {
+  return {
+    code: "", titel: "", klasse: "", status: "offen",
+    pin: { name: "Politik", handle: "PolitikBKTL", e: "🏛️", c: "#536471", verifiziert: true, text: "", alt: "", ts: Date.now() },
+    bild: null, kriterien: [], zahlen: [], eh: "",
+  };
+}
+
+async function oeffneEditor(r) {
+  neuesBild = null;
+  if (r) {
+    try { entwurf = structuredClone((await api(`/api/rooms/${encodeURIComponent(r.code)}`)).raum); }
+    catch (e) { return toast(e.message); }
+  } else entwurf = leererRaum();
+  const neu = !r;
+  editorNeu = neu;
+  const p = entwurf.pin;
+  $("#overlay").innerHTML = `<div class="editor">
+    <div class="ed-kopf">
+      <button class="chip" id="edZu">Abbrechen</button>
+      <h2>${neu ? "Neuer Raum" : "Raum bearbeiten"}</h2>
+      <button class="chip blau" id="edSpeichern">Speichern</button>
+    </div>
+    <div class="ed-raster">
+      <form id="edForm" autocomplete="off">
+        <fieldset><legend>Raum</legend>
+          <div class="zwei">
+            <div class="feld"><label for="fKlasse">Klasse</label><input type="text" id="fKlasse" maxlength="30" value="${esc(entwurf.klasse)}" placeholder="z. B. ELTM2"></div>
+            <div class="feld"><label for="fCode">Code in der Adresse</label>
+              <input type="text" id="fCode" maxlength="20" value="${esc(entwurf.code)}" placeholder="leer = zufällig" ${neu ? "" : "disabled"}>
+              <div class="hilfe">${neu ? "z. B. eltm2-streik · a–z, 0–9, -" : "Kann nachträglich nicht geändert werden."}</div></div>
+          </div>
+          <div class="feld"><label for="fTitel">Titel (nur für dich)</label><input type="text" id="fTitel" maxlength="80" value="${esc(entwurf.titel)}" placeholder="z. B. Pressekonferenz Tarifrunde"></div>
+        </fieldset>
+
+        <fieldset><legend>Angehefteter Aufgaben-Post</legend>
+          <div class="zwei">
+            <div class="feld"><label for="fName">Anzeigename</label><input type="text" id="fName" maxlength="50" value="${esc(p.name)}"></div>
+            <div class="feld"><label for="fHandle">@Benutzername</label><input type="text" id="fHandle" maxlength="15" value="${esc(p.handle)}"></div>
+          </div>
+          <div class="feld"><label for="fEmoji">Profilbild (Emoji)</label>
+            <input type="text" id="fEmoji" maxlength="16" value="${esc(p.e)}" style="width:80px;font-size:20px;text-align:center">
+            <div class="emojis">${PIN_EMOJIS.map((x) => `<button type="button" data-emo="${x}">${x}</button>`).join("")}</div></div>
+          <div class="feld"><label>Hintergrundfarbe</label><div class="farben" id="fFarben">${FARBEN.map((c) => `<button type="button" data-c="${c}" style="--f:${c}" class="${c.toLowerCase() === p.c.toLowerCase() ? "on" : ""}" aria-label="${c}"></button>`).join("")}</div></div>
+          <div class="feld"><label class="check"><input type="checkbox" id="fVerif" ${p.verifiziert ? "checked" : ""}> Blauer Haken</label></div>
+          <div class="feld"><label for="fText">Text</label><textarea id="fText" rows="6" maxlength="1000" placeholder="Aufgabe, Impuls oder Frage – #Hashtags und @Namen werden blau.">${esc(p.text)}</textarea><div class="zaehl" id="fTextZ"></div></div>
+          <div class="feld"><label>Bild (optional)</label>
+            <div class="bildfeld"><img id="fBildVor" hidden alt=""><input type="file" id="fBild" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"><button type="button" class="chip rot" id="fBildWeg" hidden>Bild entfernen</button></div>
+            <div class="hilfe">Schaubild, Karikatur, Foto … Große Bilder werden automatisch verkleinert.</div></div>
+          <div class="feld"><label for="fAlt">Bildbeschreibung (Alt-Text)</label><input type="text" id="fAlt" maxlength="400" value="${esc(p.alt)}" placeholder="Für Screenreader: Was zeigt das Bild?"></div>
+        </fieldset>
+
+        <fieldset><legend>Auswertung (nur auf deiner Wand)</legend>
+          <div class="feld"><label for="fKrit">Bewertungskriterien – eins pro Zeile</label><textarea id="fKrit" rows="5" placeholder="Zeitraum/Quelle genannt&#10;Kernbefund korrekt&#10;X-typisch auf den Punkt">${esc(entwurf.kriterien.join("\n"))}</textarea><div class="hilfe">Erscheinen als Knöpfe im Spotlight und lassen sich an Posts heften.</div></div>
+          <div class="feld"><label for="fZahlen">Referenzzahlen (optional)</label><input type="text" id="fZahlen" value="${esc(entwurf.zahlen.join(", "))}" placeholder="z. B. 26, 41, 68, 51, 2000, 2022"><div class="hilfe">Für „Zahlen markieren“: Zahlen aus dem Material, die in Posts grün hervorgehoben werden. Leer = Knopf ausgeblendet.</div></div>
+          <div class="feld"><label for="fEH">Erwartungshorizont (optional)</label><textarea id="fEH" rows="10" placeholder="## Kernaussagen&#10;- **Befund:** …&#10;- …&#10;&#10;## Typische Fehler&#10;- …">${esc(entwurf.eh)}</textarea><div class="hilfe">„## “ = Überschrift, „- “ = Aufzählung, **fett**.</div></div>
+        </fieldset>
+      </form>
+      <aside class="vorschau">
+        <p class="titel">Vorschau: So sieht die Klasse den angehefteten Post</p>
+        <div class="handy"><div class="tabs"><span class="on">Für dich</span><span>Folge ich</span></div><div id="vorschau"></div></div>
+      </aside>
+    </div>
+  </div>`;
+  document.body.style.overflow = "hidden";
+
+  const aktualisiere = () => { ausFormular(); vorschau(); };
+  $("#edForm").addEventListener("input", aktualisiere);
+  $$(".emojis button").forEach((b) => b.onclick = () => { $("#fEmoji").value = b.dataset.emo; aktualisiere(); });
+  $$("#fFarben button").forEach((b) => b.onclick = () => {
+    $$("#fFarben button").forEach((x) => x.classList.toggle("on", x === b));
+    entwurf.pin.c = b.dataset.c; vorschau();
+  });
+  $("#fBild").onchange = async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    try { neuesBild = await bereiteBild(f); zeigeBildVorschau(); vorschau(); }
+    catch (err) { toast(err.message); e.target.value = ""; }
+  };
+  $("#fBildWeg").onclick = () => { neuesBild = "weg"; $("#fBild").value = ""; zeigeBildVorschau(); vorschau(); };
+  $("#edZu").onclick = schliesseEditor;
+  $("#edSpeichern").onclick = speichern;
+  zeigeBildVorschau();
+  aktualisiere();
+}
+
+function schliesseEditor() {
+  if (neuesBild && neuesBild !== "weg") URL.revokeObjectURL(neuesBild.url);
+  $("#overlay").innerHTML = "";
+  document.body.style.overflow = "";
+}
+
+function ausFormular() {
+  entwurf.klasse = $("#fKlasse").value;
+  entwurf.titel = $("#fTitel").value;
+  entwurf.code = $("#fCode").value.trim().toLowerCase();
+  Object.assign(entwurf.pin, {
+    name: $("#fName").value, handle: $("#fHandle").value.replace(/^@/, ""), e: $("#fEmoji").value,
+    verifiziert: $("#fVerif").checked, text: $("#fText").value, alt: $("#fAlt").value,
+  });
+  entwurf.kriterien = $("#fKrit").value.split("\n").map((x) => x.trim()).filter(Boolean);
+  entwurf.zahlen = ($("#fZahlen").value.match(/-?\d+(?:[.,]\d+)?/g) ?? []).map((z) => Number(z.replace(",", ".")));
+  entwurf.eh = $("#fEH").value;
+  const g = analysiere(entwurf.pin.text).gewicht;
+  $("#fTextZ").textContent = `${g} Zeichen${g > 280 ? " – länger als ein normaler Post, wird aber vollständig angezeigt" : ""}`;
+  $("#fTextZ").classList.toggle("warn", g > 280);
+}
+
+function aktuellesBildUrl() {
+  if (neuesBild === "weg") return "";
+  if (neuesBild) return neuesBild.url;
+  return entwurf.bild ? `/api/r/${encodeURIComponent(entwurf.code)}/bild?v=${entwurf.bild.v}&lehrer=${encodeURIComponent(TOKEN)}` : "";
+}
+
+function zeigeBildVorschau() {
+  const url = aktuellesBildUrl();
+  $("#fBildVor").hidden = !url;
+  if (url) $("#fBildVor").src = url;
+  $("#fBildWeg").hidden = !url;
+}
+
+function vorschau() {
+  const url = aktuellesBildUrl();
+  $("#vorschau").innerHTML = postHtml(
+    { ...pinAusRaum({ ...entwurf, pin: { ...entwurf.pin, name: entwurf.pin.name || "Politik", handle: entwurf.pin.handle || "Unterricht", ts: Date.now() - 60000 } }), likes: 0, views: 0 },
+    {
+      oben: `<div class="pin-line">${icon("pin")}Angehefteter Post</div>`,
+      medien: url ? `<div class="media" style="cursor:default"><img src="${esc(url)}" alt=""></div>` : "",
+      menu: true,
+    },
+  );
+}
+
+/* Bilder über 1,5 MB oder breiter als 2000 px werden als JPEG verkleinert */
+async function bereiteBild(f) {
+  const typen = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml"];
+  if (!typen.includes(f.type)) throw new Error("Bitte ein PNG-, JPG-, WebP-, GIF- oder SVG-Bild wählen.");
+  if (f.type === "image/svg+xml" || f.type === "image/gif") {
+    if (f.size > 2_000_000) throw new Error("Das Bild ist zu groß (max. 2 MB).");
+    return { blob: f, typ: f.type, url: URL.createObjectURL(f) };
+  }
+  const bmp = await createImageBitmap(f);
+  if (f.size <= 1_500_000 && bmp.width <= 2000) return { blob: f, typ: f.type, url: URL.createObjectURL(f) };
+  const faktor = Math.min(1, 1600 / bmp.width);
+  const c = document.createElement("canvas");
+  c.width = Math.round(bmp.width * faktor);
+  c.height = Math.round(bmp.height * faktor);
+  const g = c.getContext("2d");
+  g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+  g.drawImage(bmp, 0, 0, c.width, c.height);
+  const blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.86));
+  if (blob.size > 2_000_000) throw new Error("Das Bild ist auch verkleinert noch zu groß.");
+  return { blob, typ: "image/jpeg", url: URL.createObjectURL(blob) };
+}
+
+async function speichern() {
+  ausFormular();
+  if (!entwurf.pin.text.trim()) return toast("Der angeheftete Post braucht einen Text.");
+  if (entwurf.code && !/^[a-z0-9][a-z0-9-]{2,19}$/.test(entwurf.code)) return toast("Code: 3–20 Zeichen, nur a–z, 0–9 und Bindestrich.");
+  $("#edSpeichern").disabled = true;
+  try {
+    const body = { titel: entwurf.titel, klasse: entwurf.klasse, status: entwurf.status, pin: entwurf.pin, kriterien: entwurf.kriterien, zahlen: entwurf.zahlen, eh: entwurf.eh };
+    let code = entwurf.code;
+    if (editorNeu) {
+      code = (await api("/api/rooms", { method: "POST", body: { ...body, code } })).raum.code;
+    } else {
+      await api(`/api/rooms/${encodeURIComponent(code)}`, { method: "PUT", body });
+    }
+    if (neuesBild === "weg") await api(`/api/rooms/${encodeURIComponent(code)}/bild`, { method: "DELETE" });
+    else if (neuesBild) await api(`/api/rooms/${encodeURIComponent(code)}/bild`, { method: "PUT", roh: neuesBild.blob, typ: neuesBild.typ });
+    schliesseEditor();
+    toast(editorNeu ? `Raum /r/${code} angelegt.` : "Gespeichert.");
+    lade();
+  } catch (e) {
+    toast(e.message);
+    $("#edSpeichern").disabled = false;
+  }
+}
+
+lade();
+</script>
+</body>
+</html>

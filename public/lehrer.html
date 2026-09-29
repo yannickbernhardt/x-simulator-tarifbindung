@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Wand · X-Simulator ELTM2</title>
+<title>Wand · X-Simulator</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/x.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
@@ -53,6 +53,10 @@
   .chip .ic { width: 16px; height: 16px; }
   .chip.gefahr { color: var(--red); border-color: rgba(244, 33, 46, 0.5); }
   .leiste .spacer { flex: 1; }
+  #status {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border-input); border-radius: 9999px;
+    padding: 8px 12px; font: inherit; font-size: 15px; font-weight: 700;
+  }
   .leiste select {
     background: var(--bg); color: var(--text); border: 1px solid var(--border-input); border-radius: 9999px;
     padding: 6px 12px; font: inherit; font-size: 14px; font-weight: 700;
@@ -167,11 +171,16 @@
 <body>
 
 <header class="kopf">
-  <span class="logo" id="logo"></span>
+  <a class="logo" id="logo" title="Alle Räume" style="color:inherit"></a>
   <div class="mitte">
-    <h1>ELTM2 · A4 Tarifbindung &amp; Betriebsräte</h1>
-    <div class="unter" id="unter">Live-Wand · aktualisiert alle 3 Sekunden</div>
+    <h1 id="titel">Wand</h1>
+    <div class="unter" id="unter"><a id="zurueck" style="color:var(--blue);text-decoration:none">← Alle Räume</a> · Live-Wand</div>
   </div>
+  <select id="status" aria-label="Status des Raums" title="offen: Posten möglich · pausiert: nur lesen und liken · geschlossen: Raum nicht erreichbar">
+    <option value="offen">🟢 offen</option>
+    <option value="pausiert">⏸️ pausiert</option>
+    <option value="geschlossen">⛔ geschlossen</option>
+  </select>
   <div class="zahlen"><div><b id="nPosts">0</b><span>Posts</span></div><div><b id="nGeraete">0</b><span>Geräte</span></div></div>
   <div class="timer" id="timer">
     <span class="zeit" id="zeit" title="Klick: Start/Pause">08:00</span>
@@ -190,10 +199,10 @@
     <option value="zufall">Zufällig</option>
   </select>
   <button class="chip" id="bAnonym">Anonym</button>
-  <button class="chip" id="bZahlen" title="Grün: Zahl kommt in M4 vor (oder ist daraus berechnet). Gelb: bitte prüfen. Ob die Zahl richtig gedeutet ist, zeigt die Markierung nicht.">Zahlen markieren</button>
+  <button class="chip" id="bZahlen" title="Grün: Zahl steht in den Referenzzahlen des Raums (z. B. aus dem Material oder daraus berechnet). Gelb: bitte prüfen. Ob die Zahl richtig gedeutet ist, zeigt die Markierung nicht.">Zahlen markieren</button>
   <button class="chip" id="bModer">Moderieren</button>
   <span class="spacer"></span>
-  <button class="chip" id="bM4">M4 zeigen</button>
+  <button class="chip" id="bM4" hidden>Material zeigen</button>
   <button class="chip" id="bEH">Erwartungshorizont</button>
   <button class="chip" id="bKlein" title="Schrift kleiner">A−</button>
   <button class="chip" id="bGross" title="Schrift größer">A+</button>
@@ -210,30 +219,23 @@
 <div class="toast" id="toast" role="status"></div>
 
 <script type="module">
-import { icon, esc, formatiere, avatarHtml, relativ, langesDatum, zahl } from "/x.js";
+import { icon, esc, formatiere, avatarHtml, relativ, langesDatum, zahl, bildUrl, ehHtml } from "/x.js";
 import { analysiere } from "/zaehlen.js";
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const TOKEN = new URLSearchParams(location.search).get("lehrer") ?? "";
-const KLASSEN_URL = location.origin + "/";
+const CODE = (location.pathname.split("/")[2] ?? "").toLowerCase();
+const KLASSEN_URL = `${location.origin}/r/${CODE}`;
 
 const LS = {
   get(k, d) { try { const v = localStorage.getItem("xwand." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem("xwand." + k, JSON.stringify(v)); } catch {} },
 };
 
-/* Bewertungskriterien – werden per Klick an einzelne Posts geheftet */
-const KRITERIEN = [
-  { id: "quelle", label: "Zeitraum/Quelle genannt" },
-  { id: "kern", label: "„weder noch“ 26 → 41 %" },
-  { id: "tarif", label: "Tarifbindung 68 → 51 %" },
-  { id: "br", label: "Betriebsrat 51 → 43 %" },
-  { id: "deutung", label: "Folgen für Beschäftigte" },
-  { id: "x", label: "X-typisch auf den Punkt" },
-];
-/* Zahlen, die sich direkt aus M4 ergeben (Werte, Summen, Differenzen, relative Änderungen) */
-const BEKANNT = new Set([45, 23, 6, 26, 35, 16, 8, 41, 68, 51, 43, 15, 17, 10, 7, 2, 22, 58, 25, 2000, 2022, 100]);
+/* Bewertungskriterien und Referenzzahlen kommen aus den Raum-Einstellungen */
+let KRITERIEN = [];
+let BEKANNT = new Set();
 
 let stand = { posts: [], geraete: 0, now: Date.now() };
 let versatz = 0;
@@ -287,6 +289,7 @@ function toast(t) {
 }
 
 async function api(pfad, o = {}) {
+  if (!pfad.startsWith("/api/rooms")) pfad = pfad.replace(/^\/api\//, `/api/r/${encodeURIComponent(CODE)}/`);
   const sep = pfad.includes("?") ? "&" : "?";
   const r = await fetch(`${pfad}${sep}lehrer=${encodeURIComponent(TOKEN)}`, {
     method: o.method ?? "GET",
@@ -305,6 +308,7 @@ async function lade() {
     const d = await api("/api/state");
     versatz = d.now - Date.now();
     stand = d;
+    uebernimmRaum(d.raum);
     $("#fehler").innerHTML = "";
     render();
   } catch (e) {
@@ -517,41 +521,41 @@ $("#bKlein").onclick = () => { opt.fs = Math.max(14, opt.fs - 2); setzeOptionen(
 $("#bGross").onclick = () => { opt.fs = Math.min(40, opt.fs + 2); setzeOptionen(); };
 $("#bTheme").onclick = () => { opt.theme = opt.theme === "light" ? "dark" : "light"; setzeOptionen(); };
 $("#qrMini").onclick = () => overlay(`<div class="gross-back"><div class="gross-qr"><div class="qr">${qrSvg(KLASSEN_URL)}</div><p>${esc(KLASSEN_URL.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</p></div></div>`);
-$("#bM4").onclick = () => overlay(`<div class="gross-back"><img class="gross-m4" src="/m4.svg" alt="Schaubild M4"></div>`);
+$("#bM4").onclick = () => overlay(`<div class="gross-back"><img class="gross-m4" src="${bildUrl(stand.raum)}" alt="${esc(stand.raum.pin.alt)}"></div>`);
+
+/* Raum-Einstellungen auf die Wand übertragen */
+let raumSig = "";
+function uebernimmRaum(r) {
+  const sig = JSON.stringify(r);
+  if (sig === raumSig) return;
+  raumSig = sig;
+  KRITERIEN = r.kriterien.map((k) => ({ id: k, label: k }));
+  BEKANNT = new Set(r.zahlen);
+  const titel = [r.klasse, r.titel].filter(Boolean).join(" · ");
+  $("#titel").textContent = titel;
+  document.title = `Wand · ${titel}`;
+  $("#status").value = r.status;
+  $("#bM4").hidden = !r.bild;
+  $("#bZahlen").hidden = !r.zahlen.length;
+  $("#bEH").hidden = !r.eh;
+  letzteSignatur = "";
+}
+const verwaltung = `/?lehrer=${encodeURIComponent(TOKEN)}`;
+$("#zurueck").href = verwaltung;
+$("#logo").href = verwaltung;
+$("#status").addEventListener("change", async (e) => {
+  try {
+    await api(`/api/rooms/${encodeURIComponent(CODE)}/status`, { method: "POST", body: { status: e.target.value } });
+    toast({ offen: "Raum ist offen – Posten möglich.", pausiert: "Pausiert – die Klasse kann nur noch lesen und liken.", geschlossen: "Geschlossen – der Raum ist für die Klasse nicht mehr erreichbar." }[e.target.value]);
+    lade();
+  } catch (err) { toast(err.message); }
+});
 
 $("#bEH").onclick = () => overlay(`<div class="panel-back"></div><aside class="panel">
   <button class="rund schliessen" data-zu aria-label="Schließen">${icon("close")}</button>
-  <h2>Erwartungshorizont A4</h2>
+  <h2>Erwartungshorizont</h2>
   <p class="muted">Nur für dich – nicht auf den Beamer.</p>
-  <h3>Werte aus M4</h3>
-  <table>
-    <tr><th>Anteil aller Beschäftigten</th><th class="z">2000</th><th class="z">2022</th><th class="z">Δ</th></tr>
-    <tr><td>Betriebsrat + Tarifvertrag</td><td class="z">45 %</td><td class="z">35 %</td><td class="z">−10</td></tr>
-    <tr><td>nur Tarifvertrag</td><td class="z">23 %</td><td class="z">16 %</td><td class="z">−7</td></tr>
-    <tr><td>nur Betriebsrat</td><td class="z">6 %</td><td class="z">8 %</td><td class="z">+2</td></tr>
-    <tr><td><b>weder noch</b></td><td class="z">26 %</td><td class="z">41 %</td><td class="z"><b>+15</b></td></tr>
-    <tr><td>Tarifbindung gesamt (1+2)</td><td class="z">68 %</td><td class="z">51 %</td><td class="z">−17</td></tr>
-    <tr><td>Betriebsrat gesamt (1+3)</td><td class="z">51 %</td><td class="z">43 %</td><td class="z">−8</td></tr>
-  </table>
-  <p class="muted">Veränderungen in Prozentpunkten. Relativ: „weder noch“ +58 %, Tarifbindung −25 %.</p>
-  <h3>Kriterien für einen gelungenen Post</h3>
-  <ul>
-    <li><b>Beschreiben:</b> Zeitraum (2000 → 2022) und Bezug (alle Beschäftigten) nennen, ggf. Quelle (Hans-Böckler-Stiftung).</li>
-    <li><b>Kernbefund:</b> Der Anteil ohne Betriebsrat und ohne Tarifvertrag steigt von gut einem Viertel auf rund vier von zehn.</li>
-    <li><b>Tendenz:</b> Tarifbindung und Mitbestimmung nehmen ab – nur „nur Betriebsrat“ wächst leicht.</li>
-    <li><b>Deuten:</b> Folgen für Beschäftigte (Löhne, Arbeitszeit, Urlaub, Mitsprache im Betrieb).</li>
-    <li><b>Format:</b> ≤ 280 Zeichen, adressatengerecht, zugespitzt, aber sachlich korrekt; Hashtags sinnvoll.</li>
-  </ul>
-  <h3>Typische Fehler</h3>
-  <ul>
-    <li>Prozentpunkte und Prozent verwechselt („41 % mehr“ statt „+15 Prozentpunkte“).</li>
-    <li>„Nur Tarifvertrag“ als ganze Tarifbindung gelesen (16 % statt 51 %).</li>
-    <li>Bezugsgröße vertauscht: Beschäftigte ≠ Betriebe.</li>
-    <li>Wertung ohne Befund („Skandal!!!“ ohne Zahl).</li>
-  </ul>
-  <h3>Beispielposts</h3>
-  <div class="bsp">📉 2000 hatten 26 % der Beschäftigten weder Tarifvertrag noch Betriebsrat – 2022 schon 41 %. Die Tarifbindung sank von 68 auf 51 %. Heißt: Immer mehr verhandeln Lohn &amp; Urlaub allein. #Tarifbindung</div>
-  <div class="bsp">Fast jede*r Zweite ohne Schutz? 🤔 Laut Böckler-Stiftung arbeiten 41 % ohne Tarifvertrag UND ohne Betriebsrat (2000: 26 %). Mitbestimmung schrumpft – wer redet da noch mit? #Mitbestimmung #Arbeitswelt</div>
+  ${ehHtml(stand.raum.eh)}
 </aside>`);
 
 /* CSV mit BOM und Semikolon, damit Excel Umlaute und Spalten richtig liest */
@@ -567,14 +571,15 @@ $("#bCsv").onclick = () => {
   const csv = "\ufeff" + [kopf, ...zeilen].map((z) => z.map(zelle).join(";")).join("\r\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  a.download = `X-Posts_ELTM2_A4_${new Date().toISOString().slice(0, 10)}.csv`;
+  const name = [stand.raum.klasse, stand.raum.titel].filter(Boolean).join("_").replace(/[^\p{L}\p{N}]+/gu, "_").slice(0, 60);
+  a.download = `X-Posts_${name}_${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
 
 $("#bDruck").onclick = () => {
   const liste = [...stand.posts].filter((p) => !p.hidden).sort((a, b) => a.ts - b.ts);
-  $("#druck").innerHTML = `<h1>ELTM2 · A4 – X-Nachrichten zu M4 (${new Date().toLocaleDateString("de-DE")})</h1>` +
+  $("#druck").innerHTML = `<h1>${esc([stand.raum.klasse, stand.raum.titel].filter(Boolean).join(" · "))} – X-Nachrichten (${new Date().toLocaleDateString("de-DE")})</h1>` +
     liste.map((p, i) => `<div class="d-post"><div class="d-kopf">${i + 1}. ${esc(p.name)} <span>@${esc(p.handle)}</span></div><div class="d-text">${esc(p.text)}</div><div class="d-meta">${analysiere(p.text).gewicht}/280 Zeichen · ${p.likes} Likes</div></div>`).join("");
   window.print();
 };

@@ -1,29 +1,36 @@
-# X-Simulator ELTM2 – A4 Tarifbindung & Betriebsräte
+# X-Simulator
 
-Schüler*innen verfassen auf dem Handy eine X-Nachricht (max. 280 Zeichen) zu M4
-(Hans-Böckler-Stiftung: Tarifbindung und Betriebsräte 2000/2022). Die Lehrkraft
-zeigt alle Posts live auf dem Beamer.
+Schüler*innen schreiben auf dem Handy X-Nachrichten (max. 280 Zeichen) zu einer Aufgabe,
+die Lehrkraft zeigt alle Posts live auf dem Beamer. Jede Klasse/Aufgabe ist ein **Raum**.
 
-- **Klasse:** `https://<app>.yannickbernhardt.deno.net/` (QR-Code)
-- **Lehrkraft:** dieselbe URL mit `?lehrer=<LEHRER_TOKEN>` – der Link gehört nicht in den QR-Code.
+| Wer | Adresse |
+|---|---|
+| Klasse (QR-Code) | `https://x-simulator-tarifbindung.yannickbernhardt.deno.net/r/<code>` |
+| Klasse ohne QR | Startseite `/` → Raumcode eingeben |
+| Lehrkraft: alle Räume | `/?lehrer=<LEHRER_TOKEN>` |
+| Lehrkraft: Wand eines Raums | `/r/<code>?lehrer=<LEHRER_TOKEN>` (auch per Knopf in der Verwaltung) |
+
+## Räume verwalten (`/?lehrer=…`)
+- **Neuer Raum:** Klasse, Code (optional, sonst zufällig), angehefteter Aufgaben-Post
+  (Absender, Emoji, Text, optional Bild), Bewertungskriterien, Referenzzahlen, Erwartungshorizont.
+  Rechts eine Live-Vorschau im X-Look.
+- **Für andere Klasse kopieren:** übernimmt alles außer den Posts.
+- **Status:** offen (Posten möglich) · pausiert (nur lesen/liken) · geschlossen (nicht erreichbar).
+- **QR-Code:** groß anzeigen, als PNG speichern, Link kopieren.
 
 ## Aufbau
-- `main.ts` – Deno-Server (nur Standardbibliothek), Posts/Likes/Handles in Deno KV,
-  alles läuft nach 14 Tagen ab.
-- `public/index.html` – Schüler-App im X-Look (Onboarding, Timeline, Compose, Likes).
-- `public/lehrer.html` – Dashboard: Wand, Spotlight, Bewertung, Timer, QR, CSV, Druck.
-- `public/zaehlen.js` – Zeichenzählung wie X (Emoji/CJK = 2, Link = 23), von Server
-  und Browser gemeinsam genutzt.
-- `public/m4.svg` – nachgebautes Schaubild M4.
+- `main.ts` – Deno-Server (nur Standardbibliothek), alles in Deno KV.
+  Posts, Likes und Benutzernamen laufen nach 14 Tagen ab; Räume bleiben.
+- `public/start.html` – Code-Eingabe · `public/index.html` – Schüler-App ·
+  `public/lehrer.html` – Wand · `public/verwaltung.html` – Räume.
+- `public/zaehlen.js` – Zeichenzählung wie X (Emoji/CJK = 2, Link = 23), Server und Browser.
+- `public/m4.svg` – Schaubild des ersten Raums (`eltm2-a4`), wird beim ersten Start übernommen.
 
 ## Deno Deploy
-1. console.deno.com → *+ New App* → dieses Repo wählen → *Create App*.
-2. *Databases → Attach Deno KV → Provision Database* (sonst meldet die App „Datenbank fehlt").
-3. *Settings → Environment Variables*: `LEHRER_TOKEN` als Secret setzen.
-
-Update = auf `main` pushen.
+KV-Datenbank muss angehängt sein, `LEHRER_TOKEN` als Secret. Update = auf `main` pushen.
+Notschalter für die ganze Seite: `DEAKTIVIERT = true` in `main.ts`.
 
 ## Lokal
 ```
-LEHRER_TOKEN=test PORT=8123 deno task start
+LEHRER_TOKEN=test PORT=8123 KV_PATH=./test.kv deno run -A --unstable-kv main.ts
 ```

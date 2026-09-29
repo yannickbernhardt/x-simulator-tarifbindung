@@ -109,13 +109,40 @@ export function avatarHtml(a, size = 40) {
   return `<div class="av" style="--av:${esc(c)};--s:${size}px"><span>${esc(e)}</span></div>`;
 }
 
-export const PIN = {
-  id: "pinned",
-  name: "Politik ELTM2",
-  handle: "PolitikBKTL",
-  text:
-    "📊 A4: Werten Sie die Schaubilder (M4) aus und verfassen Sie eine X-Nachricht (max. 280 Zeichen) über die Ergebnisse.\n\nWas hat sich zwischen 2000 und 2022 verändert – und was heißt das für Beschäftigte? 👇 #Tarifbindung #Mitbestimmung",
-};
+/* Angehefteter Aufgaben-Post aus den Raum-Einstellungen */
+export function pinAusRaum(raum) {
+  const p = raum.pin;
+  return {
+    id: "pinned",
+    name: p.name,
+    handle: p.handle,
+    avatar: { e: p.e, c: p.c },
+    verified: p.verifiziert,
+    text: p.text,
+    ts: p.ts,
+  };
+}
+
+export function bildUrl(raum) {
+  return raum.bild ? `/api/r/${encodeURIComponent(raum.code)}/bild?v=${raum.bild.v}` : "";
+}
+
+/* Mini-Format für den Erwartungshorizont:
+   „## Überschrift“, „- Aufzählung“, **fett**, Leerzeile = neuer Absatz */
+export function ehHtml(text) {
+  const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+  let out = "", liste = false;
+  for (const zeile of String(text ?? "").split("\n")) {
+    const z = zeile.trim();
+    const istPunkt = /^[-•*]\s+/.test(z);
+    if (liste && !istPunkt) { out += "</ul>"; liste = false; }
+    if (!z) continue;
+    if (z.startsWith("## ")) out += `<h3>${inline(z.slice(3))}</h3>`;
+    else if (istPunkt) { if (!liste) { out += "<ul>"; liste = true; } out += `<li>${inline(z.replace(/^[-•*]\s+/, ""))}</li>`; }
+    else out += `<p>${inline(z)}</p>`;
+  }
+  return out + (liste ? "</ul>" : "");
+}
 
 /**
  * Post-HTML im Timeline-Look.

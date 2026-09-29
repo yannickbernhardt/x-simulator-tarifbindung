@@ -365,7 +365,7 @@
 <div class="toast" id="toast" role="status"></div>
 
 <script type="module">
-import { icon, esc, postHtml, avatarHtml, relativ, zahl, PIN } from "/x.js";
+import { icon, esc, postHtml, avatarHtml, relativ, zahl, pinAusRaum, bildUrl } from "/x.js";
 import { analysiere, MAX_GEWICHT } from "/zaehlen.js";
 
 /* ---------- Speicher (pro Gerät) ---------- */
@@ -377,6 +377,9 @@ let clientId = LS.get("cid", null);
 if (!clientId) { clientId = (crypto.randomUUID?.() ?? String(Math.random()).slice(2) + Date.now()); LS.set("cid", clientId); }
 let profil = LS.get("profil", null);
 const lesezeichen = new Set(LS.get("bm", []));
+
+/* Raumcode aus der Adresse /r/<code> */
+const CODE = (location.pathname.split("/")[2] ?? "").toLowerCase();
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -403,6 +406,7 @@ function toast(text, link) {
 
 /* ---------- API ---------- */
 async function api(pfad, opt = {}) {
+  pfad = pfad.replace(/^\/api\//, `/api/r/${encodeURIComponent(CODE)}/`);
   const r = await fetch(pfad, {
     method: opt.method ?? "GET",
     headers: opt.body ? { "content-type": "application/json" } : {},
@@ -421,14 +425,15 @@ const EMOJIS = ["🦊","🐼","🐸","🦁","🐯","🐨","🐙","🦄","🐧","
 const FARBEN = ["#1D9BF0","#7856FF","#F91880","#FF7A00","#00BA7C","#FFD400","#F4212E","#536471"];
 let ob = { step: 1, name: profil?.name ?? "", handle: profil?.handle ?? "", avatar: profil?.avatar ?? { e: EMOJIS[Math.floor(Math.random() * 16)], c: FARBEN[Math.floor(Math.random() * FARBEN.length)] }, handleOk: false, handleVonHand: !!profil };
 
-function zeigeOnboarding() {
+function zeigeOnboarding(schritt = 1, meldung = "") {
   $("#home").hidden = true;
   $("#onboard").hidden = false;
   $("#obLogo").innerHTML = icon("logo");
   $("#obBack").innerHTML = icon("back");
   $("#inName").value = ob.name;
   $("#inHandle").value = ob.handle;
-  obSchritt(1);
+  obSchritt(schritt);
+  if (meldung) { $("#fHandle").classList.add("err"); $("#handleErr").textContent = meldung; }
 }
 
 function obSchritt(n) {
@@ -540,7 +545,7 @@ async function obWeiter() {
 /* =================================================================
    Home / Timeline
    ================================================================= */
-let stand = { posts: [], pinned: { likes: 0, liked: false, views: 0 }, now: Date.now() };
+let stand = { raum: null, posts: [], pinned: { likes: 0, liked: false, views: 0 }, now: Date.now() };
 let zeitVersatz = 0;
 let tab = "fy";
 let angezeigt = new Set(); // IDs, die schon in der Timeline stehen
@@ -567,10 +572,7 @@ function jetzt() { return Date.now() + zeitVersatz; }
 
 function pinPost() {
   return {
-    ...PIN,
-    avatar: { e: "🏛️", c: "#536471" },
-    verified: true,
-    ts: jetzt() - 1000 * 60 * 60 * 3,
+    ...pinAusRaum(stand.raum),
     likes: stand.pinned.likes,
     liked: stand.pinned.liked,
     views: stand.pinned.views,
@@ -599,10 +601,17 @@ function render() {
     return;
   }
 
+  const raum = stand.raum;
+  $("#fab").hidden = raum.status !== "offen";
+  if (raum.status === "pausiert") {
+    html += `<div class="banner" style="border-color:var(--border)">⏸️ Posten ist gerade pausiert. Du kannst weiter lesen und liken.</div>`;
+  }
   html += postHtml(pinPost(), {
     menu: true, jetzt: jetzt(),
     oben: `<div class="pin-line">${icon("pin")}Angehefteter Post</div>`,
-    medien: `<button class="media" data-act="bild" aria-label="Bild ansehen"><img src="/m4.svg" alt="Schaubild M4: Weniger Tarifbindung und Mitbestimmung. 2000: 45 % Betriebsrat und Tarifvertrag, 23 % nur Tarifvertrag, 6 % nur Betriebsrat, 26 % weder noch. 2022: 35 %, 16 %, 8 %, 41 %."></button>`,
+    medien: raum.bild
+      ? `<button class="media" data-act="bild" aria-label="Bild ansehen"><img src="${bildUrl(raum)}" alt="${esc(raum.pin.alt || "Bild zur Aufgabe")}"></button>`
+      : "",
   });
 
   for (const p of sichtbar) {
@@ -645,9 +654,11 @@ async function lade() {
     kvFehler = "";
     // Posts, die inzwischen gelöscht wurden, nicht mehr als „wartend“ führen
     wartend = wartend.filter((w) => d.posts.some((p) => p.id === w.id));
-    const sig = JSON.stringify([d.posts, d.pinned, Math.floor((d.now) / 30000)]);
+    if (d.raum.status !== "offen" && !$("#composeWrap").hidden && !bearbeite) schliesseCompose();
+    const sig = JSON.stringify([d.raum, d.posts, d.pinned, Math.floor((d.now) / 30000)]);
     if (!bearbeitungLaeuft() && sig !== letzteSig) { letzteSig = sig; render(); }
   } catch (e) {
+    if (e.status === 404 || e.status === 423) return zeigeSperre(e.status);
     if (e.status === 503) { kvFehler = e.message; render(); }
   }
   ladeT = setTimeout(lade, document.hidden ? 15000 : 5000);
@@ -783,7 +794,7 @@ function frageLoeschen(post) {
 }
 
 function lightbox() {
-  overlay(`<div class="lightbox" data-zu><button class="x-close" data-zu aria-label="Schließen">${icon("close")}</button><img src="/m4.svg" alt="Schaubild M4"></div>`);
+  overlay(`<div class="lightbox" data-zu><button class="x-close" data-zu aria-label="Schließen">${icon("close")}</button><img src="${bildUrl(stand.raum)}" alt="${esc(stand.raum.pin.alt || "Bild zur Aufgabe")}"></div>`);
   $("#overlay .x-close .ic").setAttribute("data-zu", "");
 }
 
@@ -823,7 +834,7 @@ function oeffneCompose(post = null) {
     .map(([n, l]) => `<button data-tool="${n}" aria-label="${l}">${icon(n)}</button>`).join("");
   $("#plusRund").innerHTML = icon("plus");
   $("#postBtn").textContent = post ? "Aktualisieren" : "Posten";
-  $("#edText").value = post ? post.text : LS.get("entwurf", "");
+  $("#edText").value = post ? post.text : LS.get("entwurf." + CODE, "");
   $("#emojiPop").hidden = true;
   aktualisiereEditor();
   passeHoeheAn();
@@ -831,7 +842,7 @@ function oeffneCompose(post = null) {
 }
 
 function schliesseCompose() {
-  if (!bearbeite) LS.set("entwurf", $("#edText").value);
+  if (!bearbeite) LS.set("entwurf." + CODE, $("#edText").value);
   $("#composeWrap").hidden = true;
   document.body.style.overflow = "";
   bearbeite = null;
@@ -914,7 +925,7 @@ async function sende() {
     } else {
       await api("/api/posts", { method: "POST", body: { clientId, text, name: profil.name, handle: profil.handle, avatar: profil.avatar } });
       $("#edText").value = "";
-      LS.set("entwurf", "");
+      LS.set("entwurf." + CODE, "");
       $("#composeWrap").hidden = true; document.body.style.overflow = "";
       toast("Dein Post wurde gesendet.", { text: "Anzeigen", fn: () => window.scrollTo({ top: 0, behavior: "smooth" }) });
     }
@@ -938,7 +949,50 @@ window.visualViewport?.addEventListener("resize", passeHoeheAn);
 window.visualViewport?.addEventListener("scroll", passeHoeheAn);
 
 /* ---------- Start ---------- */
-if (profil) zeigeHome(); else zeigeOnboarding();
+/* Raum nicht gefunden oder geschlossen – Hinweis im X-Stil */
+function zeigeSperre(status) {
+  clearTimeout(ladeT);
+  $("#onboard").hidden = true;
+  $("#home").hidden = true;
+  $("#composeWrap").hidden = true;
+  overlay("");
+  const zu = status === 423;
+  let el = $("#sperre");
+  if (!el) { el = document.createElement("section"); el.id = "sperre"; document.body.prepend(el); }
+  el.innerHTML = `<div class="ob" style="margin:0 auto">
+    <div class="ob-top"><span class="ob-logo">${icon("logo")}</span></div>
+    <div class="ob-body">
+      <h1>${zu ? "Dieser Raum ist geschlossen." : "Hmm … diese Seite existiert nicht."}</h1>
+      <p class="sub">${zu ? "Die Lehrkraft hat die Übung beendet. Deine Posts sieht niemand mehr." : "Prüfe den Code oder scanne den QR-Code noch einmal."}</p>
+    </div>
+    <div class="ob-foot"><a class="pill pill-inv pill-lg" href="/" style="text-decoration:none">Anderen Code eingeben</a></div>
+  </div>`;
+}
+
+async function start() {
+  if (!/^[a-z0-9][a-z0-9-]{2,19}$/.test(CODE)) return zeigeSperre(404);
+  try {
+    const d = await api(`/api/state?clientId=${encodeURIComponent(clientId)}`);
+    zeitVersatz = d.now - Date.now();
+    stand = d;
+  } catch (e) {
+    if (e.status === 404 || e.status === 423) return zeigeSperre(e.status);
+    kvFehler = e.message;
+    stand.raum = { code: CODE, status: "offen", pin: { name: "X", handle: "X", e: "⚠️", c: "#536471", text: "", alt: "", ts: Date.now() }, bild: null };
+  }
+  if (!profil) return zeigeOnboarding();
+  /* Benutzername gilt je Raum – in einem neuen Raum kann ihn schon jemand haben */
+  try {
+    await api("/api/handle", { method: "POST", body: { handle: profil.handle, clientId } });
+  } catch (e) {
+    if (e.status === 409) {
+      ob = { ...ob, name: profil.name, handle: profil.handle, avatar: { ...profil.avatar }, handleVonHand: true };
+      return zeigeOnboarding(3, "Diesen Benutzernamen hat hier schon jemand. Wähle einen anderen.");
+    }
+  }
+  zeigeHome();
+}
+start();
 </script>
 </body>
 </html>
