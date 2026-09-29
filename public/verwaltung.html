@@ -119,7 +119,8 @@ import { analysiere } from "/zaehlen.js";
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const TOKEN = new URLSearchParams(location.search).get("lehrer") ?? "";
+/* Token roh aus der Adresse lesen – URLSearchParams würde ein „+“ zu einem Leerzeichen machen */
+const TOKEN = (() => { const t = location.search.match(/[?&]lehrer=([^&]*)/)?.[1] ?? ""; try { return decodeURIComponent(t).trim(); } catch { return t.trim(); } })();
 const FARBEN = ["#536471", "#1D9BF0", "#7856FF", "#F91880", "#FF7A00", "#00BA7C", "#FFD400", "#F4212E", "#0F1419"];
 const PIN_EMOJIS = ["🏛️", "📊", "⚖️", "📰", "🎙️", "🗳️", "🏭", "💶", "🧑\u200d🏫", "📚", "🌍", "🔌"];
 const STATUS_TEXT = { offen: "🟢 offen", pausiert: "⏸️ pausiert", geschlossen: "⛔ geschlossen" };

@@ -130,9 +130,21 @@ function fehler(text: string, status = 400): Response {
   return json({ error: text }, status);
 }
 
+/* Token aus dem Link: einmal wie der Browser ihn liest (+ wird zu Leerzeichen),
+   einmal roh – so klappt auch ein Token mit „+“ */
+function tokenImLink(url: URL): string[] {
+  const roh = url.search.match(/[?&]lehrer=([^&]*)/)?.[1] ?? "";
+  let dekodiert = roh;
+  try {
+    dekodiert = decodeURIComponent(roh);
+  } catch { /* kaputte %-Folge: roh vergleichen */ }
+  return [url.searchParams.get("lehrer") ?? "", dekodiert].map((t) => t.trim());
+}
+
 function istLehrer(url: URL): boolean {
-  if (!LEHRER_TOKEN) return false;
-  return url.searchParams.get("lehrer") === LEHRER_TOKEN;
+  const soll = LEHRER_TOKEN.trim();
+  if (!soll) return false;
+  return tokenImLink(url).includes(soll);
 }
 
 function kvFehltAntwort(): Response {
@@ -456,6 +468,20 @@ const ABGESCHALTET_HTML = `<!doctype html><html lang="de"><head><meta charset="u
 /* ---------- Server ---------- */
 const PORT = Number(Deno.env.get("PORT") ?? 8000);
 
+/* Hinweise, ohne den Token selbst zu verraten: nur Längen und Zeichenarten */
+function diagnose(url: URL): string {
+  const soll = LEHRER_TOKEN.trim();
+  const ist = tokenImLink(url)[1];
+  const tipps: string[] = [
+    `Im Link kamen <b>${ist.length} Zeichen</b> an, eingetragen sind <b>${soll.length} Zeichen</b>.`,
+  ];
+  if (ist.length === soll.length) tipps.push("Die Länge stimmt – es weicht also ein einzelnes Zeichen ab (Groß-/Kleinschreibung? 0 statt O? l statt I?).");
+  if (/[#&?/ ]/.test(soll)) tipps.push("Der eingetragene Token enthält Sonderzeichen wie # & ? / oder Leerzeichen, die in Links Probleme machen. Nimm einen Token nur aus Buchstaben und Zahlen.");
+  if (LEHRER_TOKEN !== soll) tipps.push("Im eingetragenen Token stehen Leerzeichen am Anfang oder Ende (werden inzwischen ignoriert).");
+  tipps.push("Wurde der Wert gerade geändert: einmal neu deployen.");
+  return "Der Token im Link passt nicht zum eingetragenen <b>LEHRER_TOKEN</b>.<br><br>" + tipps.join("<br>");
+}
+
 Deno.serve({ port: PORT }, async (req: Request) => {
   const url = new URL(req.url);
   const pfad = url.pathname;
@@ -766,7 +792,7 @@ Deno.serve({ port: PORT }, async (req: Request) => {
   if (url.searchParams.has("lehrer") && !lehrer && (pfad === "/" || pfad.startsWith("/r/"))) {
     const grund = !LEHRER_TOKEN
       ? "Auf dem Server ist <b>kein LEHRER_TOKEN</b> eingetragen. In der Deno-Console unter <i>Settings → Environment Variables</i> anlegen – für <b>Production</b> – und danach neu deployen."
-      : "Der Token im Link passt nicht zum eingetragenen <b>LEHRER_TOKEN</b>. Auf Tippfehler, Leerzeichen und Groß-/Kleinschreibung achten. Wurde der Wert gerade geändert, einmal neu deployen.";
+      : diagnose(url);
     return new Response(
       `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Lehrer-Link ungültig</title></head>
 <body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#000;color:#e7e9ea;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:24px">

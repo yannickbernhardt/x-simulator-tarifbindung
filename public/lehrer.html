@@ -224,7 +224,8 @@ import { analysiere } from "/zaehlen.js";
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const TOKEN = new URLSearchParams(location.search).get("lehrer") ?? "";
+/* Token roh aus der Adresse lesen – URLSearchParams würde ein „+“ zu einem Leerzeichen machen */
+const TOKEN = (() => { const t = location.search.match(/[?&]lehrer=([^&]*)/)?.[1] ?? ""; try { return decodeURIComponent(t).trim(); } catch { return t.trim(); } })();
 const CODE = (location.pathname.split("/")[2] ?? "").toLowerCase();
 const KLASSEN_URL = `${location.origin}/r/${CODE}`;
 
