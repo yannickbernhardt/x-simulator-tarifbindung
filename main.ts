@@ -761,6 +761,22 @@ Deno.serve({ port: PORT }, async (req: Request) => {
   if (pfad.startsWith("/api/")) return fehler("Unbekannte Anfrage.", 404);
   if (req.method !== "GET") return new Response("Nicht erlaubt", { status: 405 });
 
+  /* Lehrer-Link mit falschem oder fehlendem Token: sagen, woran es liegt,
+     statt stillschweigend die Schülerseite zu zeigen */
+  if (url.searchParams.has("lehrer") && !lehrer && (pfad === "/" || pfad.startsWith("/r/"))) {
+    const grund = !LEHRER_TOKEN
+      ? "Auf dem Server ist <b>kein LEHRER_TOKEN</b> eingetragen. In der Deno-Console unter <i>Settings → Environment Variables</i> anlegen – für <b>Production</b> – und danach neu deployen."
+      : "Der Token im Link passt nicht zum eingetragenen <b>LEHRER_TOKEN</b>. Auf Tippfehler, Leerzeichen und Groß-/Kleinschreibung achten. Wurde der Wert gerade geändert, einmal neu deployen.";
+    return new Response(
+      `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Lehrer-Link ungültig</title></head>
+<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#000;color:#e7e9ea;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:24px">
+<div style="max-width:520px"><h1 style="font-size:26px;margin:0 0 12px">Lehrer-Link ungültig</h1>
+<p style="color:#b0b5ba;line-height:1.5;margin:0 0 20px">${grund}</p>
+<a href="/" style="color:#1d9bf0">Zur Schüler-Startseite</a></div></body></html>`,
+      { status: 403, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } },
+    );
+  }
+
   /* Seiten: Startseite mit Code-Eingabe bzw. Verwaltung, Raum bzw. Wand */
   if (pfad === "/") return await statisch(lehrer ? "verwaltung.html" : "start.html");
   if (/^\/r\/[a-z0-9-]{3,20}\/?$/.test(pfad)) return await statisch(lehrer ? "lehrer.html" : "index.html");
