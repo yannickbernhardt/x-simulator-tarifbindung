@@ -427,11 +427,90 @@ Veränderungen in Prozentpunkten. Relativ: „weder noch“ +58 %, Tarifbindung 
   await kv.set(["meta", "migriert"], jetzt);
 }
 
+/* ---------- Vorbereitete Räume ----------
+   Werden beim Start einmal angelegt, falls es den Code noch nicht gibt.
+   Danach gehören sie der Verwaltung: Änderungen dort bleiben erhalten, und ein
+   gelöschter Raum kommt nicht zurück (Vermerk unter ["meta", "vorbereitet", code]). */
+type Vorlage = Omit<Raum, "pin" | "bild" | "erstellt" | "geaendert"> & { pin: Omit<Raum["pin"], "ts"> };
+
+const VORBEREITET: Vorlage[] = [
+  {
+    code: "kfz-tankrabatt",
+    titel: "Aufgabe 3: Ist der Tankrabatt sein Geld wert?",
+    klasse: "KFZ",
+    status: "offen",
+    pin: {
+      name: "Politik KFZ",
+      handle: "PolitikBKTL",
+      e: "⛽",
+      c: "#F4B43A",
+      verifiziert: true,
+      text:
+        "⚖️ Aufgabe 3: Ist der Tankrabatt sein Geld wert?\n\nSchreiben Sie Ihr Urteil als Post (max. 280 Zeichen). Nennen Sie eine Zahl aus Aufgabe 1 und einen Grund aus Aufgabe 2.\n\nWählen Sie einen Spitznamen, nicht Ihren echten Namen. 👇 #Tankrabatt",
+      alt: "",
+    },
+    kriterien: [
+      "Klares Urteil: Geld wert oder nicht",
+      "Zahl aus Aufgabe 1 (z. B. 12 von 17 Cent)",
+      "Grund aus Aufgabe 2",
+      "Zahl passt zum Grund",
+      "Gegenseite bedacht („Zwar …, aber …“)",
+      "Sachlich und X-typisch auf den Punkt",
+    ],
+    zahlen: [
+      17, 0.17, 8.5, 13, 0.13, 6.5, 12, 0.12, 6, 2.5, 2, 4, 5, 50, 14.04, 16, 15, 2.114, 2.262,
+      2.8, 2.485, 293, 30, 434, 128, 32, 36, 200, 33, 40, 7, 70, 71, 76, 3, 1, 31, 25, 2022, 2026,
+    ],
+    eh: `## Zahlen aus M1 und M2 (Aufgabe 1, 50 Liter Diesel)
+- Möglich: bis zu 17 Cent pro Liter → 50 × 0,17 € = **8,50 €**
+- Am 1. Oktober angekommen: rund 13 Cent (ADAC) → **6,50 €**, es fehlen 2,00 €
+- Im Mai bei Diesel angekommen: 12 Cent (ifo) → **6,00 €**, es fehlten **2,50 €**
+- Im Mai bei Benzin: Super E5 16 Cent, Super E10 15 Cent (ifo)
+- Kosten: rund 2,8 Mrd. € in drei Monaten, etwa 30 Mio. € am Tag (M1, M4)
+- Abstimmung am 25.09.2026: 434 dafür, 128 dagegen (M3)
+
+## Gründe (Aufgabe 2)
+- **Dafür:** wirkt sofort und ohne Antrag (CDU/CSU); entlastet alle, die mit dem Auto zur Arbeit pendeln (SPD); jede Entlastung hilft, kommt aber zu spät und ist zu klein (AfD)
+- **Dagegen:** keine Pflicht zur Weitergabe, im Mai bei Diesel nur 12 von 17 Cent (Grüne, Kommentar); teuer, rund 2,8 Mrd. € (Grüne, Kommentar); Gießkanne statt gezielter Hilfe, wer viel tankt, spart am meisten (Linke, Kommentar)
+
+## Beispiele für gelungene Posts
+- „Sein Geld wert: Er wirkt sofort und ohne Antrag. Am 1. Oktober war Sprit rund 13 Cent billiger, bei 50 l Diesel sind das 6,50 €. #Tankrabatt“
+- „Nicht sein Geld wert: 2,8 Mrd. € für drei Monate, und im Mai kamen bei Diesel nur 12 von 17 Cent an. Zwar wirkt er schnell, aber niemand muss ihn weitergeben. #Tankrabatt“
+
+## Typische Fehler
+- Urteil ohne Zahl oder ohne Grund
+- Cent und Euro verwechselt (17 € statt 17 Cent)
+- 13 Cent (1. Oktober, im Schnitt) und 12 Cent (Mai, Diesel) verwechselt
+- Meinung statt Beleg („weil Sprit eh zu teuer ist“)`,
+  },
+];
+
+async function legeVorbereiteteRaeumeAn(kv: Deno.Kv) {
+  for (const v of VORBEREITET) {
+    const raumKey = ["rooms", v.code];
+    const vermerk = ["meta", "vorbereitet", v.code];
+    const jetzt = Date.now();
+    const raum: Raum = { ...v, pin: { ...v.pin, ts: jetzt }, bild: null, erstellt: jetzt, geaendert: jetzt };
+    const ok = await kv.atomic()
+      .check({ key: raumKey, versionstamp: null })
+      .check({ key: vermerk, versionstamp: null })
+      .set(raumKey, raum)
+      .set(vermerk, jetzt)
+      .commit();
+    if (ok.ok) console.log(`Vorbereiteter Raum ${v.code} angelegt.`);
+  }
+}
+
 if (kv) {
   try {
     await uebernehmeAltdaten(kv);
   } catch (e) {
     console.error("Übernahme der Altdaten fehlgeschlagen:", e);
+  }
+  try {
+    await legeVorbereiteteRaeumeAn(kv);
+  } catch (e) {
+    console.error("Vorbereitete Räume nicht angelegt:", e);
   }
 }
 
