@@ -443,6 +443,7 @@ const TYPES: Record<string, string> = {
   ".png": "image/png",
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
+  ".mp3": "audio/mpeg",
 };
 
 async function statisch(rel: string): Promise<Response> {
@@ -809,6 +810,9 @@ Deno.serve({ port: PORT }, async (req: Request) => {
   if (/^\/r\/[A-Za-z0-9-]{3,20}\/?$/.test(pfad)) {
     return Response.redirect(new URL(pfad.toLowerCase() + url.search, url), 302);
   }
+  /* Hörseiten zu Arbeitsblättern: /hoeren/<name> zeigt public/hoeren/<name>.html */
+  const hoeren = pfad.match(/^\/hoeren\/([a-z0-9-]{3,40})\/?$/);
+  if (hoeren) return await statisch(`hoeren/${hoeren[1]}.html`);
   if (pfad.endsWith(".html")) return new Response("Nicht gefunden", { status: 404 });
   return await statisch(pfad.replace(/^\/+/, ""));
 });
