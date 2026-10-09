@@ -56,6 +56,7 @@ type Raum = {
      (Posts sind dann Note-Vorschläge zu einer Antwort, die Lehrkraft schaltet sie live) */
   antworten?: Antwort[];
   notes?: boolean;
+  vorlageStand?: number; // nur vorbereitete Räume: Stand der Vorlage im Code
   erstellt: number;
   geaendert: number;
 };
@@ -232,6 +233,7 @@ function raumAusBody(b: Record<string, unknown>, alt?: Raum): Raum {
     /* Antworten und Notes-Modus gibt es nur in vorbereiteten Räumen;
        die Verwaltung schickt sie nicht mit, sie bleiben beim Speichern erhalten */
     ...(alt?.antworten?.length ? { antworten: alt.antworten, notes: !!alt.notes } : {}),
+    ...(alt?.vorlageStand ? { vorlageStand: alt.vorlageStand } : {}),
     erstellt: alt?.erstellt ?? jetzt,
     geaendert: jetzt,
   };
@@ -449,8 +451,13 @@ Veränderungen in Prozentpunkten. Relativ: „weder noch“ +58 %, Tarifbindung 
 /* ---------- Vorbereitete Räume ----------
    Werden beim Start einmal angelegt, falls es den Code noch nicht gibt.
    Danach gehören sie der Verwaltung: Änderungen dort bleiben erhalten, und ein
-   gelöschter Raum kommt nicht zurück (Vermerk unter ["meta", "vorbereitet", code]). */
-type Vorlage = Omit<Raum, "pin" | "bild" | "erstellt" | "geaendert"> & { pin: Omit<Raum["pin"], "ts"> };
+   gelöschter Raum kommt nicht zurück (Vermerk unter ["meta", "vorbereitet", code]).
+   Ausnahme: Ein höherer „stand“ als im gespeicherten Raum überschreibt beim Start
+   Erwartungshorizont, Kriterien, Referenzzahlen und Antworten (Posts bleiben). */
+type Vorlage = Omit<Raum, "pin" | "bild" | "erstellt" | "geaendert" | "vorlageStand"> & {
+  pin: Omit<Raum["pin"], "ts">;
+  stand?: number;
+};
 
 const VORBEREITET: Vorlage[] = [
   {
@@ -506,6 +513,7 @@ const VORBEREITET: Vorlage[] = [
     /* WBL ELTU2, LS 1.2 Ausbildungsvertrag: Tims Thread mit acht Antworten,
        die Gruppen schreiben Community Notes dazu (Arbeitsblatt „Welche Antworten helfen Tim weiter?“) */
     code: "eltu2-tim",
+    stand: 2,
     titel: "Tims Thread: Welche Antworten helfen Tim weiter?",
     klasse: "ELTU2",
     status: "offen",
@@ -555,7 +563,7 @@ const VORBEREITET: Vorlage[] = [
 
 ## Antwort 1 · @rene_montage · stimmt teilweise
 - § 20 und § 22 Abs. 1 BBiG
-- **Note:** „Stimmt nur teilweise: In der Probezeit können beide Seiten ohne Frist kündigen (§ 22 Abs. 1 BBiG). Die Probezeit gehört aber schon zur Ausbildung, deine Rechte gelten also ab dem ersten Tag (§ 20 BBiG).“
+- **Note:** „Stimmt nur teilweise: In der Probezeit können beide Seiten ohne Frist kündigen (§ 22 Abs. 1 BBiG). Die Probezeit gehört aber schon zur Ausbildung, alle Rechte gelten also ab dem ersten Tag (§ 20 BBiG).“
 - Für die Auswertung: Das Risiko ist echt. Wie Tim es klug anspricht, ist die Frage für DS 3.
 
 ## Antwort 2 · @dennis_kabel · falsch
@@ -568,7 +576,7 @@ const VORBEREITET: Vorlage[] = [
 
 ## Antwort 4 · @maik_elektro · falsch
 - § 13 Satz 2 Nr. 7 und § 14 Abs. 2 BBiG
-- **Note:** „Falsch: Das Berichtsheft zu führen ist deine Pflicht (§ 13 Nr. 7 BBiG). Der Betrieb muss es regelmäßig durchsehen und dir Zeit dafür am Arbeitsplatz geben (§ 14 Abs. 2 BBiG).“
+- **Note:** „Falsch: Azubis müssen das Berichtsheft führen (§ 13 Nr. 7 BBiG). Der Betrieb muss es regelmäßig durchsehen und Zeit dafür am Arbeitsplatz geben (§ 14 Abs. 2 BBiG).“
 - Zusatz: Ohne unterschriebenes Berichtsheft keine Zulassung zur Gesellenprüfung (§ 36 Abs. 1 Nr. 2 HwO).
 
 ## Antwort 5 · @jule_volt · falsch
@@ -577,7 +585,7 @@ const VORBEREITET: Vorlage[] = [
 
 ## Antwort 6 · @kevin_baustelle · stimmt teilweise
 - § 14 Abs. 3 BBiG
-- **Note:** „Stimmt so nicht: Sind alle im Team reihum dran, bist du es auch. Zum Problem wird es, wenn solche Aufgaben deine Ausbildung verdrängen (§ 14 Abs. 3 BBiG).“
+- **Note:** „Stimmt so nicht: Sind alle im Team reihum dran, gilt das auch für Azubis. Zum Problem wird es, wenn solche Aufgaben die Ausbildung verdrängen (§ 14 Abs. 3 BBiG).“
 - Kontrast zu Antwort 2: einmal reihum mit dem Team oder jede Woche für den Chef privat.
 
 ## Antwort 7 · @lea_lichtwerk · falsch
@@ -598,20 +606,44 @@ const VORBEREITET: Vorlage[] = [
 ];
 
 async function legeVorbereiteteRaeumeAn(kv: Deno.Kv) {
-  for (const v of VORBEREITET) {
+  for (const { stand, ...v } of VORBEREITET) {
     const raumKey = ["rooms", v.code];
     const vermerk = ["meta", "vorbereitet", v.code];
     const jetzt = Date.now();
     /* Thread-Räume: Der angeheftete Post liegt so weit zurück, dass alle Antworten schon „gepostet“ sind */
     const vorlauf = Math.max(0, ...(v.antworten ?? []).map((a) => a.nach)) * 60_000;
-    const raum: Raum = { ...v, pin: { ...v.pin, ts: jetzt - vorlauf }, bild: null, erstellt: jetzt, geaendert: jetzt };
+    const raum: Raum = {
+      ...v,
+      pin: { ...v.pin, ts: jetzt - vorlauf },
+      bild: null,
+      ...(stand ? { vorlageStand: stand } : {}),
+      erstellt: jetzt,
+      geaendert: jetzt,
+    };
     const ok = await kv.atomic()
       .check({ key: raumKey, versionstamp: null })
       .check({ key: vermerk, versionstamp: null })
       .set(raumKey, raum)
       .set(vermerk, jetzt)
       .commit();
-    if (ok.ok) console.log(`Vorbereiteter Raum ${v.code} angelegt.`);
+    if (ok.ok) {
+      console.log(`Vorbereiteter Raum ${v.code} angelegt.`);
+      continue;
+    }
+    /* Raum gibt es schon: nur bei höherem Stand die Vorlage-Inhalte nachziehen */
+    if (!stand) continue;
+    const da = await kv.get<Raum>(raumKey);
+    if (!da.value || (da.value.vorlageStand ?? 0) >= stand) continue;
+    const neu: Raum = {
+      ...da.value,
+      eh: v.eh,
+      kriterien: v.kriterien,
+      zahlen: v.zahlen,
+      ...(v.antworten ? { antworten: v.antworten, notes: !!v.notes } : {}),
+      vorlageStand: stand,
+    };
+    const ok2 = await kv.atomic().check(da).set(raumKey, neu).commit();
+    if (ok2.ok) console.log(`Vorbereiteter Raum ${v.code} auf Stand ${stand} gebracht.`);
   }
 }
 
