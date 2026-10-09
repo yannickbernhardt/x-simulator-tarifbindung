@@ -154,6 +154,39 @@
 
   .fehlerbanner { margin: 16px 24px 0; padding: 14px 18px; border-radius: 16px; border: 1px solid var(--red); }
 
+  /* ---------- Thread-Räume: angehefteter Post, Antworten, Community Notes ---------- */
+  .faden { max-width: 1500px; margin: 0 auto; }
+  .op { border: 1px solid var(--border); border-radius: 16px; margin-bottom: 16px; }
+  .op .post { border: 0; padding: 18px 20px 8px; }
+  .op .post-head { font-size: calc(var(--fs) * 0.75); line-height: 1.3; }
+  .op .post-text { font-size: calc(var(--fs) * 1.1); line-height: 1.35; margin-top: 6px; }
+  .op .actions { pointer-events: none; }
+  .agrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); gap: 16px; align-items: start; }
+  .akarte { border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px 14px; }
+  .akopf { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .anr { font-size: 13px; font-weight: 800; color: var(--blue); background: rgba(29, 155, 240, 0.12); border-radius: 9999px; padding: 3px 10px; }
+  .alikes { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-weight: 800; font-size: 18px; }
+  .alikes.an { color: var(--pink); }
+  .alikes .ic { width: 20px; height: 20px; }
+  .arow { display: flex; gap: 10px; }
+  .amain { flex: 1; min-width: 0; }
+  .amain .post-head { font-size: calc(var(--fs) * 0.7); line-height: 1.3; }
+  .atext { font-size: var(--fs); line-height: 1.35; margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .notes { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .karte.notekarte { margin: 0; padding: 10px 12px 8px; border-radius: 12px; border-style: dashed; }
+  .note-kopf { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); min-width: 0; }
+  .note-kopf .nm { color: var(--text); font-weight: 700; }
+  .note-text { font-size: calc(var(--fs) * 0.8); line-height: 1.35; margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .notekarte .marken { padding: 8px 0 0; }
+  .karte.live-karte { margin: 0; border: 0; background: none; border-radius: 16px; }
+  .live-karte .cnote { margin-top: 0; }
+  .live-karte .cnote-text { font-size: calc(var(--fs) * 0.85); line-height: 1.35; }
+  .keine { color: var(--muted); font-size: 14px; padding: 2px; }
+  .wand-rest { columns: 3 400px; column-gap: 16px; margin-top: 16px; }
+  .spot-bezug { color: var(--muted); font-size: 20px; line-height: 1.4; margin: 24px 0 0; padding: 12px 16px; border: 1px solid var(--border); border-radius: 16px; }
+  .spot-bezug b { color: var(--text); }
+  .spot .bewertung .chip.live.on { background: var(--green); border-color: var(--green); }
+
   /* ---------- Druckansicht ---------- */
   #druck { display: none; }
   @media print {
@@ -219,7 +252,7 @@
 <div class="toast" id="toast" role="status"></div>
 
 <script type="module">
-import { icon, esc, formatiere, avatarHtml, relativ, langesDatum, zahl, bildUrl, ehHtml } from "/x.js";
+import { icon, esc, formatiere, avatarHtml, relativ, langesDatum, zahl, bildUrl, ehHtml, pinAusRaum, noteHtml } from "/x.js";
 import { analysiere } from "/zaehlen.js";
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -348,6 +381,7 @@ function mitZahlen(html) {
 
 function markenHtml(p) {
   const m = [];
+  if (p.zu && !p.live) m.push(`<span class="marke aus">Entwurf</span>`);
   if (p.badge === "ok") m.push(`<span class="marke ok">✓ Zahlen korrekt</span>`);
   if (p.badge === "fehler") m.push(`<span class="marke fehler">⚠ Fehler</span>`);
   for (const id of p.checks ?? []) {
@@ -387,6 +421,73 @@ function karteHtml(p, jetzt) {
   </div>`;
 }
 
+/* ---------- Thread-Räume: Antworten mit Note-Vorschlägen ---------- */
+function antworten() { return stand.raum?.antworten ?? []; }
+function antwortNr(id) { return antworten().findIndex((a) => a.id === id) + 1; }
+
+function werkzeugNote(p) {
+  return `<div class="werkzeug">
+      <button data-w="live" title="${p.live ? "Live zurücknehmen" : "Live schalten"}">${p.live ? "↩" : "✓"}</button>
+      <button data-w="auge" title="${p.hidden ? "Wieder einblenden" : "Ausblenden"}">${p.hidden ? "👁" : "🙈"}</button>
+      <button data-w="del" class="rot" title="Löschen">${icon("trash")}</button>
+    </div>`;
+}
+
+/* Entwurf: kleine Karte unter der Antwort */
+function noteKarteHtml(p, jetzt) {
+  const a = anzeigePerson(p);
+  return `<div class="karte notekarte${p.hidden ? " versteckt" : ""}" data-id="${esc(p.id)}">
+    ${werkzeugNote(p)}
+    <div class="note-kopf">${avatarHtml(a.avatar, 26)}<span class="nm">${esc(a.name)}</span><span>@${esc(a.handle)}</span><span>·</span><time>${relativ(p.ts, jetzt)}</time></div>
+    <div class="note-text">${formatiere(p.text)}</div>
+    ${markenHtml(p)}
+  </div>`;
+}
+
+/* Live: Kasten im Community-Notes-Look, so wie ihn die Klasse sieht */
+function liveKarteHtml(p) {
+  return `<div class="karte live-karte${p.hidden ? " versteckt" : ""}" data-id="${esc(p.id)}">
+    ${werkzeugNote(p)}
+    ${noteHtml(p.text, opt.anonym ? "Live · von der Klasse als hilfreich bewertet" : `Live · vorgeschlagen von @${p.handle}`)}
+  </div>`;
+}
+
+function fadenHtml(jetzt) {
+  const r = stand.raum;
+  const pin = pinAusRaum(r);
+  const likesPin = stand.pinned?.likes ?? 0;
+  const op = `<div class="op"><article class="post"><div class="post-row">
+      <div class="post-av">${avatarHtml(pin.avatar, 52)}</div>
+      <div class="post-main">
+        <div class="post-head"><span class="nm">${esc(pin.name)}</span>${pin.verified ? icon("verified", "vf") : ""}<span class="hd">@${esc(pin.handle)}</span><span class="dot">·</span><time>${relativ(pin.ts, jetzt)}</time></div>
+        <div class="post-text">${formatiere(pin.text)}</div>
+        <div class="actions">
+          <span class="act">${icon("reply")}<span>${antworten().length}</span></span>
+          <span class="act">${icon("repost")}<span></span></span>
+          <span class="act ${likesPin ? "a-like on" : ""}">${icon(likesPin ? "liked" : "like")}<span>${zahl(likesPin)}</span></span>
+          <span class="act">${icon("views")}<span>${zahl(stand.pinned?.views)}</span></span>
+          <span class="act">${icon("bookmark")}</span>
+        </div>
+      </div></div></article></div>`;
+  const st = new Map((stand.antwortStand ?? []).map((x) => [x.id, x]));
+  const notes = sortiert().filter((p) => p.zu);
+  const karten = antworten().map((a, i) => {
+    const likes = st.get(a.id)?.likes ?? 0;
+    const zuDieser = notes.filter((p) => p.zu === a.id);
+    const live = zuDieser.filter((p) => p.live).map(liveKarteHtml).join("");
+    const entwuerfe = zuDieser.filter((p) => !p.live).map((p) => noteKarteHtml(p, jetzt)).join("");
+    return `<section class="akarte">
+      <div class="akopf"><span class="anr">Antwort ${i + 1}</span><span class="alikes${likes ? " an" : ""}" title="Likes der Klasse">${icon(likes ? "liked" : "like")}${likes}</span></div>
+      <div class="arow">${avatarHtml({ e: a.e, c: a.c }, 44)}<div class="amain">
+        <div class="post-head"><span class="nm">${esc(a.name)}</span><span class="hd">@${esc(a.handle)}</span></div>
+        <div class="atext">${formatiere(a.text)}</div>
+      </div></div>
+      <div class="notes">${live}${entwuerfe || (live ? "" : `<div class="keine">Noch keine Note</div>`)}</div>
+    </section>`;
+  }).join("");
+  return `<div class="faden">${op}<div class="agrid">${karten}</div></div>`;
+}
+
 let letzteSignatur = "";
 function render() {
   const jetzt = Date.now() + versatz;
@@ -395,11 +496,18 @@ function render() {
   $("#nPosts").textContent = sichtbar;
   $("#nGeraete").textContent = stand.geraete;
 
-  const sig = JSON.stringify([liste, opt, Math.floor(jetzt / 30000)]);
+  const sig = JSON.stringify([liste, opt, stand.antwortStand ?? null, stand.pinned ?? null, Math.floor(jetzt / 30000)]);
   if (sig === letzteSignatur) return;
   letzteSignatur = sig;
 
-  if (!liste.length) {
+  if (antworten().length) {
+    /* Thread-Raum: angehefteter Post, darunter die Antworten mit ihren Notes */
+    const ohneBezug = liste.filter((p) => !p.zu);
+    $("#wand").style.columns = "auto";
+    $("#wand").innerHTML = fadenHtml(jetzt) +
+      (ohneBezug.length ? `<div class="wand-rest">${ohneBezug.map((p) => karteHtml(p, jetzt)).join("")}</div>` : "");
+    if (bekannteIds) for (const p of liste) if (!bekannteIds.has(p.id)) $(`.karte[data-id="${CSS.escape(p.id)}"]`)?.classList.add("neu");
+  } else if (!liste.length) {
     $("#wand").style.columns = "auto";
     $("#wand").innerHTML = `<div class="leer-wand">
       <h2>Noch keine Posts</h2>
@@ -433,6 +541,7 @@ $("#wand").addEventListener("click", async (e) => {
   const p = stand.posts.find((x) => x.id === id);
   const w = e.target.closest("[data-w]")?.dataset.w;
   if (!w) return zeigeSpot(id);
+  if (w === "live") return patch(id, { live: !p.live });
   if (w === "auge") return patch(id, { hidden: !p.hidden });
   if (w === "ok") return patch(id, { badge: p.badge === "ok" ? null : "ok" });
   if (w === "fehler") return patch(id, { badge: p.badge === "fehler" ? null : "fehler" });
@@ -457,6 +566,10 @@ function zeigeSpot(id) {
   const p = liste[i];
   const a = anzeigePerson(p);
   const kr = KRITERIEN.map((k) => `<button class="chip kr ${p.checks?.includes(k.id) ? "on" : ""}" data-k="${k.id}">${esc(k.label)}</button>`).join("");
+  /* Community Note: Bezug zur Antwort und Live-Schalter */
+  const bezugA = p.zu ? antworten().find((x) => x.id === p.zu) : null;
+  const bezug = bezugA ? `<div class="spot-bezug">Note zu Antwort ${antwortNr(bezugA.id)} von <b>@${esc(bezugA.handle)}</b>: ${formatiere(bezugA.text)}</div>` : "";
+  const liveChip = p.zu ? `<button class="chip live ${p.live ? "on" : ""}" data-b="live">${p.live ? "✓ live" : "Live schalten"}</button><span class="trenn"></span>` : "";
   overlay(`<div class="spot-back" id="spotBack">
     <div class="spot-nav">
       <button class="rund" data-s="zu" aria-label="Schließen">${icon("close")}</button>
@@ -468,13 +581,15 @@ function zeigeSpot(id) {
     </div>
     <div class="spot">
       <div class="kopfzeile">${avatarHtml(a.avatar, 64)}<div><div class="nm">${esc(a.name)}</div><div class="hd">@${esc(a.handle)}</div></div></div>
+      ${bezug}
       <div class="text">${mitZahlen(formatiere(p.text))}</div>
       <div class="meta">${langesDatum(p.ts)} · <b>${zahl(p.views) || 0}</b> Aufrufe${p.edited ? " · bearbeitet" : ""}</div>
       <div class="likes"><b>${p.likes}</b> ${p.likes === 1 ? "Gefällt mir" : "„Gefällt mir“-Angaben"}</div>
       <div class="bewertung">
-        <button class="chip ok ${p.badge === "ok" ? "on" : ""}" data-b="ok">✓ Zahlen korrekt</button>
+        ${liveChip}
+        ${p.zu ? "" : `<button class="chip ok ${p.badge === "ok" ? "on" : ""}" data-b="ok">✓ Zahlen korrekt</button>
         <button class="chip fehler ${p.badge === "fehler" ? "on" : ""}" data-b="fehler">⚠ Fehler</button>
-        <span class="trenn"></span>
+        <span class="trenn"></span>`}
         ${kr}
       </div>
       <div class="zeichen">${analysiere(p.text).gewicht} / 280 Zeichen</div>
@@ -491,6 +606,7 @@ $("#overlay").addEventListener("click", (e) => {
   if (s === "vor" || s === "nach") return blaettern(s === "vor" ? -1 : 1);
   if (!spotId) return;
   const p = stand.posts.find((x) => x.id === spotId);
+  if (b === "live") return patch(spotId, { live: !p.live });
   if (b) return patch(spotId, { badge: p.badge === b ? null : b });
   if (k) {
     const c = new Set(p.checks ?? []);
@@ -562,9 +678,12 @@ $("#bEH").onclick = () => overlay(`<div class="panel-back"></div><aside class="p
 /* CSV mit BOM und Semikolon, damit Excel Umlaute und Spalten richtig liest */
 $("#bCsv").onclick = () => {
   const zelle = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const kopf = ["Zeit", "Name", "Handle", "Text", "Zeichen", "Likes", "Aufrufe", "Bewertung", "Kriterien", "Ausgeblendet"];
+  const thread = antworten().length > 0;
+  const kopf = ["Zeit", "Name", "Handle", ...(thread ? ["Note zu", "Live"] : []), "Text", "Zeichen", "Likes", "Aufrufe", "Bewertung", "Kriterien", "Ausgeblendet"];
   const zeilen = [...stand.posts].sort((a, b) => a.ts - b.ts).map((p) => [
-    new Date(p.ts).toLocaleString("de-DE"), p.name, "@" + p.handle, p.text, analysiere(p.text).gewicht, p.likes, p.views,
+    new Date(p.ts).toLocaleString("de-DE"), p.name, "@" + p.handle,
+    ...(thread ? [p.zu ? `Antwort ${antwortNr(p.zu)}` : "", p.live ? "ja" : ""] : []),
+    p.text, analysiere(p.text).gewicht, p.likes, p.views,
     p.badge === "ok" ? "Zahlen korrekt" : p.badge === "fehler" ? "Fehler" : "",
     (p.checks ?? []).map((id) => KRITERIEN.find((k) => k.id === id)?.label).filter(Boolean).join(", "),
     p.hidden ? "ja" : "",
@@ -581,7 +700,7 @@ $("#bCsv").onclick = () => {
 $("#bDruck").onclick = () => {
   const liste = [...stand.posts].filter((p) => !p.hidden).sort((a, b) => a.ts - b.ts);
   $("#druck").innerHTML = `<h1>${esc([stand.raum.klasse, stand.raum.titel].filter(Boolean).join(" · "))} – X-Nachrichten (${new Date().toLocaleDateString("de-DE")})</h1>` +
-    liste.map((p, i) => `<div class="d-post"><div class="d-kopf">${i + 1}. ${esc(p.name)} <span>@${esc(p.handle)}</span></div><div class="d-text">${esc(p.text)}</div><div class="d-meta">${analysiere(p.text).gewicht}/280 Zeichen · ${p.likes} Likes</div></div>`).join("");
+    liste.map((p, i) => `<div class="d-post"><div class="d-kopf">${i + 1}. ${esc(p.name)} <span>@${esc(p.handle)}</span></div><div class="d-text">${esc(p.text)}</div><div class="d-meta">${p.zu ? `Note zu Antwort ${antwortNr(p.zu)}${p.live ? " (live)" : ""} · ` : ""}${analysiere(p.text).gewicht}/280 Zeichen · ${p.likes} Likes</div></div>`).join("");
   window.print();
 };
 

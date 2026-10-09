@@ -30,6 +30,9 @@ const BILD_TYPEN = ["image/png", "image/jpeg", "image/webp", "image/gif", "image
    alle Schüler*innen dieselbe öffentliche IP. */
 
 type Status = "offen" | "pausiert" | "geschlossen";
+/* Vorbereitete Antworten unter dem angehefteten Post (Thread-Räume).
+   nach = Minuten nach dem angehefteten Post, daraus entsteht die Zeitangabe. */
+type Antwort = { id: string; name: string; handle: string; e: string; c: string; text: string; nach: number };
 type Raum = {
   code: string;
   titel: string;
@@ -49,6 +52,10 @@ type Raum = {
   kriterien: string[];
   zahlen: number[];
   eh: string;
+  /* Nur Thread-Räume: Antworten unter dem angehefteten Post und Community-Notes-Modus
+     (Posts sind dann Note-Vorschläge zu einer Antwort, die Lehrkraft schaltet sie live) */
+  antworten?: Antwort[];
+  notes?: boolean;
   erstellt: number;
   geaendert: number;
 };
@@ -65,6 +72,8 @@ type Post = {
   hidden?: boolean;
   badge?: "ok" | "fehler" | null;
   checks?: string[];
+  zu?: string; // Community Note: ID der Antwort, zu der die Note gehört
+  live?: boolean; // Community Note: von der Lehrkraft live geschaltet
 };
 
 /* Ohne angehängte KV-Datenbank soll die App trotzdem starten und das im
@@ -220,6 +229,9 @@ function raumAusBody(b: Record<string, unknown>, alt?: Raum): Raum {
       .filter((z) => Number.isFinite(z))
       .slice(0, 80),
     eh: mehrzeilig(b.eh, 8000),
+    /* Antworten und Notes-Modus gibt es nur in vorbereiteten Räumen;
+       die Verwaltung schickt sie nicht mit, sie bleiben beim Speichern erhalten */
+    ...(alt?.antworten?.length ? { antworten: alt.antworten, notes: !!alt.notes } : {}),
     erstellt: alt?.erstellt ?? jetzt,
     geaendert: jetzt,
   };
@@ -234,8 +246,14 @@ function raumOeffentlich(r: Raum, lehrer: boolean) {
     status: r.status,
     pin: r.pin,
     bild: r.bild ? { v: r.bild.v } : null,
+    antworten: r.antworten ?? [],
+    notes: !!r.notes,
   };
   return lehrer ? { ...basis, kriterien: r.kriterien, zahlen: r.zahlen, eh: r.eh } : basis;
+}
+
+function istAntwort(r: Raum, id: string): boolean {
+  return (r.antworten ?? []).some((a) => a.id === id);
 }
 
 async function speichereBild(kv: Deno.Kv, code: string, daten: Uint8Array, typ: string) {
@@ -324,7 +342,8 @@ async function beanspruche(kv: Deno.Kv, code: string, handle: string, clientId: 
 
 function handleReserviert(r: Raum, h: string): boolean {
   const k = h.toLowerCase();
-  return RESERVIERT.includes(k) || k === r.pin.handle.toLowerCase();
+  return RESERVIERT.includes(k) || k === r.pin.handle.toLowerCase() ||
+    (r.antworten ?? []).some((a) => a.handle.toLowerCase() === k);
 }
 
 /* ---------- Übernahme der ersten Version (ein Raum, Schlüssel ohne Raumcode) ---------- */
@@ -483,6 +502,99 @@ const VORBEREITET: Vorlage[] = [
 - 13 Cent (1. Oktober, im Schnitt) und 12 Cent (Mai, Diesel) verwechselt
 - Meinung statt Beleg („weil Sprit eh zu teuer ist“)`,
   },
+  {
+    /* WBL ELTU2, LS 1.2 Ausbildungsvertrag: Tims Thread mit acht Antworten,
+       die Gruppen schreiben Community Notes dazu (Arbeitsblatt „Welche Antworten helfen Tim weiter?“) */
+    code: "eltu2-tim",
+    titel: "Tims Thread: Welche Antworten helfen Tim weiter?",
+    klasse: "ELTU2",
+    status: "offen",
+    pin: {
+      name: "Tim",
+      handle: "tim_azubi",
+      e: "🙋‍♂️",
+      c: "#1D9BF0",
+      verifiziert: false,
+      text:
+        "Bin seit ein paar Wochen Azubi als Elektroniker. Mein Chef lässt mich jede Woche seinen Privatwagen waschen. Überstunden gibt's weder bezahlt noch frei. Mein Berichtsheft hat noch nie jemand angeguckt. Ein Kollege meint, in der Probezeit lieber Klappe halten. Was meint ihr? 🤔",
+      alt: "",
+    },
+    antworten: [
+      { id: "a1", name: "René", handle: "rene_montage", e: "🔧", c: "#FF7A00", nach: 4,
+        text: "Probezeit = Klappe halten. Sonst bist du schneller raus, als du gucken kannst. Hab ich selbst so erlebt 🤐" },
+      { id: "a2", name: "Dennis", handle: "dennis_kabel", e: "💪", c: "#00BA7C", nach: 9,
+        text: "Autowaschen gehört halt dazu. Lehrjahre sind keine Herrenjahre 🤷‍♂️" },
+      { id: "a3", name: "Sarah", handle: "sarah_sicherung", e: "🔌", c: "#F91880", nach: 13,
+        text: "Überstunden kriegst du als Azubi nie bezahlt. Ist überall so 💸" },
+      { id: "a4", name: "Maik", handle: "maik_elektro", e: "😎", c: "#7856FF", nach: 21,
+        text: "Berichtsheft guckt eh keiner an. Schreib alles kurz vor der Prüfung, hab ich auch so gemacht 😎" },
+      { id: "a5", name: "Jule", handle: "jule_volt", e: "⚡", c: "#005A9C", nach: 26,
+        text: "Und Werkzeug und Material für die Gesellenprüfung zahlst du dann auch selbst. Spar schon mal 😬" },
+      { id: "a6", name: "Kevin", handle: "kevin_baustelle", e: "🏗️", c: "#F4B43A", nach: 34,
+        text: "Kaffee holen, Werkstatt fegen: alles ausbildungsfremd. Musst du NIE machen 💅" },
+      { id: "a7", name: "Lea", handle: "lea_lichtwerk", e: "💡", c: "#00A3A3", nach: 41,
+        text: "Weisungen musst du als Azubi eh nicht befolgen. Bist ja kein richtiger Mitarbeiter 😏" },
+      { id: "a8", name: "Ole", handle: "ole_verteiler", e: "🧰", c: "#B5651D", nach: 55,
+        text: "Nach der Probezeit kann dein Chef dich nicht mehr einfach so rauswerfen 👍" },
+    ],
+    notes: true,
+    kriterien: [
+      "Urteil klar: stimmt, teilweise oder falsch",
+      "Passender Paragraf genannt",
+      "Inhalt rechtlich richtig",
+      "Höchstens zwei Sätze",
+      "Verständlich im ersten Ausbildungsjahr",
+      "Fair aus Azubi- und Betriebssicht",
+    ],
+    zahlen: [],
+    eh: `## Ablauf
+- Einstieg: Thread am Beamer. Likes oder Handzeichen: Welcher Antwort würden Sie folgen?
+- Notes: acht Gruppen, Gruppe n übernimmt Antwort n und postet eine Note (oder begründet „keine Note nötig“)
+- Bewerten: Gruppe n bewertet die Note zu Antwort n+1 aus Azubi-Sicht und die zu Antwort n+2 aus Betriebssicht (nach 8 kommt 1)
+- Live: Was beide Bewertungen „hilfreich“ hat, mit ✓ live schalten. Den Rest in der Auswertung gemeinsam verbessern.
+
+## Antwort 1 · @rene_montage · stimmt teilweise
+- § 20 und § 22 Abs. 1 BBiG
+- **Note:** „Stimmt nur teilweise: In der Probezeit können beide Seiten ohne Frist kündigen (§ 22 Abs. 1 BBiG). Die Probezeit gehört aber schon zur Ausbildung, deine Rechte gelten also ab dem ersten Tag (§ 20 BBiG).“
+- Für die Auswertung: Das Risiko ist echt. Wie Tim es klug anspricht, ist die Frage für DS 3.
+
+## Antwort 2 · @dennis_kabel · falsch
+- § 14 Abs. 3 BBiG
+- **Note:** „Falsch: Azubis dürfen nur Aufgaben bekommen, die der Ausbildung dienen. Den Privatwagen des Chefs zu waschen gehört nicht dazu (§ 14 Abs. 3 BBiG).“
+
+## Antwort 3 · @sarah_sicherung · falsch
+- § 17 Abs. 7 BBiG
+- **Note:** „Falsch: Überstunden muss der Betrieb extra bezahlen oder mit Freizeit ausgleichen (§ 17 Abs. 7 BBiG).“
+
+## Antwort 4 · @maik_elektro · falsch
+- § 13 Satz 2 Nr. 7 und § 14 Abs. 2 BBiG
+- **Note:** „Falsch: Das Berichtsheft zu führen ist deine Pflicht (§ 13 Nr. 7 BBiG). Der Betrieb muss es regelmäßig durchsehen und dir Zeit dafür am Arbeitsplatz geben (§ 14 Abs. 2 BBiG).“
+- Zusatz: Ohne unterschriebenes Berichtsheft keine Zulassung zur Gesellenprüfung (§ 36 Abs. 1 Nr. 2 HwO).
+
+## Antwort 5 · @jule_volt · falsch
+- § 14 Abs. 1 Nr. 3 BBiG
+- **Note:** „Falsch: Werkzeuge, Werkstoffe und Fachliteratur muss der Betrieb kostenlos stellen, auch für die Prüfungen (§ 14 Abs. 1 Nr. 3 BBiG).“
+
+## Antwort 6 · @kevin_baustelle · stimmt teilweise
+- § 14 Abs. 3 BBiG
+- **Note:** „Stimmt so nicht: Sind alle im Team reihum dran, bist du es auch. Zum Problem wird es, wenn solche Aufgaben deine Ausbildung verdrängen (§ 14 Abs. 3 BBiG).“
+- Kontrast zu Antwort 2: einmal reihum mit dem Team oder jede Woche für den Chef privat.
+
+## Antwort 7 · @lea_lichtwerk · falsch
+- § 13 Satz 2 Nr. 3 BBiG
+- **Note:** „Falsch: Azubis müssen Weisungen befolgen, die im Rahmen der Ausbildung erteilt werden (§ 13 Nr. 3 BBiG). Für den Privatwagen des Chefs gilt das nicht.“
+
+## Antwort 8 · @ole_verteiler · stimmt
+- § 22 Abs. 2 und 3 BBiG
+- **Keine Note nötig.** Falls doch: „Stimmt: Nach der Probezeit darf der Betrieb nur aus einem wichtigen Grund kündigen, schriftlich und mit Begründung (§ 22 Abs. 2 und 3 BBiG).“
+
+## Typische Fehler
+- § 13 (Pflichten der Azubis) und § 14 (Pflichten des Betriebs) verwechselt
+- „nie“ und „immer“ übernommen, statt sie zu prüfen
+- Note ohne Paragraf oder mit einem Paragrafen, der nicht passt
+- Antwort 8 „korrigiert“, obwohl sie stimmt
+- Probezeit als Zeit ohne Rechte verstanden`,
+  },
 ];
 
 async function legeVorbereiteteRaeumeAn(kv: Deno.Kv) {
@@ -490,7 +602,9 @@ async function legeVorbereiteteRaeumeAn(kv: Deno.Kv) {
     const raumKey = ["rooms", v.code];
     const vermerk = ["meta", "vorbereitet", v.code];
     const jetzt = Date.now();
-    const raum: Raum = { ...v, pin: { ...v.pin, ts: jetzt }, bild: null, erstellt: jetzt, geaendert: jetzt };
+    /* Thread-Räume: Der angeheftete Post liegt so weit zurück, dass alle Antworten schon „gepostet“ sind */
+    const vorlauf = Math.max(0, ...(v.antworten ?? []).map((a) => a.nach)) * 60_000;
+    const raum: Raum = { ...v, pin: { ...v.pin, ts: jetzt - vorlauf }, bild: null, erstellt: jetzt, geaendert: jetzt };
     const ok = await kv.atomic()
       .check({ key: raumKey, versionstamp: null })
       .check({ key: vermerk, versionstamp: null })
@@ -729,9 +843,17 @@ Deno.serve({ port: PORT }, async (req: Request) => {
             views: Math.max(1, aufrufe(p.ts)),
             mine: !!cid && p.clientId === cid,
             hidden: !!p.hidden,
+            zu: p.zu ?? null,
+            live: !!p.live,
             ...(lehrer ? { badge: p.badge ?? null, checks: p.checks ?? [] } : {}),
           })),
         pinned: { likes: likes.anzahl.get(PIN_ID) ?? 0, liked: meine.has(PIN_ID), views: gesehen.length },
+        antwortStand: (r.antworten ?? []).map((a) => ({
+          id: a.id,
+          likes: likes.anzahl.get(a.id) ?? 0,
+          liked: meine.has(a.id),
+          views: Math.max(1, aufrufe(r.pin.ts + a.nach * 60_000)),
+        })),
         geraete: gesehen.length,
       });
     }
@@ -770,6 +892,9 @@ Deno.serve({ port: PORT }, async (req: Request) => {
       if (!text) return fehler("Der Post ist leer.");
       if (analysiere(text).gewicht > 280) return fehler("Dein Post ist länger als 280 Zeichen.");
       if (!handleGueltig(handle) || handleReserviert(r, handle)) return fehler("Ungültiger Benutzername.");
+      /* Im Notes-Modus gehört jeder Post als Note-Vorschlag zu einer Antwort */
+      const zu = einzeilig(b.zu, 20);
+      if (r.notes && !istAntwort(r, zu)) return fehler("Wähle die Antwort aus, zu der deine Community Note gehört.");
       if (!(await beanspruche(kv, code, handle, cid))) {
         return fehler("Diesen Benutzernamen hat hier schon jemand. Bitte ändere ihn im Profil.", 409);
       }
@@ -796,6 +921,7 @@ Deno.serve({ port: PORT }, async (req: Request) => {
         text,
         ts,
         clientId: cid,
+        ...(r.notes ? { zu } : {}),
       };
       await kv.set(["posts", code, p.id], p, { expireIn: LEBENSDAUER });
       return json({ ok: true, id: p.id }, 201);
@@ -815,7 +941,9 @@ Deno.serve({ port: PORT }, async (req: Request) => {
       const b = await leseBody(req);
       const cid = einzeilig(b?.clientId, 64);
       if (!cid) return fehler("Gerätekennung fehlt.");
-      if (id !== PIN_ID && !(await kv.get(["posts", code, id])).value) return fehler("Diesen Post gibt es nicht mehr.", 404);
+      if (id !== PIN_ID && !istAntwort(r, id) && !(await kv.get(["posts", code, id])).value) {
+        return fehler("Diesen Post gibt es nicht mehr.", 404);
+      }
       if (b?.like === false) await kv.delete(["likes", code, id, cid]);
       else await kv.set(["likes", code, id, cid], true, { expireIn: LEBENSDAUER });
       return json({ ok: true });
@@ -842,6 +970,7 @@ Deno.serve({ port: PORT }, async (req: Request) => {
         const b = await leseBody(req);
         const cid = einzeilig(b?.clientId, 64);
         if (!(cid && p.clientId === cid)) return fehler("Das darfst du nicht bearbeiten.", 403);
+        if (p.live) return fehler("Diese Note ist schon live. Wenn du sie ändern willst, frag deine Lehrkraft.", 409);
         const text = mehrzeilig(b?.text, 2000);
         if (!text) return fehler("Der Post ist leer.");
         if (analysiere(text).gewicht > 280) return fehler("Dein Post ist länger als 280 Zeichen.");
@@ -855,6 +984,7 @@ Deno.serve({ port: PORT }, async (req: Request) => {
         if (!b) return fehler("Konnte die Anfrage nicht lesen.");
         const neu: Post = { ...p };
         if (typeof b.hidden === "boolean") neu.hidden = b.hidden;
+        if (typeof b.live === "boolean" && p.zu) neu.live = b.live;
         if ("badge" in b) neu.badge = b.badge === "ok" || b.badge === "fehler" ? b.badge : null;
         if (Array.isArray(b.checks)) neu.checks = b.checks.map((c) => einzeilig(c, 60)).filter(Boolean).slice(0, 20);
         await kv.set(["posts", code, id], neu, { expireIn: LEBENSDAUER });

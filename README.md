@@ -18,6 +18,15 @@ die Lehrkraft zeigt alle Posts live auf dem Beamer. Jede Klasse/Aufgabe ist ein 
 - **Status:** offen (Posten möglich) · pausiert (nur lesen/liken) · geschlossen (nicht erreichbar).
 - **QR-Code:** groß anzeigen, als PNG speichern, Link kopieren.
 
+## Thread-Räume mit Community Notes
+Ein vorbereiteter Raum (`VORBEREITET` in `main.ts`) kann `antworten` und `notes: true` haben,
+z. B. `eltu2-tim`: Unter dem angehefteten Post stehen feste Antworten (Likes möglich).
+Die Klasse schlägt zu einer Antwort eine **Community Note** vor („Community Note vorschlagen“).
+Vorschläge stehen unter „Vorschläge für Community Notes“, auf der Wand unter der jeweiligen Antwort.
+Mit ✓ schaltet die Lehrkraft eine Note **live**, dann erscheint sie bei allen als Kasten unter der Antwort.
+Live geschaltete Notes lassen sich nicht mehr bearbeiten. Antworten und Notes-Modus werden nur im Code
+gepflegt; Speichern in der Verwaltung lässt sie unverändert.
+
 ## Aufbau
 - `main.ts` – Deno-Server (nur Standardbibliothek), alles in Deno KV.
   Posts, Likes und Benutzernamen laufen nach 14 Tagen ab; Räume bleiben.

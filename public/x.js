@@ -37,6 +37,8 @@ const P = {
   person: "M5.651 19h12.698c-.337-1.8-1.023-3.21-1.945-4.19C15.318 13.65 13.838 13 12 13s-3.317.65-4.404 1.81c-.922.98-1.608 2.39-1.945 4.19zm.486-5.56C7.627 11.85 9.648 11 12 11s4.373.85 5.863 2.44c1.477 1.58 2.366 3.8 2.632 6.46l.11 1.1H3.395l.11-1.1c.266-2.66 1.155-4.88 2.632-6.46zM12 4c-1.105 0-2 .9-2 2s.895 2 2 2 2-.9 2-2-.895-2-2-2zM8 6c0-2.21 1.791-4 4-4s4 1.79 4 4-1.791 4-4 4-4-1.79-4-4z",
   moon: "M20.742 13.045c-.677.18-1.376.271-2.077.271-2.135 0-4.14-.83-5.646-2.336-2.025-2.021-2.799-4.993-2.064-7.735.1-.376-.008-.78-.285-1.057-.277-.278-.68-.38-1.057-.285-1.64.44-3.14 1.302-4.339 2.5-3.66 3.662-3.66 9.617 0 13.28 1.772 1.774 4.132 2.753 6.638 2.753s4.867-.975 6.64-2.75c1.2-1.198 2.062-2.698 2.5-4.338.1-.377-.008-.78-.285-1.057-.276-.276-.68-.382-1.057-.28zm-2.572 4.26c-1.4 1.4-3.26 2.17-5.24 2.17s-3.84-.77-5.24-2.17c-2.89-2.89-2.89-7.593 0-10.484.73-.73 1.584-1.293 2.518-1.664-.216 2.93.832 5.855 2.95 7.972 2.117 2.12 5.043 3.17 7.975 2.95-.37.935-.934 1.79-1.663 2.52z",
   flag: "M3 2h18.61l-3.5 7 3.5 7H5v6H3V2zm2 12h13.38l-2.5-5 2.5-5H5v10z",
+  /* Eigene Zeichnung: zwei Personen für Community Notes */
+  leute: "M9 4a3.5 3.5 0 1 1 0 7a3.5 3.5 0 1 1 0-7zM2.5 20.5c0-3.87 2.91-7 6.5-7s6.5 3.13 6.5 7v.5h-13zM16.5 5.75a2.75 2.75 0 1 1 0 5.5a2.75 2.75 0 1 1 0-5.5zM16.9 13.6c2.62.3 4.6 3.05 4.6 6.4v1h-4.05c-.1-2.75-1.05-5.2-2.65-6.85.63-.37 1.33-.57 2.1-.55z",
 };
 
 export function icon(name, cls = "") {
@@ -127,6 +129,33 @@ export function bildUrl(raum) {
   return raum.bild ? `/api/r/${encodeURIComponent(raum.code)}/bild?v=${raum.bild.v}` : "";
 }
 
+/* Thread-Räume: vorbereitete Antwort unter dem angehefteten Post als Post-Objekt.
+   st = Stand der Antwort vom Server (Likes, eigenes Like, Aufrufe) */
+export function antwortAlsPost(a, raum, st = {}) {
+  return {
+    id: a.id,
+    name: a.name,
+    handle: a.handle,
+    avatar: { e: a.e, c: a.c },
+    verified: false,
+    text: a.text,
+    ts: raum.pin.ts + a.nach * 60000,
+    likes: st.likes ?? 0,
+    liked: !!st.liked,
+    views: st.views ?? 0,
+    istAntwort: true,
+  };
+}
+
+/* Community Note als Kasten unter einem Post */
+export function noteHtml(text, fuss = "Von der Klasse als hilfreich bewertet") {
+  return `<div class="cnote">
+    <div class="cnote-kopf">${icon("leute")}<span>Community Note</span></div>
+    <div class="cnote-text" dir="auto">${formatiere(text)}</div>
+    <div class="cnote-fuss">${esc(fuss)}</div>
+  </div>`;
+}
+
 /* Mini-Format für den Erwartungshorizont:
    „## Überschrift“, „- Aufzählung“, **fett**, Leerzeile = neuer Absatz */
 export function ehHtml(text) {
@@ -176,6 +205,7 @@ export function postHtml(p, opt = {}) {
             ${opt.menu ? `<button class="more" data-act="menu" aria-label="Mehr">${icon("more")}</button>` : ""}
           </div>
           ${p.hidden && opt.hinweisVersteckt ? `<div class="hidden-note">Nur für dich sichtbar – die Lehrkraft hat diesen Post ausgeblendet.</div>` : ""}
+          ${opt.vorText ?? ""}
           <div class="post-text" dir="auto">${formatiere(p.text)}</div>
           ${opt.medien ?? ""}
           ${bearbeitet}

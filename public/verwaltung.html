@@ -186,7 +186,7 @@ function render() {
     <article class="raum" data-code="${esc(r.code)}">
       <div class="zeile"><span class="klasse">${esc(r.klasse || "ohne Klasse")}</span><span class="status ${r.status}">${STATUS_TEXT[r.status]}</span></div>
       <h2>${esc(r.titel)}</h2>
-      <div class="meta"><span class="code">/r/${esc(r.code)}</span> · ${r.n} ${r.n === 1 ? "Post" : "Posts"}${r.letzte ? ` · zuletzt vor ${relativ(r.letzte)}` : ""}</div>
+      <div class="meta"><span class="code">/r/${esc(r.code)}</span> · ${r.n} ${r.n === 1 ? "Post" : "Posts"}${r.letzte ? ` · zuletzt vor ${relativ(r.letzte)}` : ""}${r.antworten?.length ? ` · Thread mit ${r.antworten.length} Antworten${r.notes ? " und Community Notes" : ""}` : ""}</div>
       <div class="knoepfe">
         <a class="chip blau" href="${wandUrl(r.code)}">Wand öffnen</a>
         <button class="chip" data-a="qr">QR-Code</button>

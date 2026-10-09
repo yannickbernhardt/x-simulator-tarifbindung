@@ -247,6 +247,27 @@
   .drawer .it:hover { background: var(--bg-hover); }
   .drawer hr { border: 0; border-top: 1px solid var(--border); margin: 8px 16px; }
   .drawer .hinweis { color: var(--muted); font-size: 13px; line-height: 16px; padding: 16px; margin-top: auto; }
+
+  /* ---------- Thread-Räume mit Community Notes ---------- */
+  .antwort-an { color: var(--muted); margin: 1px 0 2px; }
+  .note-btn {
+    margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; color: var(--blue); font-weight: 700; font-size: 14px;
+    border: 1px solid var(--border-input); border-radius: 9999px; padding: 6px 12px 6px 10px;
+  }
+  .note-btn .ic { width: 16px; height: 16px; }
+  @media (hover: hover) { .note-btn:hover { background: rgba(29, 155, 240, 0.1); } }
+  .abschnitt { padding: 20px 16px 12px; border-bottom: 1px solid var(--border); }
+  .abschnitt h2 { font-size: 20px; line-height: 24px; font-weight: 800; margin: 0 0 4px; }
+  .abschnitt p { color: var(--muted); margin: 0; font-size: 14px; line-height: 18px; }
+  .bezug { flex: none; padding: 4px 16px 4px 64px; }
+  .bezug label { display: block; color: var(--muted); font-size: 13px; line-height: 16px; margin-bottom: 4px; }
+  .bezug select {
+    width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border-input); border-radius: 9999px;
+    padding: 8px 12px; font: inherit; font-size: 15px; font-weight: 700;
+  }
+  .bezug select:disabled { opacity: 0.7; }
+  .bezug-text { margin-top: 8px; border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; color: var(--muted); font-size: 14px; line-height: 18px; }
+  .bezug-text b { color: var(--text); }
 </style>
 </head>
 <body>
@@ -336,6 +357,7 @@
         <button class="pill pill-blue" id="postBtn" disabled>Posten</button>
       </div>
     </div>
+    <div class="bezug" id="bezug" hidden></div>
     <div class="c-body">
       <div class="c-row">
         <div id="cAv"></div>
@@ -365,7 +387,7 @@
 <div class="toast" id="toast" role="status"></div>
 
 <script type="module">
-import { icon, esc, postHtml, avatarHtml, relativ, zahl, pinAusRaum, bildUrl } from "/x.js";
+import { icon, esc, postHtml, avatarHtml, relativ, zahl, pinAusRaum, bildUrl, antwortAlsPost, noteHtml } from "/x.js";
 import { analysiere, MAX_GEWICHT } from "/zaehlen.js";
 
 /* ---------- Speicher (pro Gerät) ---------- */
@@ -580,6 +602,17 @@ function pinPost() {
   };
 }
 
+/* Thread-Räume: vorbereitete Antworten unter dem angehefteten Post */
+function antworten() { return stand.raum?.antworten ?? []; }
+function notesModus() { return !!stand.raum?.notes && antworten().length > 0; }
+function antwortStand(id) { return (stand.antwortStand ?? []).find((x) => x.id === id); }
+function antwortNr(id) { return antworten().findIndex((a) => a.id === id) + 1; }
+function antwortPost(id) {
+  const a = antworten().find((x) => x.id === id);
+  if (!a) return null;
+  return { ...antwortAlsPost(a, stand.raum, antwortStand(id)), bookmarked: lesezeichen.has(id) };
+}
+
 function render() {
   const feed = $("#feed");
   const oben = window.scrollY > 150;
@@ -606,19 +639,45 @@ function render() {
   if (raum.status === "pausiert") {
     html += `<div class="banner" style="border-color:var(--border)">⏸️ Posten ist gerade pausiert. Du kannst weiter lesen und liken.</div>`;
   }
+  const thread = antworten().length > 0;
   html += postHtml(pinPost(), {
     menu: true, jetzt: jetzt(),
-    oben: `<div class="pin-line">${icon("pin")}Angehefteter Post</div>`,
+    oben: thread ? "" : `<div class="pin-line">${icon("pin")}Angehefteter Post</div>`,
     medien: raum.bild
       ? `<button class="media" data-act="bild" aria-label="Bild ansehen"><img src="${bildUrl(raum)}" alt="${esc(raum.pin.alt || "Bild zur Aufgabe")}"></button>`
       : "",
   });
 
-  for (const p of sichtbar) {
-    html += postHtml({ ...p, bookmarked: lesezeichen.has(p.id) }, { menu: true, jetzt: jetzt(), hinweisVersteckt: true });
+  /* Thread: Antworten mit ihren live geschalteten Community Notes */
+  if (thread) {
+    const knopf = notesModus() && raum.status === "offen"
+      ? `<button class="note-btn" data-act="note">${icon("leute")}Community Note vorschlagen</button>` : "";
+    for (const a of antworten()) {
+      const live = stand.posts.filter((p) => p.zu === a.id && p.live && !p.hidden);
+      html += postHtml(antwortPost(a.id), {
+        menu: true, jetzt: jetzt(),
+        vorText: `<div class="antwort-an">Antwort an <span class="lnk">@${esc(raum.pin.handle)}</span></div>`,
+        medien: live.map((p) => noteHtml(p.text)).join("") + knopf,
+      });
+    }
+    if (notesModus()) {
+      html += `<div class="abschnitt"><h2>Vorschläge für Community Notes</h2><p>Live gehen Notes, die aus Azubi-Sicht und aus Betriebssicht hilfreich sind.</p></div>`;
+    }
   }
-  if (!sichtbar.length && !kvFehler) {
-    html += `<div class="leer" style="text-align:center"><p style="margin:24px 0 0">Noch keine Posts aus deiner Klasse.<br>Tippe auf ${icon("compose").replace('class="ic "', 'class="ic" style="display:inline;width:18px;height:18px;vertical-align:-3px;color:var(--blue)"')} und sei die*der Erste!</p></div>`;
+
+  /* Live geschaltete Notes stehen schon unter ihrer Antwort */
+  const liste = thread ? sichtbar.filter((p) => !p.live) : sichtbar;
+  for (const p of liste) {
+    const a = p.zu ? antworten().find((x) => x.id === p.zu) : null;
+    html += postHtml({ ...p, bookmarked: lesezeichen.has(p.id) }, {
+      menu: true, jetzt: jetzt(), hinweisVersteckt: true,
+      oben: a ? `<div class="pin-line">${icon("leute")}Note-Vorschlag zu Antwort ${antwortNr(a.id)} von @${esc(a.handle)}</div>` : "",
+    });
+  }
+  if (!liste.length && !kvFehler) {
+    html += notesModus()
+      ? `<div class="leer" style="text-align:center"><p style="margin:24px 0 0">Noch keine Vorschläge.<br>Tippe bei einer Antwort auf „Community Note vorschlagen“.</p></div>`
+      : `<div class="leer" style="text-align:center"><p style="margin:24px 0 0">Noch keine Posts aus deiner Klasse.<br>Tippe auf ${icon("compose").replace('class="ic "', 'class="ic" style="display:inline;width:18px;height:18px;vertical-align:-3px;color:var(--blue)"')} und sei die*der Erste!</p></div>`;
   }
 
   const vorher = angezeigt;
@@ -700,9 +759,10 @@ $("#feed").addEventListener("click", async (e) => {
   const art = btn.closest(".post");
   const id = art?.dataset.id;
   const act = btn.dataset.act;
-  const post = id === "pinned" ? pinPost() : stand.posts.find((p) => p.id === id);
+  const post = id === "pinned" ? pinPost() : antwortPost(id) ?? stand.posts.find((p) => p.id === id);
   if (!post) return;
 
+  if (act === "note") return oeffneCompose(null, id);
   if (act === "like") return like(btn, id);
   if (act === "bookmark") {
     const an = !lesezeichen.has(id);
@@ -719,13 +779,15 @@ $("#feed").addEventListener("click", async (e) => {
     return;
   }
   if (act === "bild") return lightbox();
+  if (act === "reply" && post.istAntwort && notesModus()) return toast("Tippe auf „Community Note vorschlagen“, um etwas richtigzustellen.");
   if (act === "reply" || act === "repost") return toast("Antworten und Reposten sind in dieser Simulation ausgeschaltet.");
   if (act === "views") return toast(`${post.views} Geräte aus deiner Klasse haben diesen Post gesehen.`);
   if (act === "menu") return menu(post);
 });
 
 async function like(btn, id) {
-  const liste = id === "pinned" ? stand.pinned : stand.posts.find((p) => p.id === id);
+  const liste = id === "pinned" ? stand.pinned : antwortStand(id) ?? stand.posts.find((p) => p.id === id);
+  if (!liste) return;
   const an = !liste.liked;
   liste.liked = an;
   liste.likes = Math.max(0, (liste.likes ?? 0) + (an ? 1 : -1));
@@ -759,10 +821,12 @@ document.addEventListener("keydown", (e) => {
 
 function menu(post) {
   const eigen = post.mine;
+  const noteItem = post.istAntwort && notesModus() && stand.raum.status === "offen"
+    ? `<button class="item" data-m="note">${icon("leute")}Community Note vorschlagen</button>` : "";
   const items = eigen
     ? `<button class="item rot" data-m="del">${icon("trash")}Löschen</button>
        <button class="item" data-m="edit">${icon("edit")}Post bearbeiten</button>`
-    : `<button class="item" data-m="nix">${icon("close")}Nicht interessiert an diesem Post</button>
+    : `${noteItem}<button class="item" data-m="nix">${icon("close")}Nicht interessiert an diesem Post</button>
        <button class="item" data-m="flag">${icon("flag")}Post melden</button>`;
   overlay(`<div class="sheet-back" data-zu></div><div class="sheet"><div class="griff"></div>${items}<button class="pill pill-out abbrechen" data-zu style="min-height:44px">Abbrechen</button></div>`);
   $("#overlay .sheet").addEventListener("click", (e) => {
@@ -771,6 +835,7 @@ function menu(post) {
     overlay("");
     if (m === "del") return frageLoeschen(post);
     if (m === "edit") return oeffneCompose(post);
+    if (m === "note") return oeffneCompose(null, post.id);
     if (m === "nix") return toast("Danke. Du siehst weniger Posts wie diesen.");
     if (m === "flag") return toast("Danke für die Meldung. Die Lehrkraft sieht alle Posts.");
   });
@@ -824,16 +889,43 @@ $("#meBtn").addEventListener("click", () => {
 const EMOJI_POP = ["📉","📈","📊","⚠️","✊","🤝","💶","👷","🏭","🔌","⚡","😬","🤔","😡","😮","👀","❗","❓","👉","👇","🔥","💪","✅","❌","⬇️","⬆️","🧾","🇩🇪","📢","🙄","😤","💸"];
 let bearbeite = null; // Post, der gerade bearbeitet wird
 
-function oeffneCompose(post = null) {
+/* Notes-Modus: Auswahl der Antwort, zu der die Community Note gehört */
+function baueBezug(post, zu) {
+  const nm = notesModus();
+  const bz = $("#bezug");
+  bz.hidden = !nm;
+  if (!nm) { bz.innerHTML = ""; return; }
+  const gewaehlt = post ? post.zu : zu;
+  bz.innerHTML = `<label for="bezugSel">Community Note zu</label>
+    <select id="bezugSel" ${post ? "disabled" : ""}>
+      <option value="">Antwort auswählen …</option>
+      ${antworten().map((a, i) => `<option value="${esc(a.id)}" ${a.id === gewaehlt ? "selected" : ""}>Antwort ${i + 1} von @${esc(a.handle)}</option>`).join("")}
+    </select>
+    <div class="bezug-text" id="bezugText" hidden></div>`;
+  $("#bezugSel").addEventListener("change", () => { zeigeBezug(); aktualisiereEditor(); });
+  zeigeBezug();
+}
+function zeigeBezug() {
+  const a = antworten().find((x) => x.id === $("#bezugSel")?.value);
+  const el = $("#bezugText");
+  if (!el) return;
+  el.hidden = !a;
+  el.innerHTML = a ? `<b>@${esc(a.handle)}:</b> ${esc(a.text)}` : "";
+}
+
+function oeffneCompose(post = null, zu = null) {
   bearbeite = post;
   $("#composeWrap").hidden = false;
   document.body.style.overflow = "hidden";
+  const nm = notesModus();
+  baueBezug(post, zu);
   $("#cAv").innerHTML = avatarHtml(profil.avatar, 40);
-  $("#wer").innerHTML = `${icon("globe")}Jeder kann antworten`;
+  $("#edText").placeholder = nm ? "Was stimmt, was nicht? Höchstens zwei Sätze, am Ende der Paragraf." : "Was passiert gerade?!";
+  $("#wer").innerHTML = nm ? `${icon("leute")}Die Klasse bewertet deine Note` : `${icon("globe")}Jeder kann antworten`;
   $("#tools").innerHTML = [["image","Medien"],["gif","GIF"],["poll","Umfrage"],["emoji","Emoji"],["schedule","Planen"],["location","Standort"]]
     .map(([n, l]) => `<button data-tool="${n}" aria-label="${l}">${icon(n)}</button>`).join("");
   $("#plusRund").innerHTML = icon("plus");
-  $("#postBtn").textContent = post ? "Aktualisieren" : "Posten";
+  $("#postBtn").textContent = post ? "Aktualisieren" : nm ? "Vorschlagen" : "Posten";
   $("#edText").value = post ? post.text : LS.get("entwurf." + CODE, "");
   $("#emojiPop").hidden = true;
   aktualisiereEditor();
@@ -880,7 +972,8 @@ function aktualisiereEditor() {
   restEl.classList.toggle("rot", rest < 0);
   $("#ring svg").style.visibility = rest <= -10 ? "hidden" : "visible";
 
-  $("#postBtn").disabled = leer || rest < 0;
+  const ohneBezug = notesModus() && !bearbeite && !$("#bezugSel")?.value;
+  $("#postBtn").disabled = leer || rest < 0 || ohneBezug;
 }
 
 function markiereLinks(s) {
@@ -923,15 +1016,20 @@ async function sende() {
       $("#composeWrap").hidden = true; document.body.style.overflow = ""; bearbeite = null;
       toast("Dein Post wurde aktualisiert.");
     } else {
-      await api("/api/posts", { method: "POST", body: { clientId, text, name: profil.name, handle: profil.handle, avatar: profil.avatar } });
+      const nm = notesModus();
+      const zu = nm ? $("#bezugSel")?.value : undefined;
+      await api("/api/posts", { method: "POST", body: { clientId, text, name: profil.name, handle: profil.handle, avatar: profil.avatar, ...(zu ? { zu } : {}) } });
       $("#edText").value = "";
       LS.set("entwurf." + CODE, "");
       $("#composeWrap").hidden = true; document.body.style.overflow = "";
-      toast("Dein Post wurde gesendet.", { text: "Anzeigen", fn: () => window.scrollTo({ top: 0, behavior: "smooth" }) });
+      if (nm) toast("Deine Note wurde vorgeschlagen.");
+      else toast("Dein Post wurde gesendet.", { text: "Anzeigen", fn: () => window.scrollTo({ top: 0, behavior: "smooth" }) });
     }
     wartend = [];
     window.scrollTo({ top: 0 });
     await lade();
+    /* Note-Vorschläge stehen unter dem Thread: dorthin springen */
+    if (notesModus()) $(".abschnitt")?.scrollIntoView({ behavior: "smooth" });
   } catch (e) {
     toast(e.message);
     aktualisiereEditor();
