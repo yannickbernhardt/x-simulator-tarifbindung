@@ -99,14 +99,29 @@ footer p { margin: 0; }
     <span>Bitte mit Kopfhörern hören. Tippen Sie auf den Play-Knopf.</span>
   </div>
 
-  <article class="kommt">
+  <article class="track" data-src="/hoeren/akte-tim/m1-sprachnachricht.mp3" data-dauer="29">
     <div class="kopf">
       <span class="badge">M1</span>
       <div>
         <h2>Sprachnachricht von Tim</h2>
-        <p class="meta">Diese Aufnahme wird gerade erstellt. Lesen Sie den Text bis dahin auf dem Arbeitsblatt.</p>
+        <p class="meta">KI-Stimme Ben, etwa 0:29 Minuten. Tim ist eine erfundene Person.</p>
       </div>
     </div>
+    <div class="player">
+      <button class="play" type="button" aria-label="M1 abspielen"></button>
+      <div class="leiste">
+        <input id="pos-m1-m1-sprachnachricht" type="range" min="0" max="29" step="0.1" value="0" aria-label="Position in M1">
+        <div class="zeit"><span class="jetzt">0:00</span><span class="gesamt">0:29</span></div>
+      </div>
+    </div>
+    <div class="steuer">
+      <button class="zurueck" type="button">10 Sekunden zurück</button>
+      <div class="tempo" role="group" aria-label="Tempo M1"><span>Tempo</span>
+        <button class="chip" type="button" data-rate="0.85" aria-pressed="false">langsamer</button>
+        <button class="chip" type="button" data-rate="1" aria-pressed="true">normal</button>
+      </div>
+    </div>
+    <p class="status" hidden></p>
   </article>
 
   <article class="kommt">
