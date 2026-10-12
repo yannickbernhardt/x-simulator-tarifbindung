@@ -99,7 +99,7 @@ export const SZENARIO = {
     { id: "q6", text: "Sophie ist Praktikantin in der Kita und Kapitänin ihrer Handballmannschaft. Am Freitag ist Laternenfest in der Kita, die Anleiterin zählt auf sie. Zur selben Zeit hat ihr Team ein wichtiges Spiel.", loesung: "inter",
       warum: "Die Rolle als Praktikantin und die Rolle als Kapitänin stoßen zusammen." },
   ],
-  merksatz: "Nach Dahrendorf folgt man meist der Erwartung mit dem stärksten Druck: Muss vor Soll vor Kann.",
+  merksatz: "Aus Dahrendorfs Modell folgt: Meist setzt sich die Erwartung mit dem stärksten Druck durch, also Muss vor Soll vor Kann.",
 };
 
 export const PHASEN = ["anmelden", "ziehen", "aufdecken", "einordnen", "quiz", "beispiele"];
