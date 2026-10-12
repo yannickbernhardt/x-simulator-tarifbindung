@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Alle ziehen an Finn – Beamer</title>
+<link rel="icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+:root {
+  --kreide: #edf2f5; --tafel: #12324a; --tafel-tief: #0b2233; --muted: #5c6f7e; --kreide-muted: #9fb4c4;
+  --prak: #e5412d; --andere: #2c6fd6; --blitz: #ffc531; --linie: #cfdae2;
+  --intra: #7a3fd0; --inter: #0f8a8a;
+  --leiste: 64px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--kreide); color: var(--tafel); font-family: "Bricolage Grotesque", system-ui, sans-serif; }
+body.ohne-leiste { --leiste: 0px; }
+#buehne { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0; overflow: hidden; background: var(--kreide); }
+p, h1, h2, h3 { margin: 0; }
+button { font: inherit; }
+
+/* ---------- Arena ---------- */
+#arena { position: absolute; inset: 0; }
+#arena svg { position: absolute; inset: 0; }
+.titel { position: absolute; left: 40px; top: 30px; font-size: 30px; font-weight: 800; letter-spacing: -.01em; }
+.titel small { display: block; font-size: 18px; font-weight: 400; color: var(--muted); letter-spacing: 0; margin-top: 2px; }
+.karte { position: absolute; width: 232px; transform: translate(-50%, -50%); background: #fff; border: 2px solid var(--linie); border-radius: 16px; padding: 12px 14px 12px; box-shadow: 0 4px 0 rgba(18,50,74,.10); transition: opacity .3s, transform .3s, border-color .3s, box-shadow .3s; cursor: default; }
+body.klickbar .karte { cursor: pointer; }
+.karte .kpos { display: none; font-size: 14px; font-weight: 800; margin-left: auto; white-space: nowrap; }
+.karte .kkopf { display: flex; gap: 10px; align-items: center; }
+.karte .kicon { font-size: 26px; width: 42px; height: 42px; flex-shrink: 0; display: grid; place-items: center; background: var(--kreide); border-radius: 50%; }
+.karte .kname { font-size: 19px; font-weight: 800; line-height: 1.12; hyphens: auto; overflow-wrap: break-word; min-width: 0; }
+.karte .kkurz { font-size: 16px; line-height: 1.25; color: var(--muted); margin-top: 6px; min-height: 0; }
+.karte .kfuss { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px; min-height: 22px; }
+.punkte { display: flex; flex-wrap: wrap; gap: 4px; }
+.punkte i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--tafel); opacity: .45; }
+.punkte i.an { background: var(--seilfarbe, var(--tafel)); border-color: var(--seilfarbe, var(--tafel)); opacity: 1; }
+.karte .kzahl { font-size: 14px; color: var(--muted); white-space: nowrap; }
+.karte .kart { display: none; font-size: 15px; font-weight: 800; color: #fff; padding: 2px 9px; border-radius: 999px; flex-shrink: 0; }
+.stimmen { display: none; flex: 1; height: 22px; border-radius: 6px; overflow: hidden; background: #e7edf1; }
+.stimmen span { display: grid; place-items: center; color: #fff; font-size: 13px; font-weight: 800; transition: flex-grow .4s; min-width: 0; overflow: hidden; }
+.karte.dran { border-color: var(--blitz); box-shadow: 0 0 0 6px var(--blitz), 0 10px 24px rgba(18,50,74,.25); transform: translate(-50%, -50%) scale(1.09); z-index: 5; }
+.karte.leise { border-color: #e2e9ee; box-shadow: none; }
+.karte.leise > * { opacity: .4; }
+body.ph-aufdecken .karte .kpos { display: block; }
+body.ph-aufdecken .karte { border-top-width: 8px; }
+body.ph-aufdecken .karte .kzahl { display: none; }
+body.ph-einordnen .stimmen { display: flex; }
+body.ph-einordnen .punkte, body.ph-einordnen .kzahl { display: none; }
+body.ph-einordnen.loesung .karte .kart { display: inline-block; }
+body.ph-einordnen.loesung .karte { border-width: 3px; }
+
+/* ---------- Tafel rechts ---------- */
+#tafel { position: absolute; left: 1140px; top: 0; width: 460px; height: 900px; background: var(--tafel); color: var(--kreide); padding: 40px 38px 34px; display: flex; flex-direction: column; gap: 18px; }
+#tafel h1 { font-size: 38px; line-height: 1.08; font-weight: 800; letter-spacing: -.01em; }
+#tafel h2 { font-size: 20px; font-weight: 600; color: var(--kreide-muted); margin-top: 6px; }
+#tafel .text { font-size: 21px; line-height: 1.4; }
+#tafel .leise { color: var(--kreide-muted); font-size: 18px; line-height: 1.4; }
+.qr { background: #fff; border-radius: 18px; padding: 18px; width: 300px; height: 300px; align-self: center; }
+.qr svg { width: 100%; height: 100%; display: block; }
+.code { font-weight: 800; color: var(--blitz); letter-spacing: .08em; }
+.zaehler { font-size: 22px; }
+.zaehler b { font-size: 64px; line-height: 1; display: block; color: var(--blitz); font-weight: 800; }
+.dranbox { background: var(--blitz); color: var(--tafel); border-radius: 16px; padding: 16px 18px; }
+.dranbox span { font-size: 17px; }
+.dranbox b { display: block; font-size: 30px; line-height: 1.1; margin: 2px 0 6px; }
+.dranbox p { font-size: 18px; }
+.konflikte { display: grid; gap: 10px; }
+.konflikt { border-left: 6px solid var(--blitz); padding: 4px 0 4px 14px; }
+.konflikt b { font-size: 21px; display: block; line-height: 1.2; }
+.konflikt p { font-size: 18px; line-height: 1.35; color: #dbe5ec; margin-top: 3px; }
+.konflikt.alt { border-left-color: #47637a; }
+.konflikt.alt b { font-size: 18px; color: var(--kreide-muted); font-weight: 600; }
+.konflikt.knapp b { font-size: 19px; }
+.zerrissen { font-size: 26px; font-weight: 800; color: var(--blitz); line-height: 1.2; }
+.ecke { margin-top: auto; display: flex; gap: 14px; align-items: center; }
+.ecke .mini { background: #fff; border-radius: 10px; padding: 7px; width: 96px; height: 96px; flex-shrink: 0; }
+.ecke .mini svg { width: 100%; height: 100%; display: block; }
+.ecke p { font-size: 17px; line-height: 1.35; color: var(--kreide-muted); }
+.pchips { display: flex; flex-wrap: wrap; gap: 8px; }
+.pchips span { font-size: 19px; font-weight: 800; padding: 4px 13px; border-radius: 999px; color: #fff; }
+.begriffe { display: grid; gap: 10px; margin: 0; }
+.begriffe dt { font-size: 21px; font-weight: 800; color: var(--blitz); }
+.begriffe dd { margin: 0; font-size: 18px; line-height: 1.35; }
+.kart2 { border-radius: 14px; padding: 12px 14px; }
+.kart2 b { font-size: 21px; }
+.kart2 em { font-style: normal; opacity: .85; font-size: 16px; margin-left: 6px; }
+.kart2 p { font-size: 17px; line-height: 1.35; margin-top: 3px; }
+.kart2 .paare { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.kart2 .paare span { font-size: 15px; background: rgba(255,255,255,.18); padding: 2px 9px; border-radius: 999px; }
+.kart2 .paare span.live { background: var(--blitz); color: var(--tafel); font-weight: 800; }
+.optionen { display: grid; gap: 12px; }
+.option { display: grid; grid-template-columns: 18px 1fr; gap: 12px; align-items: start; }
+.option i { width: 18px; height: 18px; border-radius: 5px; margin-top: 5px; }
+.option b { font-size: 22px; display: block; line-height: 1.2; }
+.option span { font-size: 17px; color: var(--kreide-muted); line-height: 1.3; }
+.option p { font-size: 17px; line-height: 1.35; margin-top: 2px; color: #dbe5ec; }
+.merksatz { background: var(--kreide); color: var(--tafel); border-radius: 16px; padding: 16px 18px; font-size: 20px; line-height: 1.38; font-weight: 600; margin-top: auto; }
+
+/* ---------- Vollbild: Quiz und Beispiele ---------- */
+.voll { position: absolute; inset: 0; padding: 56px 72px 48px; display: none; flex-direction: column; gap: 26px; }
+.voll .kopfzeile { display: flex; justify-content: space-between; align-items: baseline; gap: 30px; }
+.voll h1 { font-size: 52px; font-weight: 800; letter-spacing: -.015em; line-height: 1.05; }
+.voll .nr { font-size: 22px; color: var(--muted); white-space: nowrap; }
+.fall { font-size: 38px; line-height: 1.38; font-weight: 600; background: #fff; border: 2px solid var(--linie); border-radius: 22px; padding: 30px 36px; }
+.fall.eigen { border-color: var(--tafel); }
+.antworten { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+.antwort { border-radius: 20px; padding: 20px 26px; color: #fff; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 20px; position: relative; overflow: hidden; }
+.antwort b { font-size: 40px; font-weight: 800; }
+.antwort .unter { font-size: 20px; opacity: .9; grid-column: 1; }
+.antwort .zahl { grid-row: 1 / span 2; grid-column: 2; font-size: 64px; font-weight: 800; }
+.antwort .balken { position: absolute; left: 0; bottom: 0; height: 10px; background: rgba(255,255,255,.75); transition: width .5s; grid-column: auto; }
+.antwort.richtig { box-shadow: 0 0 0 6px var(--blitz); }
+.antwort.verdeckt .zahl { opacity: 0; }
+.stand { font-size: 24px; color: var(--muted); }
+.stand b { color: var(--tafel); font-size: 30px; }
+.aufloesung { border-left: 10px solid; padding: 6px 0 6px 22px; font-size: 26px; line-height: 1.4; }
+.aufloesung b { display: block; font-size: 32px; }
+.fuss { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 26px; font-size: 20px; color: var(--muted); line-height: 1.35; }
+.fuss b { color: var(--tafel); }
+.wand { flex: 1; overflow-y: auto; columns: 3; column-gap: 22px; padding-right: 6px; }
+.bsp { break-inside: avoid; background: #fff; border: 2px solid var(--linie); border-radius: 18px; padding: 18px 20px; margin: 0 0 22px; font-size: 23px; line-height: 1.4; }
+.bsp .aktionen { display: flex; gap: 8px; margin-top: 12px; }
+.bsp .aktionen button { border: 2px solid var(--tafel); background: #fff; color: var(--tafel); border-radius: 10px; padding: 5px 12px; font-size: 16px; font-weight: 600; cursor: pointer; }
+.bsp .aktionen button.weg { border-color: #c9d3da; color: var(--muted); }
+body.ohne-leiste .bsp .aktionen { display: none; }
+.leer { font-size: 26px; color: var(--muted); max-width: 900px; line-height: 1.4; }
+.unterzeile { font-size: 22px; color: var(--muted); margin-top: 8px; }
+
+body.ph-quiz #quiz, body.ph-beispiele #beispiele { display: flex; }
+body.ph-quiz #arena, body.ph-quiz #tafel, body.ph-beispiele #arena, body.ph-beispiele #tafel { display: none; }
+
+/* ---------- Start ---------- */
+#start { position: absolute; inset: 0; display: none; place-items: center; background: var(--kreide); }
+body.startseite #start { display: grid; }
+body.startseite #arena, body.startseite #tafel, body.startseite #leiste { display: none; }
+.startbox { width: 980px; display: grid; grid-template-columns: 1.1fr .9fr; gap: 60px; align-items: center; }
+.startbox h1 { font-size: 78px; line-height: .98; font-weight: 800; letter-spacing: -.02em; }
+.startbox p { font-size: 24px; line-height: 1.45; color: var(--muted); margin-top: 20px; }
+.startknoepfe { display: grid; gap: 14px; }
+.gross { border: none; border-radius: 18px; padding: 22px 26px; font-size: 26px; font-weight: 800; background: var(--tafel); color: #fff; cursor: pointer; text-align: left; }
+.gross small { display: block; font-size: 17px; font-weight: 400; opacity: .8; margin-top: 4px; }
+.gross.zwei { background: #fff; color: var(--tafel); border: 2px solid var(--tafel); }
+.meldung { font-size: 20px; color: #8c2a1c; }
+
+/* ---------- Steuerleiste ---------- */
+#leiste { position: fixed; left: 0; right: 0; bottom: 0; height: var(--leiste); background: var(--tafel-tief); color: var(--kreide); display: flex; align-items: center; gap: 6px; padding: 0 12px; font-size: 15px; z-index: 20; }
+body.ohne-leiste #leiste { display: none; }
+#leiste .raum { font-weight: 800; margin-right: 8px; white-space: nowrap; }
+#leiste button { border: 1px solid #2d4c63; background: transparent; color: var(--kreide); border-radius: 9px; padding: 8px 11px; cursor: pointer; white-space: nowrap; }
+#leiste button:hover { background: #18384f; }
+#leiste button.an { background: var(--kreide); color: var(--tafel); border-color: var(--kreide); font-weight: 800; }
+#leiste button.gelb { background: var(--blitz); color: var(--tafel); border-color: var(--blitz); font-weight: 800; }
+#leiste .trenn { width: 1px; height: 30px; background: #2d4c63; margin: 0 6px; }
+#leiste .hilfe { color: var(--kreide-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#leiste .rechts { margin-left: auto; display: flex; gap: 6px; }
+#zeigeLeiste { position: fixed; right: 8px; bottom: 8px; width: 18px; height: 18px; border-radius: 50%; border: none; background: rgba(18,50,74,.12); cursor: pointer; display: none; z-index: 21; }
+body.ohne-leiste #zeigeLeiste { display: block; }
+#netz { position: fixed; left: 12px; top: 12px; background: #8c2a1c; color: #fff; padding: 8px 14px; border-radius: 10px; font-size: 16px; display: none; z-index: 30; }
+button:focus-visible { outline: 3px solid var(--blitz); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .karte { transition: none; } }
+</style>
+</head>
+<body class="startseite">
+<div id="buehne">
+  <section id="start" aria-label="Start">
+    <div class="startbox">
+      <div>
+        <h1>Alle ziehen an Finn</h1>
+        <p>Die Klasse meldet sich per QR-Code mit dem Handy an. Jede Person übernimmt eine Bezugsgruppe mit einer Erwartung an Finn und zieht per Knopfdruck an ihm. Am Beamer sieht man, wo die Erwartungen nicht zusammenpassen.</p>
+      </div>
+      <div class="startknoepfe" id="startknoepfe">
+        <button class="gross" id="neu">Neues Spiel starten<small>Neuer Raumcode, alle melden sich neu an</small></button>
+      </div>
+    </div>
+  </section>
+
+  <section id="arena" aria-label="Spielfeld">
+    <svg viewBox="0 0 1600 900" width="1600" height="900" aria-hidden="true">
+      <g id="seilG"></g>
+      <g id="finnG">
+        <ellipse cx="0" cy="80" rx="46" ry="8" fill="rgba(18,50,74,.14)"/>
+        <rect x="-22" y="34" width="17" height="44" rx="8" fill="#0b2233"/>
+        <rect x="5" y="34" width="17" height="44" rx="8" fill="#0b2233"/>
+        <path d="M-38 -28 Q-38 -42 -24 -42 L24 -42 Q38 -42 38 -28 L33 38 Q33 44 27 44 L-27 44 Q-33 44 -33 38 Z" fill="#12324a"/>
+        <circle cx="0" cy="22" r="8" fill="none" stroke="#edf2f5" stroke-width="3.5"/>
+        <text x="0" y="0" text-anchor="middle" font-size="18" font-weight="800" fill="#edf2f5" font-family="Bricolage Grotesque, system-ui, sans-serif">Finn</text>
+        <circle cx="0" cy="-76" r="32" fill="#fff" stroke="#12324a" stroke-width="4"/>
+        <path d="M-31 -82 Q-30 -112 0 -111 Q30 -112 31 -82 Q18 -97 -1 -93 Q-19 -97 -31 -82 Z" fill="#12324a"/>
+        <circle id="augeL" cx="-11" cy="-76" r="3.8" fill="#12324a"/>
+        <circle id="augeR" cx="11" cy="-76" r="3.8" fill="#12324a"/>
+        <path id="brauen" d="" fill="none" stroke="#12324a" stroke-width="3.5" stroke-linecap="round"/>
+        <path id="mund" d="" fill="none" stroke="#12324a" stroke-width="3.5" stroke-linecap="round"/>
+        <path id="schweiss" d="M37 -96 q-7 11 0 15 q7 -4 0 -15 z" fill="#5aa9e6" opacity="0"/>
+      </g>
+      <g id="blitzG"></g>
+    </svg>
+    <div class="titel">Alle ziehen an Finn<small id="titelUnter">Montag, 15:40 Uhr</small></div>
+    <div id="karten"></div>
+  </section>
+
+  <aside id="tafel" aria-live="polite"></aside>
+  <section class="voll" id="quiz" aria-live="polite"></section>
+  <section class="voll" id="beispiele"></section>
+</div>
+
+<nav id="leiste" aria-label="Steuerung"></nav>
+<button id="zeigeLeiste" title="Steuerung einblenden (H)" aria-label="Steuerung einblenden"></button>
+<div id="netz">Keine Verbindung zum Server. Es wird weiter versucht …</div>
+
+<script type="module">
+import { SZENARIO as S, PHASEN, konfliktArt } from "/rolle/szenario.js";
+
+/* ---------- Grundlagen ---------- */
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const teile = location.pathname.split("/").filter(Boolean);
+const code = /^[a-z0-9]{4}$/.test(teile[1] ?? "") ? teile[1] : null;
+const TOKEN_ROH = location.search.match(/[?&]lehrer=([^&]*)/)?.[1] ?? "";
+const LS = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+const SS = { get(k) { try { return JSON.parse(sessionStorage.getItem(k) || "null"); } catch { return null; } }, set(k, v) { try { sessionStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+const KN = Object.fromEntries(S.knoten.map((k) => [k.id, k]));
+const PHASENNAMEN = { anmelden: "Anmelden", ziehen: "Ziehen", aufdecken: "Aufdecken", einordnen: "Einordnen", quiz: "Quiz", beispiele: "Beispiele" };
+const POSFARBE = (pos) => (pos === "praktikant" ? "#e5412d" : "#2c6fd6");
+const HANF = "#b8894a", HANF_DUNKEL = "#7c5a2b";
+const KONFLIKTE = S.konflikte.map((k, i) => ({ ...k, i, art: konfliktArt(S, k) }));
+
+async function api(pfad, body) {
+  const trenner = pfad.includes("?") ? "&" : "?";
+  const r = await fetch(`/api/rolle${pfad}${trenner}lehrer=${TOKEN_ROH}`, body
+    ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }
+    : { cache: "no-store" });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(j.error || "Fehler " + r.status), { status: r.status });
+  return j;
+}
+function qrSvg(text) {
+  if (typeof qrcode !== "function") return "";
+  const qr = qrcode(0, "M");
+  qr.addData(text);
+  qr.make();
+  return qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+}
+
+/* ---------- Skalierung der 1600×900-Bühne ---------- */
+const buehne = $("#buehne");
+function skalieren() {
+  const leiste = document.body.classList.contains("ohne-leiste") || document.body.classList.contains("startseite") ? 0 : 64;
+  const W = innerWidth, H = innerHeight - leiste;
+  const s = Math.min(W / 1600, H / 900);
+  buehne.style.transform = `translate(${(W - 1600 * s) / 2}px, ${(H - 900 * s) / 2}px) scale(${s})`;
+}
+addEventListener("resize", skalieren);
+if (LS.get("rolle-leiste") === "aus") document.body.classList.add("ohne-leiste");
+skalieren();
+
+/* ---------- Startseite ohne Code ---------- */
+if (!code) {
+  const letzter = LS.get("rolle-letzter");
+  if (letzter && /^[a-z0-9]{4}$/.test(letzter)) {
+    api(`/${letzter}/lehrer`).then((j) => {
+      const b = document.createElement("button");
+      b.className = "gross zwei";
+      b.innerHTML = `Letztes Spiel fortsetzen<small>Raum ${letzter.toUpperCase()}, ${j.teilnehmer} Handys angemeldet</small>`;
+      b.onclick = () => (location.href = `/rolle/${letzter}?lehrer=${TOKEN_ROH}`);
+      $("#startknoepfe").appendChild(b);
+    }).catch(() => {});
+  }
+  $("#neu").onclick = async () => {
+    $("#neu").disabled = true;
+    try {
+      const j = await api("", {});
+      location.href = `/rolle/${j.code}?lehrer=${TOKEN_ROH}`;
+    } catch (e) {
+      $("#neu").disabled = false;
+      const p = document.createElement("p");
+      p.className = "meldung";
+      p.textContent = e.status === 403 ? "Der Lehrer-Link stimmt nicht. Bitte den Link mit Token öffnen." : e.message;
+      $("#startknoepfe").appendChild(p);
+    }
+  };
+} else {
+  start();
+}
+
+/* ---------- Spiel ---------- */
+function start() {
+  document.body.classList.remove("startseite");
+  LS.set("rolle-letzter", code);
+  skalieren();
+  const JOIN = `${location.origin}/rolle/${code}`;
+  const QR = qrSvg(JOIN);
+  const HOST = location.host.replace(/^www\./, "");
+  const C = { x: 575, y: 470 }, RX = 425, RY = 330;
+  const POS = {};
+  for (const k of S.knoten) {
+    const w = (k.winkel * Math.PI) / 180;
+    POS[k.id] = { x: C.x + RX * Math.cos(w), y: C.y + RY * Math.sin(w) };
+  }
+
+  let stand = null;
+  let gesehen = new Set(SS.get(`rolle-gesehen-${code}`) ?? []);
+  let erlebt = new Set(SS.get(`rolle-erlebt-${code}`) ?? []);
+  const merke = () => { SS.set(`rolle-gesehen-${code}`, [...gesehen]); SS.set(`rolle-erlebt-${code}`, [...erlebt]); };
+
+  /* Karten einmal anlegen */
+  const kartenDiv = $("#karten");
+  const KARTE = {};
+  for (const k of S.knoten) {
+    const el = document.createElement("div");
+    el.className = "karte";
+    el.style.left = POS[k.id].x + "px";
+    el.style.top = POS[k.id].y + "px";
+    el.innerHTML = `<div class="kkopf"><span class="kicon" aria-hidden="true">${k.icon}</span><p class="kname">${esc(k.gruppe)}</p></div>
+      <p class="kkurz"></p><div class="kfuss"><span class="punkte"></span><span class="stimmen"></span><span class="kzahl"></span><span class="kpos"></span><span class="kart"></span></div>`;
+    el.addEventListener("click", () => {
+      const ph = stand?.raum.phase;
+      if (ph !== "ziehen" && ph !== "aufdecken") return;
+      steuer({ spot: stand.raum.spot === k.id ? null : k.id });
+    });
+    kartenDiv.appendChild(el);
+    KARTE[k.id] = { el, pos: el.querySelector(".kpos"), kurz: el.querySelector(".kkurz"), punkte: el.querySelector(".punkte"), zahl: el.querySelector(".kzahl"), art: el.querySelector(".kart"), stimmen: el.querySelector(".stimmen") };
+  }
+
+  /* Seile einmal anlegen */
+  const NS = "http://www.w3.org/2000/svg";
+  const SEIL = {};
+  for (const k of S.knoten) {
+    const g = document.createElementNS(NS, "g");
+    const glut = document.createElementNS(NS, "path");
+    const basis = document.createElementNS(NS, "path");
+    const muster = document.createElementNS(NS, "path");
+    for (const p of [glut, basis, muster]) { p.setAttribute("fill", "none"); p.setAttribute("stroke-linecap", "round"); }
+    glut.setAttribute("stroke", "#ffc531");
+    glut.setAttribute("stroke-opacity", ".55");
+    muster.setAttribute("stroke-linecap", "butt");
+    g.append(glut, basis, muster);
+    $("#seilG").appendChild(g);
+    SEIL[k.id] = { g, glut, basis, muster };
+  }
+  const finnG = $("#finnG"), blitzG = $("#blitzG");
+
+  /* ---------- Daten holen ---------- */
+  let fehlZaehler = 0;
+  async function holen() {
+    if (document.hidden) return setTimeout(holen, 1500);
+    try {
+      stand = await api(`/${code}/lehrer`);
+      fehlZaehler = 0;
+      $("#netz").style.display = "none";
+      aktualisieren();
+    } catch (e) {
+      if (e.status === 404) return abgelaufen();
+      if (e.status === 403) return falscherToken();
+      if (++fehlZaehler > 4) $("#netz").style.display = "block";
+    }
+    const schnell = stand && (stand.raum.phase === "ziehen" || stand.raum.phase === "aufdecken");
+    setTimeout(holen, schnell ? 450 : 1000);
+  }
+  function abgelaufen() {
+    document.body.className = "startseite";
+    $("#start h1").textContent = "Dieses Spiel ist abgelaufen";
+    $("#start p").textContent = "Räume werden nach 12 Stunden gelöscht. Starten Sie ein neues Spiel.";
+    $("#neu").onclick = async () => { const j = await api("", {}); location.href = `/rolle/${j.code}?lehrer=${TOKEN_ROH}`; };
+    skalieren();
+  }
+  function falscherToken() {
+    document.body.className = "startseite";
+    $("#start h1").textContent = "Lehrer-Link ungültig";
+    $("#start p").textContent = "Diese Seite braucht den Link mit dem Lehrer-Token.";
+    $("#startknoepfe").innerHTML = "";
+    skalieren();
+  }
+  async function steuer(b) {
+    try {
+      const j = await api(`/${code}/steuer`, b);
+      if (stand) { stand.raum = j.raum; aktualisieren(); }
+    } catch (e) { $("#netz").textContent = e.message; $("#netz").style.display = "block"; setTimeout(() => ($("#netz").style.display = "none"), 3000); }
+  }
+
+  /* ---------- Darstellung nach jedem Abruf ---------- */
+  const zuletzt = { tafel: "", quiz: "", bsp: "", leiste: "" };
+  function setzeHtml(el, schluessel, html) { if (zuletzt[schluessel] !== html) { zuletzt[schluessel] = html; el.innerHTML = html; } }
+
+  function aktiveKonflikte() {
+    const ph = stand.raum.phase;
+    if (ph !== "ziehen" && ph !== "aufdecken") return [];
+    return KONFLIKTE.filter((k) => stand.knoten[k.a].aktiv > 0 && stand.knoten[k.b].aktiv > 0);
+  }
+
+  function aktualisieren() {
+    const r = stand.raum, ph = r.phase;
+    document.body.className = [`ph-${ph}`, r.loesung ? "loesung" : "", (ph === "ziehen" || ph === "aufdecken") ? "klickbar" : "", document.body.classList.contains("ohne-leiste") ? "ohne-leiste" : ""].join(" ");
+    if (ph === "ziehen" || ph === "aufdecken") {
+      for (const k of S.knoten) if (stand.knoten[k.id].aktiv > 0 || r.spot === k.id) gesehen.add(k.id);
+      for (const k of aktiveKonflikte()) erlebt.add(k.i);
+      merke();
+    }
+    $("#titelUnter").textContent = { anmelden: "Montag, 15:40 Uhr", ziehen: "Montag, 15:40 Uhr", aufdecken: "Wer zieht an welcher Rolle?", einordnen: "Wie stark ist der Druck?" }[ph] ?? "";
+    karten();
+    tafel();
+    if (ph === "quiz") quiz();
+    if (ph === "beispiele") beispiele();
+    leiste();
+  }
+
+  function karten() {
+    const r = stand.raum, ph = r.phase;
+    for (const k of S.knoten) {
+      const d = stand.knoten[k.id], K = KARTE[k.id];
+      const farbe = ph === "aufdecken" ? POSFARBE(k.position) : (ph === "einordnen" && r.loesung ? S.arten[k.art].farbe : "#12324a");
+      K.el.style.setProperty("--seilfarbe", ph === "aufdecken" ? POSFARBE(k.position) : HANF);
+      K.el.style.borderColor = ph === "aufdecken" || (ph === "einordnen" && r.loesung) ? farbe : "";
+      K.el.classList.toggle("dran", r.spot === k.id && (ph === "ziehen" || ph === "aufdecken"));
+      K.el.classList.toggle("leise", !!r.spot && r.spot !== k.id && (ph === "ziehen" || ph === "aufdecken"));
+      K.pos.textContent = `als ${S.positionen[k.position]}`;
+      K.pos.style.color = POSFARBE(k.position);
+      const zeigeKurz = ph === "aufdecken" || ph === "einordnen" || (ph === "ziehen" && gesehen.has(k.id));
+      K.kurz.textContent = zeigeKurz ? k.kurz : "";
+      K.kurz.style.display = zeigeKurz ? "" : "none";
+      const punkte = Array.from({ length: Math.min(d.n, 12) }, (_, i) => `<i class="${i < d.aktiv && (ph === "ziehen" || ph === "aufdecken") ? "an" : ""}"></i>`).join("");
+      if (K.punkte.innerHTML !== punkte) K.punkte.innerHTML = punkte;
+      K.zahl.textContent = d.n === 0 ? "noch niemand" : d.n > 12 ? `${d.n}` : "";
+      if (ph === "einordnen") {
+        const w = d.wahlen, summe = w.muss + w.soll + w.kann;
+        K.stimmen.innerHTML = summe === 0 ? "" : ["muss", "soll", "kann"].filter((a) => w[a] > 0)
+          .map((a) => `<span style="flex-grow:${w[a]};background:${S.arten[a].farbe}">${w[a]}</span>`).join("");
+        K.stimmen.style.opacity = summe ? 1 : 0.4;
+        K.art.textContent = S.arten[k.art].name.replace("-Erwartung", "");
+        K.art.style.background = S.arten[k.art].farbe;
+      }
+    }
+  }
+
+  function tafel() {
+    const r = stand.raum, ph = r.phase, n = stand.teilnehmer;
+    let h = "";
+    if (ph === "anmelden") {
+      h = `<h1>Mitmachen</h1><div class="qr">${QR}</div>
+        <p class="text">Kamera auf den Code richten oder <b>${esc(HOST)}/rolle</b> öffnen und den Code <span class="code">${code.toUpperCase()}</span> eingeben.</p>
+        <p class="zaehler"><b>${n}</b>${n === 1 ? "Handy ist dabei" : "Handys sind dabei"}</p>
+        <p class="leise">Sie bekommen eine Bezugsgruppe mit einer Erwartung an Finn. Verraten Sie sie noch nicht.</p>`;
+    } else if (ph === "ziehen") {
+      const spot = r.spot ? KN[r.spot] : null;
+      const live = aktiveKonflikte();
+      const alt = KONFLIKTE.filter((k) => erlebt.has(k.i) && !live.includes(k));
+      h = `<p class="text">${esc(S.intro)}</p>`;
+      h += spot
+        ? `<div class="dranbox"><span>Jetzt dran</span><b>${esc(spot.gruppe)}</b><p>Lesen Sie Ihre Erwartung laut vor. Dann halten Sie den Knopf gedrückt.</p></div>`
+        : `<p class="leise">Knopf auf dem Handy gedrückt halten: Ihre Bezugsgruppe zieht an Finn.</p>`;
+      h += `<h2>Was nicht zusammenpasst</h2><div class="konflikte">`;
+      if (live.length > 2) h += `<p class="zerrissen">${live.length} Erwartungen passen gleichzeitig nicht zusammen.</p>`;
+      h += live.map((k) => live.length > 2
+        ? `<div class="konflikt knapp"><b>${esc(KN[k.a].kurzname)} und ${esc(KN[k.b].kurzname)}</b></div>`
+        : `<div class="konflikt"><b>${esc(KN[k.a].kurzname)} und ${esc(KN[k.b].kurzname)}</b><p>${esc(k.text)}</p></div>`).join("");
+      h += alt.map((k) => `<div class="konflikt alt"><b>${esc(KN[k.a].kurzname)} und ${esc(KN[k.b].kurzname)}</b></div>`).join("");
+      if (!live.length && !alt.length) h += `<p class="leise">Noch nichts. Ziehen zwei Gruppen mit unvereinbaren Erwartungen gleichzeitig, blitzt es.</p>`;
+      h += `</div><div class="ecke"><div class="mini">${QR}</div><p>Noch nicht dabei?<br>Code <span class="code">${code.toUpperCase()}</span></p></div>`;
+    } else if (ph === "aufdecken") {
+      const live = new Set(aktiveKonflikte().map((k) => k.i));
+      const paare = (art) => KONFLIKTE.filter((k) => k.art === art)
+        .map((k) => `<span class="${live.has(k.i) ? "live" : ""}">${esc(KN[k.a].kurzname)} und ${esc(KN[k.b].kurzname)}</span>`).join("");
+      h = `<h1>Ein Mensch, viele Positionen</h1>
+        <div class="pchips">${Object.entries(S.positionen).map(([id, name]) => `<span style="background:${POSFARBE(id)}">${esc(name)}</span>`).join("")}</div>
+        <dl class="begriffe">${S.begriffe.map((b) => `<div><dt>${esc(b.wort)}</dt><dd>${esc(b.text)}</dd></div>`).join("")}</dl>
+        ${["intra", "inter"].map((a) => `<div class="kart2" style="background:var(--${a})"><b>${esc(S.konfliktArten[a].name)}</b><em>${esc(S.konfliktArten[a].merk)}</em>
+          <p>${esc(S.konfliktArten[a].text)}</p><div class="paare">${paare(a)}</div></div>`).join("")}`;
+    } else if (ph === "einordnen") {
+      const abgestimmt = Object.values(stand.knoten).reduce((s, k) => s + k.wahlen.muss + k.wahlen.soll + k.wahlen.kann, 0);
+      if (!r.loesung) {
+        h = `<h1>${esc(S.frageEinordnen)}</h1><div class="optionen">${S.antwortenEinordnen.map((a) => `<div class="option"><i style="background:${S.arten[a.id].farbe}"></i><div><b>${esc(a.text)}</b><span>${esc(a.hilfe)}</span></div></div>`).join("")}</div>
+          <p class="zaehler"><b>${abgestimmt}</b>von ${n} haben abgestimmt</p>
+          <p class="leise">Stimmen Sie auf dem Handy ab. Die Balken auf den Karten zeigen, wie Ihre Bezugsgruppe getippt hat.</p>`;
+      } else {
+        h = `<h1>Drei Arten von Erwartungen</h1><div class="optionen">${["muss", "soll", "kann"].map((a) => `<div class="option"><i style="background:${S.arten[a].farbe}"></i><div><b>${esc(S.arten[a].name)}</b><p>${esc(S.arten[a].text)}</p></div></div>`).join("")}</div>
+          <p class="merksatz">${esc(S.merksatz)}</p>`;
+      }
+    }
+    setzeHtml($("#tafel"), "tafel", h);
+  }
+
+  function quiz() {
+    const r = stand.raum, q = stand.quiz;
+    let h;
+    if (!q) {
+      h = `<div class="kopfzeile"><h1>Intra oder Inter?</h1></div><p class="leer">Wählen Sie unten einen Fall aus.</p>`;
+    } else {
+      const s = stand.quizStand[q.schluessel] ?? { intra: 0, inter: 0 };
+      const summe = s.intra + s.inter;
+      const idx = r.quiz.typ === "vor" ? S.quiz.findIndex((x) => x.id === r.quiz.id) : -1;
+      const nr = idx >= 0 ? `Fall ${idx + 1} von ${S.quiz.length}` : "Beispiel aus der Klasse";
+      const karte = (a) => {
+        const anteil = summe ? Math.round((s[a] / summe) * 100) : 0;
+        return `<div class="antwort ${r.quizZeigen ? "" : "verdeckt"} ${r.quizZeigen && q.loesung === a ? "richtig" : ""}" style="background:var(--${a})">
+          <b>${a === "intra" ? "Intra" : "Inter"}</b><span class="unter">${a === "intra" ? "innerhalb einer Rolle" : "zwischen zwei Rollen"}</span>
+          <span class="zahl">${r.quizZeigen ? s[a] : ""}</span><span class="balken" style="width:${r.quizZeigen ? anteil : 0}%"></span></div>`;
+      };
+      h = `<div class="kopfzeile"><h1>Intra oder Inter?</h1><span class="nr">${nr}</span></div>
+        <div class="fall ${q.eigen ? "eigen" : ""}">${esc(q.text)}</div>
+        <div class="antworten">${karte("intra")}${karte("inter")}</div>`;
+      if (!r.quizZeigen) h += `<p class="stand"><b>${summe}</b> von ${stand.teilnehmer} haben geantwortet</p>`;
+      else if (q.loesung) h += `<div class="aufloesung" style="border-color:var(--${q.loesung})"><b>${esc(S.konfliktArten[q.loesung].name)}</b>${esc(q.warum)}</div>`;
+      else h += `<p class="stand">Begründen Sie: Richten sich die Erwartungen an dieselbe Rolle oder an zwei verschiedene Rollen?</p>`;
+      h += `<div class="fuss">${["intra", "inter"].map((a) => `<p><b>${esc(S.konfliktArten[a].name)}:</b> ${esc(S.konfliktArten[a].text)}</p>`).join("")}</div>`;
+    }
+    setzeHtml($("#quiz"), "quiz", h);
+  }
+
+  function beispiele() {
+    const b = stand.beispiele;
+    let h = `<div class="kopfzeile"><div><h1>Rollenkonflikte aus Ihren Praktika</h1><p class="unterzeile">Auf dem Handy schreiben und anonym abschicken. Bitte ohne Namen von Personen oder Einrichtungen.</p></div><span class="nr">${b.length} ${b.length === 1 ? "Beispiel" : "Beispiele"}</span></div>`;
+    h += b.length
+      ? `<div class="wand">${b.map((x) => `<div class="bsp">${esc(x.text)}<div class="aktionen"><button data-abstimmen="${x.bid}">Abstimmen lassen</button><button class="weg" data-loeschen="${x.bid}">Ausblenden</button></div></div>`).join("")}</div>`
+      : `<p class="leer">Noch keine Beispiele. Wer erwartet in Ihrem Praktikum etwas von Ihnen, das nicht mit anderen Erwartungen zusammenpasst?</p>`;
+    const el = $("#beispiele");
+    const scroll = el.querySelector(".wand")?.scrollTop ?? 0;
+    setzeHtml(el, "bsp", h);
+    const wand = el.querySelector(".wand");
+    if (wand) wand.scrollTop = scroll;
+  }
+  $("#beispiele").addEventListener("click", (e) => {
+    const a = e.target.closest("[data-abstimmen]"), l = e.target.closest("[data-loeschen]");
+    if (a) steuer({ quiz: { typ: "bsp", id: a.dataset.abstimmen } });
+    if (l) steuer({ loescheBeispiel: l.dataset.loeschen });
+  });
+
+  /* ---------- Steuerleiste ---------- */
+  let resetBereit = 0;
+  function leiste() {
+    const r = stand.raum, ph = r.phase;
+    let h = `<span class="raum">Raum ${code.toUpperCase()}</span>`;
+    h += PHASEN.map((p, i) => `<button data-phase="${p}" class="${p === ph ? "an" : ""}" title="Taste ${i + 1}">${i + 1} ${PHASENNAMEN[p]}</button>`).join("");
+    h += `<span class="trenn"></span>`;
+    if (ph === "ziehen" || ph === "aufdecken") {
+      h += r.spot ? `<button data-cmd="unspot" class="gelb">Aufruf beenden</button>` : `<span class="hilfe">Karte anklicken: Gruppe aufrufen</span>`;
+    } else if (ph === "einordnen") {
+      h += `<button data-cmd="loesung" class="${r.loesung ? "an" : "gelb"}">${r.loesung ? "Auflösung verbergen" : "Auflösung zeigen"}</button>`;
+    } else if (ph === "quiz") {
+      if (r.quiz?.typ === "bsp") h += `<button data-phase="beispiele">Zurück zu den Beispielen</button>`;
+      else {
+        const idx = S.quiz.findIndex((x) => x.id === r.quiz?.id);
+        h += `<button data-cmd="zurueck" ${idx <= 0 ? "disabled" : ""}>‹ Fall</button><button data-cmd="weiter" ${idx >= S.quiz.length - 1 ? "disabled" : ""}>Fall ›</button>`;
+      }
+      h += `<button data-cmd="zeigen" class="${r.quizZeigen ? "an" : "gelb"}">${r.quizZeigen ? "Ergebnis verbergen" : "Ergebnis zeigen"}</button>`;
+    } else if (ph === "beispiele") {
+      h += `<span class="hilfe">Beispiel anklicken: abstimmen lassen oder ausblenden</span>`;
+    } else {
+      h += `<span class="hilfe">${stand.teilnehmer} angemeldet</span>`;
+    }
+    h += `<span class="rechts"><button data-cmd="reset">${Date.now() < resetBereit ? "Wirklich? Noch einmal klicken" : "Antworten zurücksetzen"}</button><button data-cmd="aus" title="Taste H">Leiste ausblenden</button></span>`;
+    setzeHtml($("#leiste"), "leiste", h);
+  }
+  function quizSchritt(d) {
+    const idx = S.quiz.findIndex((x) => x.id === stand.raum.quiz?.id);
+    const neu = S.quiz[Math.max(0, Math.min(S.quiz.length - 1, (idx < 0 ? 0 : idx + d)))];
+    steuer({ quiz: { typ: "vor", id: neu.id } });
+  }
+  function leisteUmschalten() {
+    document.body.classList.toggle("ohne-leiste");
+    LS.set("rolle-leiste", document.body.classList.contains("ohne-leiste") ? "aus" : "an");
+    skalieren();
+  }
+  $("#leiste").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b || !stand) return;
+    if (b.dataset.phase) return steuer({ phase: b.dataset.phase });
+    const c = b.dataset.cmd, r = stand.raum;
+    if (c === "unspot") steuer({ spot: null });
+    if (c === "loesung") steuer({ loesung: !r.loesung });
+    if (c === "zeigen") steuer({ quizZeigen: !r.quizZeigen });
+    if (c === "zurueck") quizSchritt(-1);
+    if (c === "weiter") quizSchritt(1);
+    if (c === "aus") leisteUmschalten();
+    if (c === "reset") {
+      if (Date.now() < resetBereit) { resetBereit = 0; gesehen = new Set(); erlebt = new Set(); merke(); steuer({ zuruecksetzen: true }); }
+      else { resetBereit = Date.now() + 3000; leiste(); setTimeout(() => stand && leiste(), 3100); }
+    }
+  });
+  $("#zeigeLeiste").onclick = leisteUmschalten;
+  addEventListener("keydown", (e) => {
+    if (!stand || e.target.closest?.("input, textarea")) return;
+    const r = stand.raum;
+    if (/^[1-6]$/.test(e.key)) steuer({ phase: PHASEN[Number(e.key) - 1] });
+    else if (e.key === "h" || e.key === "H") leisteUmschalten();
+    else if (e.key === "Escape") steuer({ spot: null });
+    else if (e.key === "l" || e.key === "L") { if (r.phase === "einordnen") steuer({ loesung: !r.loesung }); if (r.phase === "quiz") steuer({ quizZeigen: !r.quizZeigen }); }
+    else if (e.key === "ArrowRight" && r.phase === "quiz") quizSchritt(1);
+    else if (e.key === "ArrowLeft" && r.phase === "quiz") quizSchritt(-1);
+  });
+
+  /* ---------- Animation: Seile, Finn, Blitze ---------- */
+  const F = { x: C.x, y: C.y };
+  let letzt = performance.now(), blitzSaat = 0, blitzZeit = 0;
+  const augeL = $("#augeL"), augeR = $("#augeR"), brauen = $("#brauen"), mund = $("#mund"), schweiss = $("#schweiss");
+  const ART_BREITE = { muss: 15, soll: 10, kann: 5 };
+  const dunkler = (hex, f = 0.62) => "#" + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * f).toString(16).padStart(2, "0")).join("");
+  function zufall(seed) { const x = Math.sin(seed * 12.9898) * 43758.5453; return x - Math.floor(x); }
+
+  function bild(ts) {
+    const dt = Math.min(64, ts - letzt); letzt = ts;
+    if (!stand) return requestAnimationFrame(bild);
+    const r = stand.raum, ph = r.phase;
+    const zieh = ph === "ziehen" || ph === "aufdecken";
+    const ruhe = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    /* Kräfte */
+    let sx = 0, sy = 0, summe = 0;
+    if (zieh) for (const k of S.knoten) {
+      const d = stand.knoten[k.id];
+      if (d.aktiv <= 0) continue;
+      const s = 0.55 + 0.45 * (d.aktiv / Math.max(d.n, 1));
+      const ux = POS[k.id].x - C.x, uy = POS[k.id].y - C.y, l = Math.hypot(ux, uy);
+      sx += (ux / l) * s; sy += (uy / l) * s; summe += s;
+    }
+    let dx = sx * 80, dy = sy * 80;
+    const dl = Math.hypot(dx, dy);
+    if (dl > 165) { dx *= 165 / dl; dy *= 165 / dl; }
+    const k = 1 - Math.exp(-dt / 220);
+    F.x += (C.x + dx - F.x) * k; F.y += (C.y + dy - F.y) * k;
+    const spannung = Math.max(0, summe - Math.hypot(sx, sy));
+    const stress = Math.min(1, summe / 2.6);
+    const zitter = ruhe ? 0 : Math.min(spannung, 4) * 1.7;
+    const atem = ruhe ? 0 : Math.sin(ts / 700) * 1.4;
+    const fx = F.x + (Math.random() - 0.5) * 2 * zitter, fy = F.y + atem + (Math.random() - 0.5) * 2 * zitter;
+    finnG.setAttribute("transform", `translate(${fx.toFixed(1)} ${fy.toFixed(1)})`);
+    mund.setAttribute("d", `M -11 -60 Q 0 ${(-51 - 19 * stress).toFixed(1)} 11 -60`);
+    brauen.setAttribute("d", `M -18 ${(-87 + 3 * stress).toFixed(1)} L -5 ${(-88 - 4 * stress).toFixed(1)} M 18 ${(-87 + 3 * stress).toFixed(1)} L 5 ${(-88 - 4 * stress).toFixed(1)}`);
+    const auge = stress > 0.8 ? 4.8 : 3.8;
+    augeL.setAttribute("r", auge); augeR.setAttribute("r", auge);
+    schweiss.setAttribute("opacity", stress > 0.55 ? Math.min(1, (stress - 0.55) * 3).toFixed(2) : 0);
+
+    /* Seile */
+    const W = { x: fx, y: fy + 22 };
+    const live = new Set();
+    for (const kf of aktiveKonflikte()) { live.add(kf.a); live.add(kf.b); }
+    for (const kn of S.knoten) {
+      const d = stand.knoten[kn.id], s = SEIL[kn.id], P = POS[kn.id];
+      let sichtbar = d.n > 0 && ph !== "anmelden";
+      let straff = zieh && d.aktiv > 0;
+      let farbe = HANF, breite = straff ? 12 : 5;
+      if (ph === "aufdecken") farbe = POSFARBE(kn.position);
+      if (ph === "einordnen") {
+        sichtbar = true;
+        if (r.loesung) { straff = true; farbe = S.arten[kn.art].farbe; breite = ART_BREITE[kn.art]; }
+      }
+      s.g.style.display = sichtbar ? "" : "none";
+      if (!sichtbar) continue;
+      const dPfad = straff
+        ? `M ${P.x.toFixed(1)} ${P.y.toFixed(1)} L ${W.x.toFixed(1)} ${W.y.toFixed(1)}`
+        : `M ${P.x.toFixed(1)} ${P.y.toFixed(1)} Q ${((P.x + W.x) / 2).toFixed(1)} ${((P.y + W.y) / 2 + 60).toFixed(1)} ${W.x.toFixed(1)} ${W.y.toFixed(1)}`;
+      s.basis.setAttribute("d", dPfad); s.muster.setAttribute("d", dPfad); s.glut.setAttribute("d", dPfad);
+      s.basis.setAttribute("stroke", farbe);
+      s.basis.setAttribute("stroke-width", breite);
+      s.basis.setAttribute("stroke-opacity", straff ? 1 : 0.55);
+      s.muster.setAttribute("stroke", dunkler(farbe));
+      s.muster.setAttribute("stroke-width", breite);
+      s.muster.setAttribute("stroke-opacity", straff ? 0.8 : 0.4);
+      s.muster.setAttribute("stroke-dasharray", straff ? "3 7" : "2 6");
+      s.muster.setAttribute("stroke-dashoffset", straff && zieh && !ruhe ? ((ts / 14) % 1000).toFixed(1) : 0);
+      const gluehen = live.has(kn.id);
+      s.glut.setAttribute("stroke-width", gluehen ? breite + 14 + (ruhe ? 0 : Math.sin(ts / 90) * 3) : 0);
+    }
+
+    /* Blitze zwischen unvereinbaren Erwartungen */
+    if (ts - blitzZeit > 75) { blitzZeit = ts; blitzSaat++; }
+    const kf = aktiveKonflikte();
+    let svg = "";
+    const M = { x: fx, y: fy - 22 };
+    kf.forEach((kk, i) => {
+      const ra = 106 + i * 17;
+      const a1 = Math.atan2(POS[kk.a].y - M.y, POS[kk.a].x - M.x), a2 = Math.atan2(POS[kk.b].y - M.y, POS[kk.b].x - M.x);
+      let d = a2 - a1; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+      const N = 18, pts = [];
+      for (let j = 0; j <= N; j++) {
+        const th = a1 + (d * j) / N;
+        const rr = ra + (j === 0 || j === N || ruhe ? 0 : (zufall(blitzSaat * 31 + i * 7 + j) - 0.5) * 18);
+        pts.push(`${(M.x + rr * Math.cos(th)).toFixed(1)},${(M.y + rr * Math.sin(th)).toFixed(1)}`);
+      }
+      const p = pts.join(" ");
+      svg += `<polyline points="${p}" fill="none" stroke="#12324a" stroke-width="9" stroke-linejoin="round" stroke-linecap="round" opacity=".85"/>`;
+      svg += `<polyline points="${p}" fill="none" stroke="#ffc531" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+      for (const th of [a1, a2]) svg += `<circle cx="${(M.x + ra * Math.cos(th)).toFixed(1)}" cy="${(M.y + ra * Math.sin(th)).toFixed(1)}" r="7" fill="#ffc531" stroke="#12324a" stroke-width="3"/>`;
+      if (ph === "aufdecken" && kf.length <= 2) {
+        const tm = a1 + d / 2, lx = M.x + (ra + 30) * Math.cos(tm), ly = M.y + (ra + 30) * Math.sin(tm);
+        const txt = kk.art === "intra" ? "Intra" : "Inter", bw = 64;
+        svg += `<g transform="translate(${lx.toFixed(1)} ${ly.toFixed(1)})"><rect x="${-bw / 2}" y="-15" width="${bw}" height="30" rx="15" fill="${kk.art === "intra" ? "#7a3fd0" : "#0f8a8a"}"/><text x="0" y="6" text-anchor="middle" font-size="17" font-weight="800" fill="#fff" font-family="Bricolage Grotesque, system-ui, sans-serif">${txt}</text></g>`;
+      }
+    });
+    if (blitzG._svg !== svg) { blitzG.innerHTML = svg; blitzG._svg = svg; }
+
+    requestAnimationFrame(bild);
+  }
+  requestAnimationFrame(bild);
+  holen();
+}
+</script>
+</body>
+</html>

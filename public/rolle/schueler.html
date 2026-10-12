@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="robots" content="noindex">
+<title>Alle ziehen an Finn</title>
+<link rel="icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --kreide: #edf2f5; --tafel: #12324a; --muted: #5c6f7e; --leine: #a3afba;
+  --prak: #e5412d; --andere: #2c6fd6; --blitz: #ffc531; --karte: #ffffff; --linie: #d3dde4;
+  --muss: #b8433a; --soll: #c98f0f; --kann: #3f8f4f; --intra: #7a3fd0; --inter: #0f8a8a;
+  --gruppe: var(--tafel);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--kreide); color: var(--tafel); font-family: "Bricolage Grotesque", system-ui, sans-serif; }
+body { min-height: 100dvh; }
+.app { max-width: 520px; margin: 0 auto; padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); display: grid; gap: 14px; }
+.kopf { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; color: var(--muted); }
+.kopf b { color: var(--tafel); font-weight: 800; font-size: 16px; }
+.rolle { background: var(--karte); border-radius: 18px; overflow: hidden; box-shadow: 0 1px 0 var(--linie); border: 1px solid var(--linie); }
+.rolle .band { background: var(--gruppe); color: #fff; padding: 14px 16px; display: flex; gap: 12px; align-items: center; transition: background .4s; }
+.rolle .icon { font-size: 34px; line-height: 1; width: 48px; height: 48px; display: grid; place-items: center; background: rgba(255,255,255,.16); border-radius: 50%; flex-shrink: 0; }
+.rolle .wer { font-size: 13px; opacity: .85; margin: 0; }
+.rolle .gruppe { font-size: 22px; font-weight: 800; margin: 0; line-height: 1.15; }
+.rolle .text { padding: 14px 16px 16px; }
+.rolle .label { font-size: 13px; color: var(--muted); margin: 0 0 4px; }
+.rolle .erwartung { font-size: 20px; line-height: 1.35; margin: 0; font-weight: 600; }
+.tag { display: inline-block; margin-top: 10px; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #eef1f4; color: var(--tafel); }
+.hinweis { border-radius: 14px; padding: 12px 14px; font-size: 16px; line-height: 1.4; background: #fff; border: 1px solid var(--linie); }
+.dran { background: var(--blitz); border-color: var(--blitz); font-weight: 600; animation: puls 1.6s ease-in-out infinite; }
+@keyframes puls { 50% { transform: scale(1.02); } }
+.zugwrap { display: grid; place-items: center; padding: 8px 0 4px; }
+.zug { width: min(78vw, 300px); aspect-ratio: 1; border-radius: 50%; border: none; background: var(--gruppe); color: #fff; font: inherit; font-size: 24px; font-weight: 800; display: grid; place-items: center; align-content: center; gap: 10px; user-select: none; -webkit-user-select: none; touch-action: none; box-shadow: 0 10px 0 rgba(18,50,74,.25); transition: transform .08s, box-shadow .08s; cursor: pointer; }
+.zug small { display: block; font-size: 15px; font-weight: 400; opacity: .85; }
+.zug.an { transform: translateY(8px) scale(.97); box-shadow: 0 2px 0 rgba(18,50,74,.25); }
+.zug svg { width: 64px; height: 64px; }
+.zug.an svg .seil { animation: ruck .35s linear infinite; }
+@keyframes ruck { to { stroke-dashoffset: -16; } }
+.wahl { display: grid; gap: 10px; }
+.wahl button, .quizknoepfe button { font: inherit; text-align: left; border: 2px solid var(--linie); background: #fff; color: var(--tafel); border-radius: 14px; padding: 14px 16px; font-size: 18px; font-weight: 600; cursor: pointer; }
+.wahl button small { display: block; font-weight: 400; font-size: 15px; color: var(--muted); margin-top: 2px; }
+.wahl button[aria-pressed="true"] { border-color: var(--tafel); background: var(--tafel); color: #fff; }
+.wahl button[aria-pressed="true"] small { color: #d7e2ea; }
+.wahl button:disabled { opacity: .55; }
+.frage { font-size: 20px; font-weight: 800; margin: 0; line-height: 1.25; }
+.ergebnis { border-radius: 14px; padding: 14px 16px; color: #fff; }
+.ergebnis p { margin: 4px 0 0; font-size: 16px; line-height: 1.4; }
+.ergebnis b { font-size: 20px; }
+.quizfall { background: #fff; border: 1px solid var(--linie); border-radius: 16px; padding: 16px; font-size: 18px; line-height: 1.45; }
+.quizknoepfe { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.quizknoepfe button { text-align: center; padding: 18px 10px; font-size: 20px; font-weight: 800; }
+.quizknoepfe button small { display: block; font-size: 14px; font-weight: 400; color: var(--muted); }
+.quizknoepfe button.intra[aria-pressed="true"] { background: var(--intra); border-color: var(--intra); color: #fff; }
+.quizknoepfe button.inter[aria-pressed="true"] { background: var(--inter); border-color: var(--inter); color: #fff; }
+.quizknoepfe button[aria-pressed="true"] small { color: #eee; }
+textarea { width: 100%; min-height: 150px; font: inherit; font-size: 17px; line-height: 1.4; padding: 12px; border-radius: 14px; border: 2px solid var(--linie); background: #fff; color: var(--tafel); resize: vertical; }
+textarea:focus { outline: none; border-color: var(--tafel); }
+.senden { font: inherit; font-size: 18px; font-weight: 800; border: none; border-radius: 14px; padding: 14px; background: var(--tafel); color: #fff; cursor: pointer; }
+.senden:disabled { opacity: .5; }
+.klein { font-size: 14px; color: var(--muted); margin: 0; line-height: 1.4; }
+.fehler { background: #fff3f1; border: 1px solid #f3c2bb; color: #8c2a1c; border-radius: 14px; padding: 14px 16px; }
+.fehler a { color: inherit; font-weight: 600; }
+button:focus-visible, textarea:focus-visible { outline: 3px solid var(--blitz); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .dran, .zug.an svg .seil { animation: none; } }
+</style>
+</head>
+<body>
+<main class="app" id="app">
+  <div class="kopf"><b>Alle ziehen an Finn</b><span id="codeAnz"></span></div>
+  <div class="hinweis">Einen Moment, Sie werden angemeldet …</div>
+</main>
+<script type="module">
+import { SZENARIO as S } from "/rolle/szenario.js";
+const code = location.pathname.split("/").filter(Boolean)[1];
+const app = document.getElementById("app");
+const speicher = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+let pid = speicher.get("rolle-" + code);
+let ich = null, zustand = null, zugAn = false, zugTimer = null, gesendetBsp = 0, letzteDarstellung = "", runde = null;
+/* Eigene Antworten merkt sich das Handy selbst; der Server liefert nur den Raumzustand */
+function antwortenLaden() { try { return JSON.parse(speicher.get("rolle-" + code + "-ant") || "null"); } catch { return null; } }
+function antwortenSichern() { speicher.set("rolle-" + code + "-ant", JSON.stringify({ runde, wahl: ich.wahl, quiz: ich.quiz })); }
+const FARBEN = { praktikant: "#e5412d", fahrschueler: "#2c6fd6", spieler: "#2c6fd6", freund: "#2c6fd6" };
+
+async function api(aktion, body) {
+  const r = await fetch(`/api/rolle/${code}/${aktion}`, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : { cache: "no-store" });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(j.error || "Fehler"), { status: r.status });
+  return j;
+}
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function knoten() { return S.knoten.find((k) => k.id === ich?.knoten); }
+
+async function anmelden() {
+  try {
+    const j = await api("beitreten", { pid });
+    pid = j.pid; speicher.set("rolle-" + code, pid);
+    const lokal = antwortenLaden();
+    runde = j.runde;
+    ich = { knoten: j.knoten, wahl: j.wahl ?? null, quiz: { ...(lokal?.runde === j.runde ? lokal.quiz : {}), ...(j.quiz ?? {}) } };
+    antwortenSichern();
+    await holen();
+    if (!abfrage) abfrage = setInterval(() => { if (!document.hidden) holen(); }, 1800);
+  } catch (e) {
+    if (e.status === 503 || !e.status) return setTimeout(anmelden, 600 + Math.random() * 900);
+    zeigeFehler(e.status === 404 ? "Diesen Raum gibt es nicht. Prüfen Sie den Code an der Tafel." : e.message);
+  }
+}
+function zeigeFehler(t) {
+  app.innerHTML = `<div class="kopf"><b>Alle ziehen an Finn</b></div><div class="fehler">${esc(t)}<br><br><a href="/rolle">Code eingeben</a></div>`;
+}
+let abfrage = null;
+async function holen() {
+  try {
+    zustand = await api("zustand");
+    if (zustand.runde !== runde) { runde = zustand.runde; ich.wahl = null; ich.quiz = {}; antwortenSichern(); }
+    ich.quizAntwort = zustand.quiz ? ich.quiz[zustand.quiz.schluessel] ?? null : null;
+    darstellen();
+  } catch (e) { if (e.status === 404) { clearInterval(abfrage); zeigeFehler("Der Raum wurde beendet."); } }
+}
+async function neuAnmelden() { pid = null; letzteDarstellung = ""; await anmelden(); }
+
+function rollenKarte(mitPosition) {
+  const k = knoten();
+  const pos = S.positionen[k.position];
+  const farbe = mitPosition ? FARBEN[k.position] : "#12324a";
+  document.documentElement.style.setProperty("--gruppe", farbe);
+  return `<section class="rolle"><div class="band"><span class="icon" aria-hidden="true">${k.icon}</span>
+    <div><p class="wer">Sie spielen</p><p class="gruppe">${esc(k.gruppe)}</p></div></div>
+    <div class="text"><p class="label">Ihre Erwartung an Finn</p><p class="erwartung">„${esc(k.erwartung)}“</p>
+    ${mitPosition ? `<span class="tag">Richtet sich an Finn als ${esc(pos)}</span>` : ""}</div></section>`;
+}
+const SEIL = `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4 V 44" stroke="rgba(255,255,255,.35)" stroke-width="10" stroke-linecap="round"/><path class="seil" d="M32 4 V 44" stroke="#fff" stroke-width="10" stroke-dasharray="3 5"/><path d="M18 42 L32 58 L46 42" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+function darstellen() {
+  const z = zustand, k = knoten();
+  const sig = JSON.stringify([z.phase, z.spot === ich.knoten, z.loesung, z.quiz?.schluessel, z.quiz?.loesung, ich.wahl, ich.quizAntwort, gesendetBsp]);
+  if (sig === letzteDarstellung) return;
+  letzteDarstellung = sig;
+  const kopf = `<div class="kopf"><b>Alle ziehen an Finn</b><span>Raum ${esc(code.toUpperCase())}</span></div>`;
+  let html = kopf;
+  if (z.phase !== "ziehen" && z.phase !== "aufdecken") stopZug();
+
+  if (z.phase === "anmelden") {
+    html += rollenKarte(false) + `<div class="hinweis">Sie sind angemeldet. Lesen Sie Ihre Erwartung und warten Sie auf das Startsignal am Beamer.</div>`;
+  } else if (z.phase === "ziehen" || z.phase === "aufdecken") {
+    html += rollenKarte(z.phase === "aufdecken");
+    if (z.spot === ich.knoten) html += `<div class="hinweis dran">Sie sind dran: Lesen Sie Ihre Erwartung laut vor. Dann ziehen Sie!</div>`;
+    html += `<div class="zugwrap"><button class="zug${zugAn ? " an" : ""}" id="zug" aria-label="Gedrückt halten, um an Finn zu ziehen">${SEIL}<span id="zugtext">${zugAn ? "Sie ziehen!<small>loslassen zum Aufhören</small>" : "Ziehen<small>gedrückt halten</small>"}</span></button></div>`;
+  } else if (z.phase === "einordnen") {
+    html += rollenKarte(false) + `<p class="frage">${esc(S.frageEinordnen)}</p><div class="wahl">` +
+      S.antwortenEinordnen.map((a) => `<button data-wahl="${a.id}" aria-pressed="${ich.wahl === a.id}" ${z.loesung ? "disabled" : ""}>${esc(a.text)}<small>${esc(a.hilfe)}</small></button>`).join("") + `</div>`;
+    if (z.loesung) {
+      const art = S.arten[k.art];
+      const passt = ich.wahl === k.art;
+      html += `<div class="ergebnis" style="background:${art.farbe}"><b>${esc(art.name)}</b><p>${esc(k.folge)}</p><p>${ich.wahl ? (passt ? "Ihre Einschätzung stimmt." : "Sie haben anders getippt. Woran liegt der Unterschied?") : ""}</p></div>`;
+    } else if (ich.wahl) html += `<p class="klein">Gespeichert. Sie können Ihre Antwort noch ändern, bis die Auflösung kommt.</p>`;
+  } else if (z.phase === "quiz") {
+    const q = z.quiz;
+    if (!q) html += `<div class="hinweis">Gleich kommt die nächste Frage.</div>`;
+    else {
+      html += `<p class="frage">Intra oder Inter?</p><div class="quizfall">${esc(q.text)}</div><div class="quizknoepfe">
+        <button class="intra" data-quiz="intra" aria-pressed="${ich.quizAntwort === "intra"}" ${q.loesung ? "disabled" : ""}>Intra<small>innerhalb einer Rolle</small></button>
+        <button class="inter" data-quiz="inter" aria-pressed="${ich.quizAntwort === "inter"}" ${q.loesung ? "disabled" : ""}>Inter<small>zwischen zwei Rollen</small></button></div>`;
+      if (q.loesung) {
+        const art = S.konfliktArten[q.loesung];
+        html += `<div class="ergebnis" style="background:var(--${q.loesung})"><b>${esc(art.name)}</b><p>${esc(q.warum)}</p><p>${ich.quizAntwort ? (ich.quizAntwort === q.loesung ? "Richtig!" : "Diesmal daneben.") : ""}</p></div>`;
+      } else if (ich.quizAntwort) html += `<p class="klein">Gespeichert. Schauen Sie zum Beamer.</p>`;
+    }
+  } else if (z.phase === "beispiele") {
+    html += `<p class="frage">Ein Rollenkonflikt aus Ihrem Praktikum</p>
+      <p class="klein">Wer erwartet was von Ihnen, und warum passt das nicht zusammen? Bitte keine Namen von Kindern, Kolleginnen, Kollegen oder Einrichtungen.</p>
+      <textarea id="bsp" maxlength="300" placeholder="Meine Anleiterin erwartet, dass … Gleichzeitig erwarten die Kinder, dass …"></textarea>
+      <button class="senden" id="senden" ${gesendetBsp >= 2 ? "disabled" : ""}>Anonym abschicken</button>
+      ${gesendetBsp ? `<p class="klein">Danke, angekommen.${gesendetBsp < 2 ? " Sie können noch ein zweites Beispiel schicken." : ""}</p>` : ""}`;
+  }
+  const altText = document.getElementById("bsp")?.value ?? "";
+  app.innerHTML = html;
+  const ta = document.getElementById("bsp"); if (ta && altText) ta.value = altText;
+  verdrahten();
+}
+
+function verdrahten() {
+  const zug = document.getElementById("zug");
+  if (zug) {
+    const an = (e) => { e.preventDefault(); startZug(); };
+    const aus = (e) => { e.preventDefault(); stopZug(); };
+    zug.addEventListener("pointerdown", an);
+    ["pointerup", "pointercancel", "pointerleave"].forEach((t) => zug.addEventListener(t, aus));
+    zug.addEventListener("contextmenu", (e) => e.preventDefault());
+    zug.addEventListener("keydown", (e) => { if ((e.key === " " || e.key === "Enter") && !zugAn) startZug(); });
+    zug.addEventListener("keyup", (e) => { if (e.key === " " || e.key === "Enter") stopZug(); });
+  }
+  app.querySelectorAll("[data-wahl]").forEach((b) => b.addEventListener("click", async () => {
+    try { await api("wahl", { pid, wahl: b.dataset.wahl }); ich.wahl = b.dataset.wahl; antwortenSichern(); letzteDarstellung = ""; darstellen(); }
+    catch (e) { if (e.status === 404) neuAnmelden(); else alarm(e.message); }
+  }));
+  app.querySelectorAll("[data-quiz]").forEach((b) => b.addEventListener("click", async () => {
+    try { await api("quiz", { pid, frage: zustand.quiz.schluessel, antwort: b.dataset.quiz }); ich.quiz[zustand.quiz.schluessel] = ich.quizAntwort = b.dataset.quiz; antwortenSichern(); letzteDarstellung = ""; darstellen(); }
+    catch (e) { if (e.status === 404) neuAnmelden(); else alarm(e.message); }
+  }));
+  const s = document.getElementById("senden");
+  if (s) s.addEventListener("click", async () => {
+    const ta = document.getElementById("bsp");
+    s.disabled = true;
+    try { await api("beispiel", { pid, text: ta.value }); gesendetBsp++; ta.value = ""; letzteDarstellung = ""; darstellen(); }
+    catch (e) { alarm(e.message); s.disabled = false; }
+  });
+}
+function alarm(t) {
+  let el = document.getElementById("meldung");
+  if (!el) { el = document.createElement("p"); el.id = "meldung"; el.className = "fehler"; app.appendChild(el); }
+  el.textContent = t;
+}
+function startZug() {
+  if (zugAn) return;
+  zugAn = true;
+  document.getElementById("zug")?.classList.add("an");
+  try { navigator.vibrate?.(30); } catch {}
+  api("zug", { pid, an: true }).catch(() => {});
+  zugTimer = setInterval(() => api("zug", { pid, an: true }).catch(() => {}), 4000);
+  setzeZugText();
+}
+function setzeZugText() {
+  const t = document.getElementById("zugtext");
+  if (t) t.innerHTML = zugAn ? "Sie ziehen!<small>loslassen zum Aufhören</small>" : "Ziehen<small>gedrückt halten</small>";
+}
+function stopZug() {
+  if (!zugAn) return;
+  zugAn = false;
+  clearInterval(zugTimer);
+  document.getElementById("zug")?.classList.remove("an");
+  setzeZugText();
+  api("zug", { pid, an: false }).catch(() => {});
+}
+window.addEventListener("blur", stopZug);
+document.addEventListener("pointerup", stopZug);
+document.addEventListener("pointercancel", stopZug);
+document.addEventListener("visibilitychange", () => { if (document.hidden) stopZug(); });
+if (!/^[a-z0-9]{4}$/.test(code || "")) zeigeFehler("Dieser Link ist unvollständig."); else anmelden();
+</script>
+</body>
+</html>

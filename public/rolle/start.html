@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Alle ziehen an Finn</title>
+<link rel="icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root { --kreide: #edf2f5; --tafel: #12324a; --muted: #5c6f7e; --linie: #d3dde4; --blitz: #ffc531; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--kreide); color: var(--tafel); font-family: "Bricolage Grotesque", system-ui, sans-serif; }
+main { max-width: 440px; margin: 0 auto; padding: 48px 16px; display: grid; gap: 18px; }
+h1 { font-size: 34px; line-height: 1.05; margin: 0; font-weight: 800; letter-spacing: -.01em; }
+p { margin: 0; font-size: 17px; line-height: 1.45; color: var(--muted); }
+label { font-weight: 600; font-size: 17px; }
+input { width: 100%; font: inherit; font-size: 40px; font-weight: 800; letter-spacing: .3em; text-transform: uppercase; text-align: center; padding: 12px; border: 2px solid var(--linie); border-radius: 16px; background: #fff; color: var(--tafel); }
+input:focus { outline: none; border-color: var(--tafel); }
+button { font: inherit; font-size: 20px; font-weight: 800; border: none; border-radius: 14px; padding: 16px; background: var(--tafel); color: #fff; cursor: pointer; }
+button:disabled { opacity: .45; }
+button:focus-visible { outline: 3px solid var(--blitz); outline-offset: 2px; }
+.fehler { color: #8c2a1c; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Alle ziehen an Finn</h1>
+  <p>Geben Sie den Code ein, der am Beamer steht.</p>
+  <form id="f" novalidate>
+    <label for="code">Raumcode</label>
+    <input id="code" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="4" required>
+  </form>
+  <button id="los" form="f" disabled>Mitmachen</button>
+  <p class="fehler" id="fehler" role="alert"></p>
+</main>
+<script>
+const feld = document.getElementById("code"), los = document.getElementById("los"), fehler = document.getElementById("fehler");
+const sauber = () => feld.value.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 4);
+feld.addEventListener("input", () => { feld.value = sauber().toUpperCase(); los.disabled = feld.value.length !== 4; fehler.textContent = ""; });
+document.getElementById("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const c = sauber();
+  if (c.length !== 4) return;
+  los.disabled = true;
+  const r = await fetch(`/api/rolle/${c}/zustand`).catch(() => null);
+  if (r && r.ok) location.href = `/rolle/${c}`;
+  else { fehler.textContent = r && r.status === 404 ? "Diesen Code gibt es nicht. Bitte noch einmal am Beamer nachsehen." : "Keine Verbindung. Bitte noch einmal versuchen."; los.disabled = false; }
+});
+feld.focus();
+</script>
+</body>
+</html>

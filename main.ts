@@ -8,6 +8,7 @@
  */
 
 import { analysiere } from "./public/zaehlen.js";
+import { rolleRoute } from "./rolle.ts";
 
 const LEHRER_TOKEN = Deno.env.get("LEHRER_TOKEN") ?? "";
 
@@ -721,6 +722,10 @@ Deno.serve({ port: PORT }, async (req: Request) => {
     });
   }
 
+  /* ================= Live-Spiel „Alle ziehen an Finn“ (/rolle) ================= */
+  const rolle = await rolleRoute(req, url, pfad, lehrer, kv, { statisch, json, fehler, leseBody, kvFehlt: kvFehltAntwort });
+  if (rolle) return rolle;
+
   /* ================= Verwaltung der Räume (nur Lehrkraft) ================= */
   if (pfad === "/api/rooms" || pfad.startsWith("/api/rooms/")) {
     if (!kv) return kvFehltAntwort();
@@ -1031,7 +1036,7 @@ Deno.serve({ port: PORT }, async (req: Request) => {
 
   /* Lehrer-Link mit falschem oder fehlendem Token: sagen, woran es liegt,
      statt stillschweigend die Schülerseite zu zeigen */
-  if (url.searchParams.has("lehrer") && !lehrer && (pfad === "/" || pfad.startsWith("/r/"))) {
+  if (url.searchParams.has("lehrer") && !lehrer && (pfad === "/" || pfad.startsWith("/r/") || /^\/rolle(\/[A-Za-z0-9]{4})?\/?$/.test(pfad))) {
     const grund = !LEHRER_TOKEN
       ? "Auf dem Server ist <b>kein LEHRER_TOKEN</b> eingetragen. In der Deno-Console unter <i>Settings → Environment Variables</i> anlegen – für <b>Production</b> – und danach neu deployen."
       : diagnose(url);

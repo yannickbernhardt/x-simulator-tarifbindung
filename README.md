@@ -35,6 +35,20 @@ gepflegt; Speichern in der Verwaltung lässt sie unverändert.
 - `public/zaehlen.js` – Zeichenzählung wie X (Emoji/CJK = 2, Link = 23), Server und Browser.
 - `public/m4.svg` – Schaubild des ersten Raums (`eltm2-a4`), wird beim ersten Start übernommen.
 
+## Live-Spiel „Alle ziehen an Finn“ (Rollentheorie nach Dahrendorf)
+| Wer | Adresse |
+|---|---|
+| Lehrkraft (Beamer) | `/rolle?lehrer=<LEHRER_TOKEN>` → „Neues Spiel starten“ |
+| Klasse (QR-Code am Beamer) | `/rolle/<code>`, ohne QR: `/rolle` → Code eingeben |
+
+Jedes Handy bekommt reihum eine Bezugsgruppe (Anleiterin, Leitung, Team, Fahrlehrer, Trainer, Lehrerin,
+Freunde, Eltern, Kinder) und zieht per Knopf an Finn. Phasen am Beamer (Tasten 1–6):
+Anmelden · Ziehen (Karte anklicken = Gruppe aufrufen, Blitze bei unvereinbaren Erwartungen) ·
+Aufdecken (Positionen, Intra/Inter) · Einordnen (Muss/Soll/Kann abstimmen, L = Auflösung) ·
+Quiz (6 Fälle, ←/→, L = Ergebnis) · Beispiele (anonym, „Abstimmen lassen“). H blendet die Leiste aus.
+Keine Namen, alles läuft nach 12 Stunden ab. Inhalte stehen in `public/rolle/szenario.js`,
+Server in `rolle.ts` (sparsam mit KV-Lesezugriffen: Raum-Cache, Versionsschlüssel, ein Zug-Schlüssel pro Gruppe).
+
 ## Deno Deploy
 KV-Datenbank muss angehängt sein, `LEHRER_TOKEN` als Secret. Update = auf `main` pushen.
 Notschalter für die ganze Seite: `DEAKTIVIERT = true` in `main.ts`.
