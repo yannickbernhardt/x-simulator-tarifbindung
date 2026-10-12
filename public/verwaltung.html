@@ -104,8 +104,10 @@
   <span class="logo" id="logo"></span>
   <h1>Räume <span class="unter">· X-Simulator</span></h1>
   <button class="chip" id="bTheme">Hell</button>
+  <a class="chip" id="bFinn" href="/rolle" style="text-decoration:none">Spiel: Alle ziehen an Finn</a>
   <button class="chip blau" id="bNeu">+ Neuer Raum</button>
 </header>
+<script>document.getElementById("bFinn").href = "/rolle" + location.search;</script>
 <main>
   <div id="fehler"></div>
   <div class="raeume" id="raeume"></div>
