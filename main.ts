@@ -707,12 +707,20 @@ const VORBEREITET: Vorlage[] = [
     eh: `## Ablauf (UB, 45 Minuten)
 - Einstieg (3 Min.): „Wir haben alle Argumente gesammelt. Für wie berechtigt halten Sie diese Kritik?“ Mia fragt: „Lerne ich hier gerade Quatsch?“
 - Runde 1 (3 Min.): Like heißt: Diese Kritik halte ich für berechtigt. Dann „Runde 1 festhalten“.
-- Faktencheck (8 Min.): Infokarte zu der Antwort, bei der man am unsichersten war; den stärksten Beleg markieren.
+- Faktencheck (8 Min.): Infokarte zu der Antwort, bei der man am unsichersten war; den stärksten Beleg markieren. Wer dieselbe Karte hat, darf sich kurz austauschen.
 - Streit (8 Min.): Raum auf „offen“. Kommentar unter die Antwort, zustimmend oder widersprechend, mit Beleg. Wer einen Punkt vermisst, antwortet Mia direkt.
 - Runde 2 (4 Min.): Kommentare zu mindestens drei anderen Antworten lesen, Likes neu setzen. Die Wand zeigt vorher → jetzt.
-- Auswertung (7 Min.): „Wo hat sich die Klasse am stärksten umentschieden? Was hat Sie umgestimmt?“ „Wo hat sich kaum etwas bewegt? Ist diese Kritik also berechtigt?“
+- Auswertung (7 Min.): Eine Minute mit dem Nachbarn: „Was hat Sie umgestimmt?“ Dann im Plenum: „Wo hat sich die Klasse am stärksten umentschieden?“ „Wo hat sich kaum etwas bewegt? Ist diese Kritik also berechtigt?“ Bei Antwort 7 den Spiegel aus der Diagnose zeigen (P5, 94 %).
 - Moderation (8 Min.): Klarstellung in drei Sätzen (berechtigt, übertrieben, stimmt nicht), an der Wand mitschreiben, live stellen.
 - Abschluss (2 Min.): „Kann Mia jetzt beruhigt weiterlernen?“ Wer die Klarstellung mitträgt, likt sie. Puffer (2 Min.)
+
+## Diagnose (Ankerpunkt, 02.11., 16 Abgaben)
+- P5 „Ein Kind entwickelt sein Denken vor allem allein, indem es selbst ausprobiert“: 94 % → Can (Antwort 7) in Runde 1 eher wenige Likes, nach dem Faktencheck mehr. **Spiegel:** „94 % von Ihnen haben gesagt, ein Kind entwickelt sein Denken vor allem allein. Genau das kritisiert Can.“
+- P2 abgelehnt (Ø 1,8), meist mit „ein Kind denkt immer“ → Birgit (Antwort 5) viel Zustimmung; Können und Zeigen ausdrücklich benennen.
+- P3 40 %, P1 31 % → Sandra (Antwort 3) wirkt zunächst überzeugend.
+- P4 53 % → Opa Heinz (Antwort 6) spaltet die Klasse.
+- P6 0 % → niemand will Piaget verwerfen; in der Klarstellung „Was stimmt nicht?“ einfordern.
+- Mot6 (frei vor der Klasse sprechen) Ø 2,3 → Murmelphase vor dem Plenum. Beispiele aus P7: Kind vermutet im größeren Glas mehr (für Piaget), Kind stellt sich vor, auf einem Pferd zu reiten (Symbolspiel).
 
 ## Antwort 1 · @jonas_denkt · Punkt 3, Zirkelschluss · stimmt teilweise
 - M1, Z. 12–20; M9, Abschnitt zu Punkt 3 (Z. 11–30, Zeilen prüfen)
@@ -735,16 +743,17 @@ const VORBEREITET: Vorlage[] = [
 ## Antwort 5 · @birgit_kita · Punkt 7, Kind als Versuchsobjekt · stimmt teilweise
 - Light u. a., 1979 (Einstieg: 5 zu 70 von 100); McGarrigle/Donaldson, 1974 (frecher Teddy, rund 16 zu 62 %); Hughes, 1975, nach Donaldson, 1978 (Polizisten-Versuch, rund 90 %); dagegen M1, Z. 96–97 und 110–114 (Begründungen), Z. 30–31 (konkrete Operationen mit sieben bis acht)
 - **Kommentar:** „Teilweise: Fragt man kindgerecht, sagen viel mehr Kinder „gleich viel“, beiläufig im Spiel 70 statt 5 von 100 (Light u. a., 1979). Piaget ließ Kinder aber begründen (M1, Z. 110–114), und „gleich viel“ allein zeigt noch keine Invarianz.“
-- Für die Auswertung: Präkonzept P2 (Können und Zeigen), Rückbezug zum Einstieg.
+- Für die Auswertung: Präkonzept P2 (Können und Zeigen; die Klasse lehnt P2 ab, begründet aber meist mit „ein Kind denkt immer“), Rückbezug zum Einstieg.
 
 ## Antwort 6 · @opa_heinz · Punkt 8, nur Physik · stimmt teilweise
 - M1, Z. 26–29, 85–89, 148–158; M9, Z. 83–100; dagegen M1, Z. 64–67 (Symbolspiel), Z. 75–77, Z. 159–163; Garz, 2006, S. 60 ff. (Murmelspiel)
 - **Kommentar:** „Teilweise: Seine Versuche prüfen vor allem Menge, Gewicht und Volumen (M1, Z. 26–29). Das Spiel hat Piaget aber selbst untersucht, etwa das Symbolspiel (M1, Z. 64–67) und die Regeln beim Murmelspiel (Garz, 2006, S. 60 ff.).“
+- Für die Auswertung: Beispiel aus der Diagnose, ein Kind stellt sich vor, auf einem Pferd zu reiten (Symbolspiel, M1, Z. 64–67).
 
 ## Antwort 7 · @can_erzieher · Punkt 9, Kultur und Kommunikation · stimmt weitgehend
 - M9, ab Z. 101 (Zeilen prüfen); M1, Z. 12–20; Garz, 2006, S. 84 (soziale Erfahrung als ein Faktor), S. 85 (Äquilibration ausschlaggebend)
 - **Kommentar:** „Stimmt weitgehend: Für Piaget treibt vor allem das Kind selbst seine Entwicklung an (M1, Z. 12–20). Soziale Erfahrung nennt er zwar als Faktor, entscheidend ist aber die Äquilibration (Garz, 2006, S. 84 f.). „Fehlanzeige“ übertreibt.“
-- Für die Auswertung: Ausblick auf das Kita-Angebot am 16.11.
+- Für die Auswertung: Spiegel aus der Diagnose (P5, 94 %); die Kritik trifft die Überzeugung der Klasse. Ausblick auf das Kita-Angebot am 16.11.
 
 ## Klarstellung der Moderation · Beispiel
 - „Berechtigt ist: Gespräch und Kultur kommen bei Piaget zu kurz, und seine Aufgaben unterschätzen Kinder oft (Light u. a., 1979). Übertrieben ist: Die Altersangaben sind nur Richtwerte, und das Spiel hat Piaget selbst untersucht (M1, Z. 21–24, 64–67). Nicht haltbar ist: Ausgedacht hat er sich die Stufen nicht, er hat Kinder beobachtet und befragt (M1, Z. 1–5).“
