@@ -605,6 +605,12 @@ function pinPost() {
 /* Thread-Räume: vorbereitete Antworten unter dem angehefteten Post */
 function antworten() { return stand.raum?.antworten ?? []; }
 function notesModus() { return !!stand.raum?.notes && antworten().length > 0; }
+/* Notes auch zum angehefteten Post (eigenes Urteil zur Ausgangsfrage) */
+function pinNotes() { return notesModus() && !!stand.raum?.pinNotes && !!stand.pinFrei; }
+function pinFrage() {
+  const n = stand.raum?.pin?.name ?? "";
+  return /[sxzß]$/i.test(n) ? `${n}’ Frage` : `${n}s Frage`;
+}
 function antwortStand(id) { return (stand.antwortStand ?? []).find((x) => x.id === id); }
 function antwortNr(id) { return antworten().findIndex((a) => a.id === id) + 1; }
 function antwortPost(id) {
@@ -640,18 +646,20 @@ function render() {
     html += `<div class="banner" style="border-color:var(--border)">⏸️ Posten ist gerade pausiert. Du kannst weiter lesen und liken.</div>`;
   }
   const thread = antworten().length > 0;
+  const notizKnopf = notesModus() && raum.status === "offen"
+    ? `<button class="note-btn" data-act="note">${icon("leute")}Community Note vorschlagen</button>` : "";
+  const pinLive = pinNotes() ? stand.posts.filter((p) => p.zu === "pinned" && p.live && !p.hidden) : [];
   html += postHtml(pinPost(), {
     menu: true, jetzt: jetzt(),
     oben: thread ? "" : `<div class="pin-line">${icon("pin")}Angehefteter Post</div>`,
-    medien: raum.bild
+    medien: (raum.bild
       ? `<button class="media" data-act="bild" aria-label="Bild ansehen"><img src="${bildUrl(raum)}" alt="${esc(raum.pin.alt || "Bild zur Aufgabe")}"></button>`
-      : "",
+      : "") + (pinNotes() ? pinLive.map((p) => noteHtml(p.text)).join("") + notizKnopf : ""),
   });
 
   /* Thread: Antworten mit ihren live geschalteten Community Notes */
   if (thread) {
-    const knopf = notesModus() && raum.status === "offen"
-      ? `<button class="note-btn" data-act="note">${icon("leute")}Community Note vorschlagen</button>` : "";
+    const knopf = notizKnopf;
     for (const a of antworten()) {
       const live = stand.posts.filter((p) => p.zu === a.id && p.live && !p.hidden);
       html += postHtml(antwortPost(a.id), {
@@ -661,7 +669,7 @@ function render() {
       });
     }
     if (notesModus()) {
-      html += `<div class="abschnitt"><h2>Vorschläge für Community Notes</h2><p>Live gehen Notes, die aus Azubi-Sicht und aus Betriebssicht hilfreich sind.</p></div>`;
+      html += `<div class="abschnitt"><h2>Vorschläge für Community Notes</h2><p>${esc(raum.notesHinweis ?? "Live gehen Notes, die aus Azubi-Sicht und aus Betriebssicht hilfreich sind.")}</p></div>`;
     }
   }
 
@@ -669,9 +677,11 @@ function render() {
   const liste = thread ? sichtbar.filter((p) => !p.live) : sichtbar;
   for (const p of liste) {
     const a = p.zu ? antworten().find((x) => x.id === p.zu) : null;
+    const zuPin = p.zu === "pinned";
     html += postHtml({ ...p, bookmarked: lesezeichen.has(p.id) }, {
       menu: true, jetzt: jetzt(), hinweisVersteckt: true,
-      oben: a ? `<div class="pin-line">${icon("leute")}Note-Vorschlag zu Antwort ${antwortNr(a.id)} von @${esc(a.handle)}</div>` : "",
+      oben: a ? `<div class="pin-line">${icon("leute")}Note-Vorschlag zu Antwort ${antwortNr(a.id)} von @${esc(a.handle)}</div>`
+        : zuPin ? `<div class="pin-line">${icon("leute")}Urteil zu ${esc(pinFrage())}</div>` : "",
     });
   }
   if (!liste.length && !kvFehler) {
@@ -779,7 +789,7 @@ $("#feed").addEventListener("click", async (e) => {
     return;
   }
   if (act === "bild") return lightbox();
-  if (act === "reply" && post.istAntwort && notesModus()) return toast("Tippe auf „Community Note vorschlagen“, um etwas richtigzustellen.");
+  if (act === "reply" && ((post.istAntwort && notesModus()) || (id === "pinned" && pinNotes()))) return toast("Tippe auf „Community Note vorschlagen“, um etwas richtigzustellen.");
   if (act === "reply" || act === "repost") return toast("Antworten und Reposten sind in dieser Simulation ausgeschaltet.");
   if (act === "views") return toast(`${post.views} Geräte aus deiner Klasse haben diesen Post gesehen.`);
   if (act === "menu") return menu(post);
@@ -821,7 +831,7 @@ document.addEventListener("keydown", (e) => {
 
 function menu(post) {
   const eigen = post.mine;
-  const noteItem = post.istAntwort && notesModus() && stand.raum.status === "offen"
+  const noteItem = (post.istAntwort || (post.id === "pinned" && pinNotes())) && notesModus() && stand.raum.status === "offen"
     ? `<button class="item" data-m="note">${icon("leute")}Community Note vorschlagen</button>` : "";
   const items = eigen
     ? `<button class="item rot" data-m="del">${icon("trash")}Löschen</button>
@@ -900,13 +910,17 @@ function baueBezug(post, zu) {
     <select id="bezugSel" ${post ? "disabled" : ""}>
       <option value="">Antwort auswählen …</option>
       ${antworten().map((a, i) => `<option value="${esc(a.id)}" ${a.id === gewaehlt ? "selected" : ""}>Antwort ${i + 1} von @${esc(a.handle)}</option>`).join("")}
+      ${pinNotes() ? `<option value="pinned" ${gewaehlt === "pinned" ? "selected" : ""}>${esc(pinFrage())}: dein Urteil</option>` : ""}
     </select>
     <div class="bezug-text" id="bezugText" hidden></div>`;
   $("#bezugSel").addEventListener("change", () => { zeigeBezug(); aktualisiereEditor(); });
   zeigeBezug();
 }
 function zeigeBezug() {
-  const a = antworten().find((x) => x.id === $("#bezugSel")?.value);
+  const wahl = $("#bezugSel")?.value;
+  const a = wahl === "pinned" && pinNotes()
+    ? { handle: stand.raum.pin.handle, text: stand.raum.pin.text }
+    : antworten().find((x) => x.id === wahl);
   const el = $("#bezugText");
   if (!el) return;
   el.hidden = !a;
@@ -920,7 +934,7 @@ function oeffneCompose(post = null, zu = null) {
   const nm = notesModus();
   baueBezug(post, zu);
   $("#cAv").innerHTML = avatarHtml(profil.avatar, 40);
-  $("#edText").placeholder = nm ? "Was stimmt, was nicht? Höchstens zwei Sätze, am Ende der Paragraf." : "Was passiert gerade?!";
+  $("#edText").placeholder = nm ? (stand.raum?.notesPlatzhalter ?? "Was stimmt, was nicht? Höchstens zwei Sätze, am Ende der Paragraf.") : "Was passiert gerade?!";
   $("#wer").innerHTML = nm ? `${icon("leute")}Die Klasse bewertet deine Note` : `${icon("globe")}Jeder kann antworten`;
   $("#tools").innerHTML = [["image","Medien"],["gif","GIF"],["poll","Umfrage"],["emoji","Emoji"],["schedule","Planen"],["location","Standort"]]
     .map(([n, l]) => `<button data-tool="${n}" aria-label="${l}">${icon(n)}</button>`).join("");

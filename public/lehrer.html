@@ -182,6 +182,17 @@
   .live-karte .cnote { margin-top: 0; }
   .live-karte .cnote-text { font-size: calc(var(--fs) * 0.85); line-height: 1.35; }
   .keine { color: var(--muted); font-size: 14px; padding: 2px; }
+  .note-fuss { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; color: var(--muted); font-size: 14px; padding: 6px 0 0; }
+  .note-fuss .herz { color: var(--pink); font-weight: 800; }
+  .note-fuss .beide { color: #fff; background: var(--green); border-radius: 9999px; padding: 2px 10px; font-weight: 800; }
+  .note-fuss .einseitig { border: 1px solid var(--border); border-radius: 9999px; padding: 1px 9px; }
+  .pin-notes { margin: 0 0 16px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 16px; }
+  .pin-notes-kopf { font-weight: 800; font-size: 18px; margin-bottom: 4px; }
+  .pin-notes-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 10px; align-items: start; }
+  .alikes .vorher { color: var(--muted); font-weight: 700; }
+  .alikes .diff { font-size: 14px; font-weight: 800; margin-left: 4px; }
+  .alikes .diff.weniger { color: var(--blue); }
+  .alikes .diff.mehr { color: var(--pink); }
   .wand-rest { columns: 3 400px; column-gap: 16px; margin-top: 16px; }
   .spot-bezug { color: var(--muted); font-size: 20px; line-height: 1.4; margin: 24px 0 0; padding: 12px 16px; border: 1px solid var(--border); border-radius: 16px; }
   .spot-bezug b { color: var(--text); }
@@ -236,6 +247,8 @@
   <button class="chip" id="bModer">Moderieren</button>
   <span class="spacer"></span>
   <button class="chip" id="bM4" hidden>Material zeigen</button>
+  <button class="chip" id="bUrteile" hidden title="Erst wenn freigegeben, erscheint bei der Ausgangsfrage „Community Note vorschlagen“ für das eigene Urteil.">Urteile freigeben</button>
+  <button class="chip" id="bRunde" hidden title="Likes der Antworten jetzt festhalten. Danach zeigt jede Antwort vorher → jetzt.">Runde 1 festhalten</button>
   <button class="chip" id="bEH">Erwartungshorizont</button>
   <button class="chip" id="bKlein" title="Schrift kleiner">A−</button>
   <button class="chip" id="bGross" title="Schrift größer">A+</button>
@@ -433,6 +446,19 @@ function werkzeugNote(p) {
     </div>`;
 }
 
+/* Wie bei X: Haben die, die die Note hilfreich finden, der Antwort zugestimmt oder nicht? */
+function noteFussHtml(p) {
+  const n = p.likes ?? 0;
+  const teile = [n ? `<span class="herz">♥ ${n}</span>` : `<span>noch nicht bewertet</span>`];
+  if (p.seiten && n) {
+    const { mit, ohne } = p.seiten;
+    teile.push(mit && ohne
+      ? `<span class="beide" title="Hilfreich für ${mit}, die der Antwort zugestimmt haben, und für ${ohne}, die es nicht taten">beide Seiten ✓</span>`
+      : `<span class="einseitig" title="Hilfreich für ${mit}, die der Antwort in Runde 1 zugestimmt haben, und für ${ohne}, die es nicht taten">zugestimmt ${mit} · nicht ${ohne}</span>`);
+  }
+  return `<div class="note-fuss">${teile.join("")}</div>`;
+}
+
 /* Entwurf: kleine Karte unter der Antwort */
 function noteKarteHtml(p, jetzt) {
   const a = anzeigePerson(p);
@@ -440,6 +466,7 @@ function noteKarteHtml(p, jetzt) {
     ${werkzeugNote(p)}
     <div class="note-kopf">${avatarHtml(a.avatar, 26)}<span class="nm">${esc(a.name)}</span><span>@${esc(a.handle)}</span><span>·</span><time>${relativ(p.ts, jetzt)}</time></div>
     <div class="note-text">${formatiere(p.text)}</div>
+    ${noteFussHtml(p)}
     ${markenHtml(p)}
   </div>`;
 }
@@ -471,13 +498,24 @@ function fadenHtml(jetzt) {
       </div></div></article></div>`;
   const st = new Map((stand.antwortStand ?? []).map((x) => [x.id, x]));
   const notes = sortiert().filter((p) => p.zu);
+  /* Urteile zur Ausgangsfrage (Notes zum angehefteten Post) erscheinen erst, wenn es welche gibt */
+  const zuPin = r.pinNotes ? notes.filter((p) => p.zu === "pinned") : [];
+  const pinBlock = zuPin.length
+    ? `<section class="pin-notes"><div class="pin-notes-kopf">Urteile zu ${esc(pin.name)}s Frage (${zuPin.length})</div>
+        <div class="pin-notes-raster">${zuPin.filter((p) => p.live).map(liveKarteHtml).join("")}${zuPin.filter((p) => !p.live).map((p) => noteKarteHtml(p, jetzt)).join("")}</div></section>`
+    : "";
+  const vorherAlle = stand.runde1?.likes ?? null;
   const karten = antworten().map((a, i) => {
     const likes = st.get(a.id)?.likes ?? 0;
+    const vorher = vorherAlle ? vorherAlle[a.id] ?? 0 : null;
+    const diff = vorher == null ? 0 : likes - vorher;
+    const zahlHtml = vorher == null ? `${likes}`
+      : `<span class="vorher">${vorher}</span>&nbsp;→&nbsp;${likes}${diff ? `<span class="diff ${diff < 0 ? "weniger" : "mehr"}">${diff > 0 ? "+" : "−"}${Math.abs(diff)}</span>` : ""}`;
     const zuDieser = notes.filter((p) => p.zu === a.id);
     const live = zuDieser.filter((p) => p.live).map(liveKarteHtml).join("");
     const entwuerfe = zuDieser.filter((p) => !p.live).map((p) => noteKarteHtml(p, jetzt)).join("");
     return `<section class="akarte">
-      <div class="akopf"><span class="anr">Antwort ${i + 1}</span><span class="alikes${likes ? " an" : ""}" title="Likes der Klasse">${icon(likes ? "liked" : "like")}${likes}</span></div>
+      <div class="akopf"><span class="anr">Antwort ${i + 1}</span><span class="alikes${likes ? " an" : ""}" title="${vorher == null ? "Likes der Klasse" : "Likes in Runde 1 → jetzt"}">${icon(likes ? "liked" : "like")}${zahlHtml}</span></div>
       <div class="arow">${avatarHtml({ e: a.e, c: a.c }, 44)}<div class="amain">
         <div class="post-head"><span class="nm">${esc(a.name)}</span><span class="hd">@${esc(a.handle)}</span></div>
         <div class="atext">${formatiere(a.text)}</div>
@@ -485,7 +523,7 @@ function fadenHtml(jetzt) {
       <div class="notes">${live}${entwuerfe || (live ? "" : `<div class="keine">Noch keine Note</div>`)}</div>
     </section>`;
   }).join("");
-  return `<div class="faden">${op}<div class="agrid">${karten}</div></div>`;
+  return `<div class="faden">${op}${pinBlock}<div class="agrid">${karten}</div></div>`;
 }
 
 let letzteSignatur = "";
@@ -496,7 +534,7 @@ function render() {
   $("#nPosts").textContent = sichtbar;
   $("#nGeraete").textContent = stand.geraete;
 
-  const sig = JSON.stringify([liste, opt, stand.antwortStand ?? null, stand.pinned ?? null, Math.floor(jetzt / 30000)]);
+  const sig = JSON.stringify([liste, opt, stand.antwortStand ?? null, stand.pinned ?? null, stand.runde1 ?? null, Math.floor(jetzt / 30000)]);
   if (sig === letzteSignatur) return;
   letzteSignatur = sig;
 
@@ -655,6 +693,8 @@ function uebernimmRaum(r) {
   $("#bM4").hidden = !r.bild;
   $("#bZahlen").hidden = !r.zahlen.length;
   $("#bEH").hidden = !r.eh;
+  $("#bRunde").hidden = !(r.antworten ?? []).length;
+  $("#bUrteile").hidden = !r.pinNotes;
   letzteSignatur = "";
 }
 const verwaltung = `/?lehrer=${encodeURIComponent(TOKEN)}`;
@@ -710,6 +750,40 @@ $("#bReset").onclick = async () => {
     await api("/api/posts", { method: "DELETE" });
     stand.posts = []; bekannteIds = null; letzteSignatur = ""; render();
     toast("Alles gelöscht – neue Runde.");
+  } catch (e) { toast(e.message); }
+};
+
+/* ---------- Runde 1: Likes der Antworten festhalten ---------- */
+function zeigeRunde() {
+  const r1 = stand.runde1;
+  const b = $("#bRunde");
+  b.classList.toggle("on", !!r1);
+  b.textContent = r1
+    ? `Runde 1 ✓ ${new Date(r1.ts).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`
+    : "Runde 1 festhalten";
+}
+setInterval(zeigeRunde, 1000);
+
+/* Eigenes Urteil zur Ausgangsfrage freigeben */
+function zeigeUrteile() {
+  const an = !!stand.pinFrei;
+  $("#bUrteile").classList.toggle("on", an);
+  $("#bUrteile").textContent = an ? "Urteile offen ✓" : "Urteile freigeben";
+}
+setInterval(zeigeUrteile, 1000);
+$("#bUrteile").onclick = async () => {
+  try {
+    const d = await api("/api/pinfrei", { method: "POST", body: { an: !stand.pinFrei } });
+    stand.pinFrei = d.pinFrei; zeigeUrteile();
+    toast(d.pinFrei ? "Freigegeben: Die Klasse kann jetzt ihr eigenes Urteil zur Ausgangsfrage schreiben." : "Urteile gesperrt.");
+  } catch (e) { toast(e.message); }
+};
+$("#bRunde").onclick = async () => {
+  if (stand.runde1 && !confirm("Runde 1 ist schon festgehalten. Jetzt neu festhalten?")) return;
+  try {
+    const d = await api("/api/runde1", { method: "POST" });
+    stand.runde1 = d.runde1; letzteSignatur = ""; render(); zeigeRunde();
+    toast("Runde 1 festgehalten. Die Antworten zeigen jetzt vorher → jetzt.");
   } catch (e) { toast(e.message); }
 };
 

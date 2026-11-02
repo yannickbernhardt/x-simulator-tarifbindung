@@ -57,6 +57,11 @@ type Raum = {
      (Posts sind dann Note-Vorschläge zu einer Antwort, die Lehrkraft schaltet sie live) */
   antworten?: Antwort[];
   notes?: boolean;
+  /* Notes auch zum angehefteten Post, z. B. für das eigene Urteil zur Ausgangsfrage */
+  pinNotes?: boolean;
+  /* Eigene Texte für den Hinweis über den Note-Vorschlägen und den Platzhalter im Eingabefeld */
+  notesHinweis?: string;
+  notesPlatzhalter?: string;
   vorlageStand?: number; // nur vorbereitete Räume: Stand der Vorlage im Code
   erstellt: number;
   geaendert: number;
@@ -197,6 +202,15 @@ async function alleRaeume(kv: Deno.Kv): Promise<Raum[]> {
   return l;
 }
 
+/* Zusätze für Thread-Räume, die nur im Code gepflegt werden */
+function threadZusatz(r: { pinNotes?: boolean; notesHinweis?: string; notesPlatzhalter?: string }) {
+  return {
+    ...(r.pinNotes ? { pinNotes: true } : {}),
+    ...(r.notesHinweis ? { notesHinweis: r.notesHinweis } : {}),
+    ...(r.notesPlatzhalter ? { notesPlatzhalter: r.notesPlatzhalter } : {}),
+  };
+}
+
 /* Raum-Einstellungen aus der Verwaltung übernehmen (nur bekannte Felder) */
 function raumAusBody(b: Record<string, unknown>, alt?: Raum): Raum {
   const p = (b.pin ?? {}) as Record<string, unknown>;
@@ -233,7 +247,7 @@ function raumAusBody(b: Record<string, unknown>, alt?: Raum): Raum {
     eh: mehrzeilig(b.eh, 8000),
     /* Antworten und Notes-Modus gibt es nur in vorbereiteten Räumen;
        die Verwaltung schickt sie nicht mit, sie bleiben beim Speichern erhalten */
-    ...(alt?.antworten?.length ? { antworten: alt.antworten, notes: !!alt.notes } : {}),
+    ...(alt?.antworten?.length ? { antworten: alt.antworten, notes: !!alt.notes, ...threadZusatz(alt) } : {}),
     ...(alt?.vorlageStand ? { vorlageStand: alt.vorlageStand } : {}),
     erstellt: alt?.erstellt ?? jetzt,
     geaendert: jetzt,
@@ -251,6 +265,7 @@ function raumOeffentlich(r: Raum, lehrer: boolean) {
     bild: r.bild ? { v: r.bild.v } : null,
     antworten: r.antworten ?? [],
     notes: !!r.notes,
+    ...threadZusatz(r),
   };
   return lehrer ? { ...basis, kriterien: r.kriterien, zahlen: r.zahlen, eh: r.eh } : basis;
 }
@@ -288,7 +303,7 @@ async function kopiereBild(kv: Deno.Kv, von: string, nach: string) {
 }
 
 async function loescheRaumDaten(kv: Deno.Kv, code: string, auchRaum: boolean) {
-  for (const p of ["posts", "likes", "handles", "seen"]) await loescheAlles(kv, [p, code]);
+  for (const p of ["posts", "likes", "handles", "seen", "runde1", "pinfrei"]) await loescheAlles(kv, [p, code]);
   if (auchRaum) {
     await loescheAlles(kv, ["bild", code]);
     await kv.delete(["rooms", code]);
@@ -331,6 +346,28 @@ async function anzahlPosts(kv: Deno.Kv, code: string) {
     if (e.value && e.value.ts > letzte) letzte = e.value.ts;
   }
   return { n, letzte };
+}
+
+/* Community Notes wie bei X: Haben die, die eine Note hilfreich finden (Like), der Antwort
+   selbst zugestimmt oder nicht? Maßgeblich ist die Zustimmung aus Runde 1, sonst der jetzige Stand.
+   Eigene Likes zählen nicht. */
+type Runde1 = { ts: number; likes: Record<string, number>; wer?: Record<string, string[]> };
+function seitenDerNote(p: Post, vonMir: Map<string, Set<string>>, runde1: Runde1 | null) {
+  let mit = 0, ohne = 0;
+  const damals = runde1?.wer && p.zu ? new Set(runde1.wer[p.zu] ?? []) : null;
+  for (const [cid, s] of vonMir) {
+    if (cid === p.clientId || !s.has(p.id)) continue;
+    const zugestimmt = damals ? damals.has(cid) : !!p.zu && s.has(p.zu);
+    if (zugestimmt) mit++;
+    else ohne++;
+  }
+  return { mit, ohne };
+}
+
+/* Notes zum angehefteten Post gibt es erst, wenn die Lehrkraft sie freigibt */
+async function urteileFrei(kv: Deno.Kv, r: Raum): Promise<boolean> {
+  if (!r.pinNotes) return false;
+  return !!(await kv.get(["pinfrei", r.code, "an"])).value;
 }
 
 /* Handle je Raum reservieren – false, wenn ein anderes Gerät es hat */
@@ -604,6 +641,107 @@ const VORBEREITET: Vorlage[] = [
 - Antwort 8 „korrigiert“, obwohl sie stimmt
 - Probezeit als Zeit ohne Rechte verstanden`,
   },
+  {
+    /* EAH-12, Erziehungswissenschaften, UB 09.11.2026: Kritik an Piaget (Wiersing, M9, Punkte 3 bis 9).
+       Jede Antwort spitzt einen Kritikpunkt zu; die Lernenden prüfen sie mit Community Notes
+       und schreiben am Ende ihr eigenes Urteil als Note zu Mias Frage. */
+    code: "eah12-piaget",
+    stand: 1,
+    titel: "Mias Thread: Lerne ich hier gerade Quatsch?",
+    klasse: "EAH-12",
+    status: "offen",
+    pin: {
+      name: "Mia",
+      handle: "mia_azubi",
+      e: "🎒",
+      c: "#1D9BF0",
+      verifiziert: false,
+      text:
+        "Wir haben in der Erzieherausbildung gerade Piaget. Mein Bruder studiert Erziehungswissenschaft und meint, Piaget ist längst überholt, ein Professor hat seine Theorie in zehn Punkten zerlegt. Lerne ich hier gerade Quatsch? 🤔 #Piaget",
+      alt: "",
+    },
+    antworten: [
+      { id: "a1", name: "Jonas | Philosophie", handle: "jonas_denkt", e: "📚", c: "#7856FF", nach: 7,
+        text: "Piagets Logik: Das Kind denkt so, weil es in Stufe 2 ist. Und woran erkennt man Stufe 2? Daran, dass es so denkt 🔄 Ein Zirkelschluss, der nichts erklärt." },
+      { id: "a2", name: "Petra | Grundschule", handle: "petra_3b", e: "✏️", c: "#00BA7C", nach: 12,
+        text: "Piaget hat sich seine Stufen am Schreibtisch ausgedacht und danach Kinder gesucht, die reinpassen. Erst die Theorie, dann die Kinder 📐" },
+      { id: "a3", name: "Sandra", handle: "zwillingsmama_s", e: "👯‍♀️", c: "#F91880", nach: 18,
+        text: "Meine Zwillinge sind beide fünf. Er weiß längst, dass beim Umschütten nichts verloren geht, sie nicht. So viel zu Piagets festen Stufen für alle 🙄" },
+      { id: "a4", name: "Lea | Psychologie", handle: "lea_psycho", e: "🧠", c: "#FF7A00", nach: 25,
+        text: "Assimilation, Akkommodation, Äquilibration 🤯 Klingt schlau, aber damit kann man hinterher jedes Verhalten erklären. Reines Fachchinesisch 🤷‍♀️" },
+      { id: "a5", name: "Birgit | Kita-Leitung", handle: "birgit_kita", e: "🏡", c: "#005A9C", nach: 33,
+        text: "Piaget hat Kinder wie Versuchskaninchen behandelt 🐹 Kein Wunder, dass sie bei seinen komischen Fragen danebenlagen. Wer kindgerecht fragt, merkt: Kinder können viel mehr!" },
+      { id: "a6", name: "Opa Heinz", handle: "opa_heinz", e: "👴", c: "#B5651D", nach: 41,
+        text: "Knete, Limo, Pendel: Bei Piaget geht's nur um Physik. Meine Enkelin spielt Kaufladen, verhandelt Preise und tröstet ihre Puppe. DAS ist Denken! 🧸" },
+      { id: "a7", name: "Can | Erzieher", handle: "can_erzieher", e: "🗣️", c: "#00A3A3", nach: 52,
+        text: "Kinder lernen im Gespräch: mit Eltern, Erzieher*innen und anderen Kindern. Bei Piaget tüftelt das Kind allein vor sich hin. Sprache und Kultur? Fehlanzeige 🌍" },
+    ],
+    notes: true,
+    pinNotes: true,
+    notesHinweis:
+      "Live gehen Notes, die Leute auf beiden Seiten hilfreich finden: die, die der Antwort zugestimmt haben, und die, die es nicht taten. Zu Mias Frage schreibt am Ende jede*r ein eigenes Urteil.",
+    notesPlatzhalter: "Stimmt das? Folgt der Schluss daraus? Höchstens zwei Sätze, am Ende der Beleg, z. B. (M1, Z. 21–24).",
+    kriterien: [
+      "Urteil klar: stimmt, teilweise oder nicht",
+      "Beleg mit Zeilenangabe oder Studie",
+      "Sachlich richtig",
+      "Schluss geprüft (Einzelfall oder Regel?)",
+      "Höchstens zwei Sätze",
+      "Fair zu beiden Seiten",
+    ],
+    zahlen: [],
+    eh: `## Ablauf (UB, 45 Minuten)
+- Runde 1 (4 Min.): Thread am Beamer. Likes: Welcher Antwort stimmen Sie zu? Dann „Runde 1 festhalten“.
+- Notes (12 Min.): Jede*r wählt eine Antwort und schlägt allein eine Note vor. Prüffragen: Stimmt es sachlich? Folgt der Schluss daraus? Beleg aus M1, M9 oder der Belegkarte.
+- Bewerten (5 Min.): Vorschläge zu mindestens drei anderen Antworten lesen und die hilfreichen liken.
+- Live (3 Min.): Notes mit „beide Seiten“ sachlich prüfen und mit ✓ live schalten.
+- Runde 2 (2 Min.): Likes bei den Antworten neu setzen. Die Wand zeigt vorher → jetzt.
+- Urteil (5 Min.): Jede*r schreibt eine Note zu Mias Frage. Eine geht als Urteil der Klasse live.
+- Auswertung (10 Min.), Puffer (4 Min.)
+
+## Antwort 1 · @jonas_denkt · Punkt 3, Zirkelschluss · stimmt teilweise
+- M1, Z. 12–20; M9, Abschnitt zu Punkt 3 (Z. 11–30, Zeilen prüfen)
+- **Note:** „Stimmt nur teilweise: Die Stufe beschreibt, wie ein Kind denkt. Erklären will Piaget die Entwicklung mit Assimilation, Akkommodation und Äquilibration (M1, Z. 12–20). Zirkulär wird es erst, wenn man die Stufe selbst als Grund nennt.“
+- Für die Auswertung: Beschreiben und Erklären unterscheiden.
+
+## Antwort 2 · @petra_3b · Punkt 4, Schreibtisch · stimmt eher nicht
+- M1, Z. 1–5 und 45–51 (eigene Kinder), Z. 78–79 und 96–97 (Antworten der Kinder); dagegen M1, Z. 101–103 und M9, Z. 39–40
+- **Note:** „Stimmt eher nicht: Piaget beobachtete jahrelang seine drei Kinder und befragte viele Kinder (M1, Z. 1–5, 45–51). Richtig ist, dass er die Stufen nach logischen Operationen benennt (M1, Z. 101–103).“
+
+## Antwort 3 · @zwillingsmama_s · Punkt 5, feste Stufen · Schluss folgt nicht
+- M1, Z. 21–24 (Richtwerte), Z. 9–10 (Reihenfolge), Z. 24–29 (horizontale Verschiebung); M9, Z. 49–53
+- **Note:** „Der Schluss folgt nicht: Piaget nennt die Altersangaben nur Richtwerte, Kinder erreichen die Stadien unterschiedlich früh (M1, Z. 21–24). Fest ist die Reihenfolge, nicht das Alter (M1, Z. 9–10).“
+- Für die Auswertung: Einzelfall und Regel. Wiersings eigentlicher Punkt, Entwicklung könne auch zurückgehen (M9, Z. 49–53), reicht weiter als das Zwillingsbeispiel.
+
+## Antwort 4 · @lea_psycho · Punkt 6, vage Begriffe · stimmt teilweise
+- M9, Z. 59–73; M1, Z. 12–20; Glossar der Klasse
+- **Note:** „Teilweise: Die Begriffe sind abstrakt und lassen sich leicht im Nachhinein anwenden (M9, Z. 59–73). Sie sind aber genau bestimmt: Eine neue Erfahrung ins Schema einordnen heißt Assimilation (M1, Z. 12–20).“
+
+## Antwort 5 · @birgit_kita · Punkt 7, Kind als Versuchsobjekt · stimmt teilweise
+- Light u. a., 1979 (Einstieg: 5 zu 70 von 100); McGarrigle/Donaldson, 1974 (frecher Teddy, rund 16 zu 62 %); Hughes, 1975, nach Donaldson, 1978 (Polizisten-Versuch, rund 90 %); dagegen M1, Z. 96–97 und 110–114 (Begründungen), Z. 30–31 (konkrete Operationen mit sieben bis acht)
+- **Note:** „Teilweise: Fragt man kindgerecht, sagen viel mehr Kinder „gleich viel“, beiläufig im Spiel 70 statt 5 von 100 (Light u. a., 1979). Piaget ließ Kinder aber begründen (M1, Z. 110–114), und „gleich viel“ allein zeigt noch keine Invarianz.“
+- Für die Auswertung: Präkonzept P2 (Können und Zeigen), Rückbezug zum Einstieg.
+
+## Antwort 6 · @opa_heinz · Punkt 8, nur Physik · stimmt teilweise
+- M1, Z. 26–29, 85–89, 148–158; M9, Z. 83–100; dagegen M1, Z. 64–67 (Symbolspiel), Z. 75–77, Z. 159–163; Garz, 2006, S. 60 ff. (Murmelspiel)
+- **Note:** „Teilweise: Seine Versuche prüfen vor allem Menge, Gewicht und Volumen (M1, Z. 26–29). Das Spiel hat Piaget aber selbst untersucht, etwa das Symbolspiel (M1, Z. 64–67) und die Regeln beim Murmelspiel (Garz, 2006, S. 60 ff.).“
+
+## Antwort 7 · @can_erzieher · Punkt 9, Kultur und Kommunikation · stimmt weitgehend
+- M9, ab Z. 101 (Zeilen prüfen); M1, Z. 12–20; Garz, 2006, S. 84 (soziale Erfahrung als ein Faktor), S. 85 (Äquilibration ausschlaggebend)
+- **Note:** „Stimmt weitgehend: Für Piaget treibt vor allem das Kind selbst seine Entwicklung an (M1, Z. 12–20). Soziale Erfahrung nennt er zwar als Faktor, entscheidend ist aber die Äquilibration (Garz, 2006, S. 84 f.). „Fehlanzeige“ übertreibt.“
+- Für die Auswertung: Ausblick auf das Kita-Angebot am 16.11.
+
+## Mias Frage · eigenes Urteil
+- **Beispiel:** „Kein Quatsch, aber nicht das letzte Wort: Die Reihenfolge der Stufen und das aktive Kind tragen. Seine Aufgaben unterschätzen Kinder oft, die Altersangaben sind nur Richtwerte, und Gespräch und Kultur kommen zu kurz.“
+- Bezug: Präkonzept P6 der Ankerpunkt-Diagnose.
+
+## Typische Fehler
+- Einzelfall als Beweis übernommen (Zwillinge, Enkelin) oder umgekehrt als Gegenbeweis
+- „nur“, „nichts“, „Fehlanzeige“ nicht geprüft
+- Note ohne Beleg oder mit einer Zeile, die nicht passt
+- Antwort 7 „widerlegt“, obwohl sie weitgehend stimmt
+- Altersangaben als feste Grenzen gelesen`,
+  },
 ];
 
 async function legeVorbereiteteRaeumeAn(kv: Deno.Kv) {
@@ -635,12 +773,15 @@ async function legeVorbereiteteRaeumeAn(kv: Deno.Kv) {
     if (!stand) continue;
     const da = await kv.get<Raum>(raumKey);
     if (!da.value || (da.value.vorlageStand ?? 0) >= stand) continue;
+    const { pinNotes: _p, notesHinweis: _h, notesPlatzhalter: _t, ...bisher } = da.value;
     const neu: Raum = {
-      ...da.value,
+      ...bisher,
+      titel: v.titel,
+      pin: { ...v.pin, ts: da.value.pin.ts },
       eh: v.eh,
       kriterien: v.kriterien,
       zahlen: v.zahlen,
-      ...(v.antworten ? { antworten: v.antworten, notes: !!v.notes } : {}),
+      ...(v.antworten ? { antworten: v.antworten, notes: !!v.notes, ...threadZusatz(v) } : {}),
       vorlageStand: stand,
     };
     const ok2 = await kv.atomic().check(da).set(raumKey, neu).commit();
@@ -858,6 +999,8 @@ Deno.serve({ port: PORT }, async (req: Request) => {
       if (cid && !lehrer) await kv.set(["seen", code, cid], jetzt, { expireIn: LEBENSDAUER });
 
       const [posts, likes, gesehen] = await Promise.all([allePosts(kv, code), alleLikes(kv, code), alleGesehen(kv, code)]);
+      const runde1 = lehrer && r.antworten?.length ? (await kv.get<Runde1>(["runde1", code, "stand"])).value ?? null : null;
+      const pinFrei = await urteileFrei(kv, r);
       const meine = likes.vonMir.get(cid) ?? new Set<string>();
       const aufrufe = (ts: number) => gesehen.filter((s) => s >= ts).length;
 
@@ -883,6 +1026,7 @@ Deno.serve({ port: PORT }, async (req: Request) => {
             zu: p.zu ?? null,
             live: !!p.live,
             ...(lehrer ? { badge: p.badge ?? null, checks: p.checks ?? [] } : {}),
+            ...(lehrer && p.zu && p.zu !== PIN_ID ? { seiten: seitenDerNote(p, likes.vonMir, runde1) } : {}),
           })),
         pinned: { likes: likes.anzahl.get(PIN_ID) ?? 0, liked: meine.has(PIN_ID), views: gesehen.length },
         antwortStand: (r.antworten ?? []).map((a) => ({
@@ -892,6 +1036,8 @@ Deno.serve({ port: PORT }, async (req: Request) => {
           views: Math.max(1, aufrufe(r.pin.ts + a.nach * 60_000)),
         })),
         geraete: gesehen.length,
+        pinFrei,
+        ...(lehrer ? { runde1: runde1 ? { ts: runde1.ts, likes: runde1.likes } : null } : {}),
       });
     }
 
@@ -915,6 +1061,36 @@ Deno.serve({ port: PORT }, async (req: Request) => {
       return json({ ok: true });
     }
 
+    /* Notes zum angehefteten Post (eigenes Urteil) freigeben oder sperren */
+    if (rest === "/pinfrei" && req.method === "POST") {
+      if (!lehrer) return fehler("Nur mit Lehrer-Link.", 403);
+      const b = await leseBody(req);
+      const key = ["pinfrei", code, "an"];
+      if (b?.an === true) await kv.set(key, true, { expireIn: LEBENSDAUER });
+      else await kv.delete(key);
+      return json({ ok: true, pinFrei: b?.an === true });
+    }
+
+    /* Likes der Antworten festhalten (Runde 1), damit die Wand später vorher und nachher zeigt */
+    if (rest === "/runde1" && (req.method === "POST" || req.method === "DELETE")) {
+      if (!lehrer) return fehler("Nur mit Lehrer-Link.", 403);
+      const key = ["runde1", code, "stand"];
+      if (req.method === "DELETE") {
+        await kv.delete(key);
+        return json({ ok: true });
+      }
+      const likes = await alleLikes(kv, code);
+      const werte: Record<string, number> = { [PIN_ID]: likes.anzahl.get(PIN_ID) ?? 0 };
+      const wer: Record<string, string[]> = {};
+      for (const a of r.antworten ?? []) {
+        werte[a.id] = likes.anzahl.get(a.id) ?? 0;
+        wer[a.id] = [...likes.vonMir].filter(([, s]) => s.has(a.id)).map(([cid]) => cid);
+      }
+      const st: Runde1 = { ts: Date.now(), likes: werte, wer };
+      await kv.set(key, st, { expireIn: LEBENSDAUER });
+      return json({ ok: true, runde1: { ts: st.ts, likes: st.likes } });
+    }
+
     /* Neuer Post */
     if (rest === "/posts" && req.method === "POST") {
       if (r.status !== "offen") return fehler("Posten ist gerade geschlossen.", 423);
@@ -931,7 +1107,12 @@ Deno.serve({ port: PORT }, async (req: Request) => {
       if (!handleGueltig(handle) || handleReserviert(r, handle)) return fehler("Ungültiger Benutzername.");
       /* Im Notes-Modus gehört jeder Post als Note-Vorschlag zu einer Antwort */
       const zu = einzeilig(b.zu, 20);
-      if (r.notes && !istAntwort(r, zu)) return fehler("Wähle die Antwort aus, zu der deine Community Note gehört.");
+      if (r.notes && !istAntwort(r, zu) && !(r.pinNotes && zu === PIN_ID)) {
+        return fehler("Wähle die Antwort aus, zu der deine Community Note gehört.");
+      }
+      if (zu === PIN_ID && !(await urteileFrei(kv, r))) {
+        return fehler("Das eigene Urteil zu dieser Frage ist noch nicht freigegeben.", 423);
+      }
       if (!(await beanspruche(kv, code, handle, cid))) {
         return fehler("Diesen Benutzernamen hat hier schon jemand. Bitte ändere ihn im Profil.", 409);
       }
@@ -968,6 +1149,11 @@ Deno.serve({ port: PORT }, async (req: Request) => {
     if (rest === "/posts" && req.method === "DELETE") {
       if (!lehrer) return fehler("Nur mit Lehrer-Link.", 403);
       await loescheRaumDaten(kv, code, false);
+      /* Thread-Räume: Der Faden beginnt neu, die Antworten wirken wieder frisch */
+      if (r.antworten?.length) {
+        const vorlauf = Math.max(0, ...r.antworten.map((a) => a.nach)) * 60_000;
+        await kv.set(["rooms", code], { ...r, pin: { ...r.pin, ts: Date.now() - vorlauf } });
+      }
       return json({ ok: true });
     }
 
