@@ -184,7 +184,7 @@ export function postHtml(p, opt = {}) {
     : "";
   const aktionen = opt.aktionen === false ? "" : `
     <div class="actions" role="group">
-      <button class="act a-reply" data-act="reply" aria-label="Antworten">${icon("reply")}<span></span></button>
+      <button class="act a-reply" data-act="reply" aria-label="Antworten">${icon("reply")}<span>${p.replies ? zahl(p.replies) : ""}</span></button>
       <button class="act a-repost" data-act="repost" aria-label="Reposten">${icon("repost")}<span></span></button>
       <button class="act a-like ${p.liked ? "on" : ""}" data-act="like" aria-label="Gefällt mir">${icon(p.liked ? "liked" : "like")}<span class="cnt">${zahl(p.likes)}</span></button>
       <button class="act a-views" data-act="views" aria-label="Aufrufe">${icon("views")}<span>${zahl(p.views)}</span></button>

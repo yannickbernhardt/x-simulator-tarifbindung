@@ -198,6 +198,35 @@
   .spot-bezug b { color: var(--text); }
   .spot .bewertung .chip.live.on { background: var(--green); border-color: var(--green); }
 
+  /* ---------- Streitfall: Kommentare, eigene Beiträge, Klarstellung der Moderation ---------- */
+  .karte.notekarte.kommentar { border-style: solid; }
+  .note-fuss .herz.null { color: var(--muted); }
+  .akarte.karte { margin: 0; }
+  .anr.eigen { color: var(--green); background: rgba(0, 186, 124, 0.12); }
+  .akarte.eigen .werkzeug { top: auto; bottom: 10px; }
+  .klar-wand {
+    margin: 0 0 16px; padding: 14px 20px 16px; border: 2px solid var(--blue); border-radius: 16px;
+    background: rgba(29, 155, 240, 0.08); cursor: pointer;
+  }
+  .klar-kopf { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 6px; }
+  .klar-abz { font-weight: 800; font-size: calc(var(--fs) * 0.8); color: var(--blue); }
+  .klar-text { font-size: calc(var(--fs) * 1.05); line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .klar-editor {
+    position: fixed; z-index: 61; left: 50%; top: 5vh; transform: translateX(-50%); width: min(1100px, 94vw);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 24px 28px; box-shadow: var(--shadow);
+  }
+  .klar-ed-kopf { display: flex; gap: 14px; align-items: flex-start; }
+  .klar-ed-kopf .abz { font-size: 34px; line-height: 1; }
+  .klar-ed-kopf h2 { font-size: 26px; margin: 0 0 4px; }
+  .klar-ed-kopf p { font-size: 17px; line-height: 1.4; color: var(--muted); margin: 0; }
+  .klar-editor textarea {
+    width: 100%; min-height: 38vh; margin-top: 16px; background: var(--bg); color: var(--text); border: 1px solid var(--border-input);
+    border-radius: 12px; padding: 16px 18px; font: inherit; font-size: clamp(22px, 2.2vw, 32px); line-height: 1.4; resize: vertical;
+  }
+  .klar-ed-fuss { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+  .klar-ed-fuss .spacer { flex: 1; }
+  #klarZahl { color: var(--muted); font-weight: 700; }
+
   /* ---------- Druckansicht ---------- */
   #druck { display: none; }
   @media print {
@@ -249,6 +278,7 @@
   <button class="chip" id="bM4" hidden>Material zeigen</button>
   <button class="chip" id="bUrteile" hidden title="Erst wenn freigegeben, erscheint bei der Ausgangsfrage „Community Note vorschlagen“ für das eigene Urteil.">Urteile freigeben</button>
   <button class="chip" id="bRunde" hidden title="Likes der Antworten jetzt festhalten. Danach zeigt jede Antwort vorher → jetzt.">Runde 1 festhalten</button>
+  <button class="chip" id="bKlar" hidden title="Klarstellung der Moderation schreiben. Sie erscheint oben im Thread, auf allen Handys.">Klarstellung</button>
   <button class="chip" id="bEH">Erwartungshorizont</button>
   <button class="chip" id="bKlein" title="Schrift kleiner">A−</button>
   <button class="chip" id="bGross" title="Schrift größer">A+</button>
@@ -394,7 +424,7 @@ function mitZahlen(html) {
 
 function markenHtml(p) {
   const m = [];
-  if (p.zu && !p.live) m.push(`<span class="marke aus">Entwurf</span>`);
+  if (p.zu && !p.live && !stand.raum?.kommentare) m.push(`<span class="marke aus">Entwurf</span>`);
   if (p.badge === "ok") m.push(`<span class="marke ok">✓ Zahlen korrekt</span>`);
   if (p.badge === "fehler") m.push(`<span class="marke fehler">⚠ Fehler</span>`);
   for (const id of p.checks ?? []) {
@@ -479,17 +509,59 @@ function liveKarteHtml(p) {
   </div>`;
 }
 
+/* Streitfall: Kommentar unter einer Antwort, sofort sichtbar */
+function werkzeugKommentar(p) {
+  return `<div class="werkzeug">
+      <button data-w="auge" title="${p.hidden ? "Wieder einblenden" : "Ausblenden"}">${p.hidden ? "👁" : "🙈"}</button>
+      <button data-w="del" class="rot" title="Löschen">${icon("trash")}</button>
+    </div>`;
+}
+function kommentarKarteHtml(p, jetzt) {
+  const a = anzeigePerson(p);
+  const n = p.likes ?? 0;
+  return `<div class="karte notekarte kommentar${p.hidden ? " versteckt" : ""}" data-id="${esc(p.id)}">
+    ${werkzeugKommentar(p)}
+    <div class="note-kopf">${avatarHtml(a.avatar, 26)}<span class="nm">${esc(a.name)}</span><span>@${esc(a.handle)}</span><span>·</span><time>${relativ(p.ts, jetzt)}</time></div>
+    <div class="note-text">${mitZahlen(formatiere(p.text))}</div>
+    <div class="note-fuss"><span class="herz${n ? "" : " null"}">♥ ${n}</span></div>
+    ${markenHtml(p)}
+  </div>`;
+}
+/* Streitfall: eigener Beitrag an den angehefteten Post, als weitere Antwort */
+function eigenKarteHtml(p, jetzt) {
+  const a = anzeigePerson(p);
+  const n = p.likes ?? 0;
+  return `<section class="akarte karte eigen${p.hidden ? " versteckt" : ""}" data-id="${esc(p.id)}">
+    ${werkzeugKommentar(p)}
+    <div class="akopf"><span class="anr eigen">Beitrag aus der Klasse</span><span class="alikes${n ? " an" : ""}" title="Likes der Klasse">${icon(n ? "liked" : "like")}${n}</span></div>
+    <div class="arow">${avatarHtml(a.avatar, 44)}<div class="amain">
+      <div class="post-head"><span class="nm">${esc(a.name)}</span><span class="hd">@${esc(a.handle)}</span><span class="dot">·</span><time>${relativ(p.ts, jetzt)}</time></div>
+      <div class="atext">${mitZahlen(formatiere(p.text))}</div>
+    </div></div>
+    ${markenHtml(p)}
+  </section>`;
+}
+/* Streitfall: Klarstellung der Moderation, oben im Faden; Klick öffnet das Schreibfeld */
+function klarWandHtml(k) {
+  const n = k.likes ?? 0;
+  return `<section class="klar-wand" data-klar="oeffnen" title="Klicken zum Bearbeiten">
+    <div class="klar-kopf"><span class="klar-abz">🛡️ Klarstellung der Moderation</span><span class="alikes${n ? " an" : ""}" title="Likes der Klasse">${icon(n ? "liked" : "like")}${n}</span></div>
+    <div class="klar-text">${formatiere(k.text)}</div>
+  </section>`;
+}
+
 function fadenHtml(jetzt) {
   const r = stand.raum;
   const pin = pinAusRaum(r);
   const likesPin = stand.pinned?.likes ?? 0;
+  const eigeneAnPin = r.kommentare ? sortiert().filter((p) => p.zu === "pinned") : [];
   const op = `<div class="op"><article class="post"><div class="post-row">
       <div class="post-av">${avatarHtml(pin.avatar, 52)}</div>
       <div class="post-main">
         <div class="post-head"><span class="nm">${esc(pin.name)}</span>${pin.verified ? icon("verified", "vf") : ""}<span class="hd">@${esc(pin.handle)}</span><span class="dot">·</span><time>${relativ(pin.ts, jetzt)}</time></div>
         <div class="post-text">${formatiere(pin.text)}</div>
         <div class="actions">
-          <span class="act">${icon("reply")}<span>${antworten().length}</span></span>
+          <span class="act">${icon("reply")}<span>${antworten().length + eigeneAnPin.length}</span></span>
           <span class="act">${icon("repost")}<span></span></span>
           <span class="act ${likesPin ? "a-like on" : ""}">${icon(likesPin ? "liked" : "like")}<span>${zahl(likesPin)}</span></span>
           <span class="act">${icon("views")}<span>${zahl(stand.pinned?.views)}</span></span>
@@ -504,6 +576,7 @@ function fadenHtml(jetzt) {
     ? `<section class="pin-notes"><div class="pin-notes-kopf">Urteile zu ${esc(pin.name)}s Frage (${zuPin.length})</div>
         <div class="pin-notes-raster">${zuPin.filter((p) => p.live).map(liveKarteHtml).join("")}${zuPin.filter((p) => !p.live).map((p) => noteKarteHtml(p, jetzt)).join("")}</div></section>`
     : "";
+  const klarBlock = r.kommentare && stand.klarstellung ? klarWandHtml(stand.klarstellung) : "";
   const vorherAlle = stand.runde1?.likes ?? null;
   const karten = antworten().map((a, i) => {
     const likes = st.get(a.id)?.likes ?? 0;
@@ -520,10 +593,13 @@ function fadenHtml(jetzt) {
         <div class="post-head"><span class="nm">${esc(a.name)}</span><span class="hd">@${esc(a.handle)}</span></div>
         <div class="atext">${formatiere(a.text)}</div>
       </div></div>
-      <div class="notes">${live}${entwuerfe || (live ? "" : `<div class="keine">Noch keine Note</div>`)}</div>
+      <div class="notes">${r.kommentare
+        ? zuDieser.map((p) => kommentarKarteHtml(p, jetzt)).join("") || `<div class="keine">Noch kein Kommentar</div>`
+        : live + (entwuerfe || (live ? "" : `<div class="keine">Noch keine Note</div>`))}</div>
     </section>`;
   }).join("");
-  return `<div class="faden">${op}${pinBlock}<div class="agrid">${karten}</div></div>`;
+  const eigene = eigeneAnPin.map((p) => eigenKarteHtml(p, jetzt)).join("");
+  return `<div class="faden">${op}${klarBlock}${pinBlock}<div class="agrid">${karten}${eigene}</div></div>`;
 }
 
 let letzteSignatur = "";
@@ -534,7 +610,7 @@ function render() {
   $("#nPosts").textContent = sichtbar;
   $("#nGeraete").textContent = stand.geraete;
 
-  const sig = JSON.stringify([liste, opt, stand.antwortStand ?? null, stand.pinned ?? null, stand.runde1 ?? null, Math.floor(jetzt / 30000)]);
+  const sig = JSON.stringify([liste, opt, stand.antwortStand ?? null, stand.pinned ?? null, stand.runde1 ?? null, stand.klarstellung ?? null, Math.floor(jetzt / 30000)]);
   if (sig === letzteSignatur) return;
   letzteSignatur = sig;
 
@@ -573,6 +649,7 @@ async function patch(id, body) {
 }
 
 $("#wand").addEventListener("click", async (e) => {
+  if (e.target.closest("[data-klar]")) return oeffneKlar();
   const karte = e.target.closest(".karte");
   if (!karte) return;
   const id = karte.dataset.id;
@@ -605,9 +682,12 @@ function zeigeSpot(id) {
   const a = anzeigePerson(p);
   const kr = KRITERIEN.map((k) => `<button class="chip kr ${p.checks?.includes(k.id) ? "on" : ""}" data-k="${k.id}">${esc(k.label)}</button>`).join("");
   /* Community Note: Bezug zur Antwort und Live-Schalter */
+  const km = !!stand.raum?.kommentare;
   const bezugA = p.zu ? antworten().find((x) => x.id === p.zu) : null;
-  const bezug = bezugA ? `<div class="spot-bezug">Note zu Antwort ${antwortNr(bezugA.id)} von <b>@${esc(bezugA.handle)}</b>: ${formatiere(bezugA.text)}</div>` : "";
-  const liveChip = p.zu ? `<button class="chip live ${p.live ? "on" : ""}" data-b="live">${p.live ? "✓ live" : "Live schalten"}</button><span class="trenn"></span>` : "";
+  const bezug = bezugA
+    ? `<div class="spot-bezug">${km ? "Kommentar" : "Note"} zu Antwort ${antwortNr(bezugA.id)} von <b>@${esc(bezugA.handle)}</b>: ${formatiere(bezugA.text)}</div>`
+    : km && p.zu === "pinned" ? `<div class="spot-bezug">Eigener Beitrag, Antwort an <b>@${esc(stand.raum.pin.handle)}</b></div>` : "";
+  const liveChip = p.zu && !km ? `<button class="chip live ${p.live ? "on" : ""}" data-b="live">${p.live ? "✓ live" : "Live schalten"}</button><span class="trenn"></span>` : "";
   overlay(`<div class="spot-back" id="spotBack">
     <div class="spot-nav">
       <button class="rund" data-s="zu" aria-label="Schließen">${icon("close")}</button>
@@ -639,6 +719,9 @@ $("#overlay").addEventListener("click", (e) => {
   const s = e.target.closest("[data-s]")?.dataset.s;
   const b = e.target.closest("[data-b]")?.dataset.b;
   const k = e.target.closest("[data-k]")?.dataset.k;
+  const kl = e.target.closest("[data-klar]")?.dataset.klar;
+  if (kl === "live") return klarLive();
+  if (kl === "weg") return klarWeg();
   if (e.target.closest("[data-zu]") || e.target.matches(".panel-back, .gross-back, .gross-back *")) { overlay(""); spotId = null; return; }
   if (s === "zu") { overlay(""); spotId = null; return; }
   if (s === "vor" || s === "nach") return blaettern(s === "vor" ? -1 : 1);
@@ -695,6 +778,7 @@ function uebernimmRaum(r) {
   $("#bEH").hidden = !r.eh;
   $("#bRunde").hidden = !(r.antworten ?? []).length;
   $("#bUrteile").hidden = !r.pinNotes;
+  $("#bKlar").hidden = !r.kommentare;
   letzteSignatur = "";
 }
 const verwaltung = `/?lehrer=${encodeURIComponent(TOKEN)}`;
@@ -719,10 +803,12 @@ $("#bEH").onclick = () => overlay(`<div class="panel-back"></div><aside class="p
 $("#bCsv").onclick = () => {
   const zelle = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const thread = antworten().length > 0;
-  const kopf = ["Zeit", "Name", "Handle", ...(thread ? ["Note zu", "Live"] : []), "Text", "Zeichen", "Likes", "Aufrufe", "Bewertung", "Kriterien", "Ausgeblendet"];
+  const km = !!stand.raum?.kommentare;
+  const bezugText = (p) => p.zu === "pinned" ? `@${stand.raum.pin.handle}` : p.zu ? `Antwort ${antwortNr(p.zu)}` : "";
+  const kopf = ["Zeit", "Name", "Handle", ...(thread ? (km ? ["Antwort auf"] : ["Note zu", "Live"]) : []), "Text", "Zeichen", "Likes", "Aufrufe", "Bewertung", "Kriterien", "Ausgeblendet"];
   const zeilen = [...stand.posts].sort((a, b) => a.ts - b.ts).map((p) => [
     new Date(p.ts).toLocaleString("de-DE"), p.name, "@" + p.handle,
-    ...(thread ? [p.zu ? `Antwort ${antwortNr(p.zu)}` : "", p.live ? "ja" : ""] : []),
+    ...(thread ? (km ? [bezugText(p)] : [p.zu ? `Antwort ${antwortNr(p.zu)}` : "", p.live ? "ja" : ""]) : []),
     p.text, analysiere(p.text).gewicht, p.likes, p.views,
     p.badge === "ok" ? "Zahlen korrekt" : p.badge === "fehler" ? "Fehler" : "",
     (p.checks ?? []).map((id) => KRITERIEN.find((k) => k.id === id)?.label).filter(Boolean).join(", "),
@@ -739,8 +825,15 @@ $("#bCsv").onclick = () => {
 
 $("#bDruck").onclick = () => {
   const liste = [...stand.posts].filter((p) => !p.hidden).sort((a, b) => a.ts - b.ts);
-  $("#druck").innerHTML = `<h1>${esc([stand.raum.klasse, stand.raum.titel].filter(Boolean).join(" · "))} – X-Nachrichten (${new Date().toLocaleDateString("de-DE")})</h1>` +
-    liste.map((p, i) => `<div class="d-post"><div class="d-kopf">${i + 1}. ${esc(p.name)} <span>@${esc(p.handle)}</span></div><div class="d-text">${esc(p.text)}</div><div class="d-meta">${p.zu ? `Note zu Antwort ${antwortNr(p.zu)}${p.live ? " (live)" : ""} · ` : ""}${analysiere(p.text).gewicht}/280 Zeichen · ${p.likes} Likes</div></div>`).join("");
+  const km = !!stand.raum?.kommentare;
+  const bezugDruck = (p) => !p.zu ? ""
+    : km ? (p.zu === "pinned" ? `Antwort an @${stand.raum.pin.handle} · ` : `Kommentar zu Antwort ${antwortNr(p.zu)} · `)
+    : `Note zu Antwort ${antwortNr(p.zu)}${p.live ? " (live)" : ""} · `;
+  const klar = km && stand.klarstellung
+    ? `<div class="d-post"><div class="d-kopf">Klarstellung der Moderation</div><div class="d-text">${esc(stand.klarstellung.text)}</div><div class="d-meta">${stand.klarstellung.likes} Likes</div></div>`
+    : "";
+  $("#druck").innerHTML = `<h1>${esc([stand.raum.klasse, stand.raum.titel].filter(Boolean).join(" · "))} – X-Nachrichten (${new Date().toLocaleDateString("de-DE")})</h1>` + klar +
+    liste.map((p, i) => `<div class="d-post"><div class="d-kopf">${i + 1}. ${esc(p.name)} <span>@${esc(p.handle)}</span></div><div class="d-text">${esc(p.text)}</div><div class="d-meta">${bezugDruck(p)}${analysiere(p.text).gewicht}/280 Zeichen · ${p.likes} Likes</div></div>`).join("");
   window.print();
 };
 
@@ -786,6 +879,56 @@ $("#bRunde").onclick = async () => {
     toast("Runde 1 festgehalten. Die Antworten zeigen jetzt vorher → jetzt.");
   } catch (e) { toast(e.message); }
 };
+
+/* ---------- Streitfall: Klarstellung der Moderation ---------- */
+const KLAR_MAX = 700;
+function zeigeKlar() {
+  const k = stand.klarstellung;
+  $("#bKlar").classList.toggle("on", !!k);
+  $("#bKlar").textContent = k ? "Klarstellung live ✓" : "Klarstellung";
+}
+setInterval(zeigeKlar, 1000);
+$("#bKlar").onclick = () => oeffneKlar();
+function oeffneKlar() {
+  const k = stand.klarstellung;
+  const text = LS.get("klar." + CODE, "") || k?.text || "";
+  overlay(`<div class="panel-back"></div><div class="klar-editor" role="dialog" aria-label="Klarstellung der Moderation">
+    <div class="klar-ed-kopf"><span class="abz">🛡️</span><div><h2>Klarstellung der Moderation</h2>
+      <p>Was an der Kritik ist berechtigt? Was ist übertrieben? Was stimmt nicht? Die Klasse diktiert, du schreibst mit. Mit „Live stellen“ steht der Text oben im Thread, auf allen Handys.</p></div></div>
+    <textarea id="klarText" maxlength="${KLAR_MAX}" placeholder="Berechtigt ist … Übertrieben ist … Nicht haltbar ist …">${esc(text)}</textarea>
+    <div class="klar-ed-fuss"><span id="klarZahl"></span><span class="spacer"></span>
+      ${k ? `<button class="chip gefahr" data-klar="weg">Zurückziehen</button>` : ""}
+      <button class="chip" data-zu>Schließen</button>
+      <button class="chip on" data-klar="live">${k ? "Aktualisieren" : "Live stellen"}</button>
+    </div>
+  </div>`);
+  const t = $("#klarText");
+  const zaehle = () => { $("#klarZahl").textContent = `${t.value.length} / ${KLAR_MAX} Zeichen`; LS.set("klar." + CODE, t.value); };
+  t.addEventListener("input", zaehle);
+  zaehle();
+  t.focus();
+  t.setSelectionRange(t.value.length, t.value.length);
+}
+async function klarLive() {
+  const text = $("#klarText")?.value.trim() ?? "";
+  if (!text) return toast("Die Klarstellung ist noch leer.");
+  try {
+    const d = await api("/api/klarstellung", { method: "POST", body: { text } });
+    stand.klarstellung = { likes: 0, liked: false, ...(stand.klarstellung ?? {}), ...d.klarstellung };
+    LS.set("klar." + CODE, "");
+    overlay(""); letzteSignatur = ""; render(); zeigeKlar();
+    toast("Die Klarstellung steht jetzt oben im Thread, auf allen Handys.");
+  } catch (e) { toast(e.message); }
+}
+async function klarWeg() {
+  if (!confirm("Klarstellung zurückziehen? Sie verschwindet von allen Handys, ihre Likes auch.")) return;
+  try {
+    await api("/api/klarstellung", { method: "DELETE" });
+    stand.klarstellung = null;
+    overlay(""); letzteSignatur = ""; render(); zeigeKlar();
+    toast("Klarstellung zurückgezogen.");
+  } catch (e) { toast(e.message); }
+}
 
 /* ---------- Timer ---------- */
 let dauer = LS.get("dauer", 480), rest = dauer, laeuft = false, tick = null;

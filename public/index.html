@@ -268,6 +268,28 @@
   .bezug select:disabled { opacity: 0.7; }
   .bezug-text { margin-top: 8px; border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; color: var(--muted); font-size: 14px; line-height: 18px; }
   .bezug-text b { color: var(--text); }
+
+  /* ---------- Streitfall: Kommentare unter den Antworten, Klarstellung der Moderation ---------- */
+  .strang.mit-kommentaren > .post { border-bottom: 0; position: relative; }
+  .strang.mit-kommentaren > .post::before {
+    content: ""; position: absolute; left: 35px; top: 56px; bottom: 0; width: 2px; background: var(--border-input);
+  }
+  .kommentare { border-bottom: 1px solid var(--border); padding-bottom: 2px; }
+  .kommentare .post { border-bottom: 0; padding-left: 54px; position: relative; }
+  .kommentare .post::before {
+    content: ""; position: absolute; left: 35px; top: 0; bottom: 0; width: 2px; background: var(--border-input);
+  }
+  .kommentare .post:last-child::before { bottom: auto; height: 29px; }
+  .kommentare .post::after {
+    content: ""; position: absolute; left: 37px; top: 27px; width: 15px; height: 2px; background: var(--border-input);
+  }
+  .klar { border-bottom: 1px solid var(--border); background: rgba(29, 155, 240, 0.07); box-shadow: inset 4px 0 0 var(--blue); }
+  .klar .post { border-bottom: 0; }
+  .mod-zeile {
+    display: flex; align-items: center; gap: 6px; color: var(--blue); font-size: 13px; font-weight: 800; line-height: 16px;
+    margin: -2px 0 6px 48px;
+  }
+  .mod-zeile .ic { width: 16px; height: 16px; }
 </style>
 </head>
 <body>
@@ -611,6 +633,26 @@ function pinFrage() {
   const n = stand.raum?.pin?.name ?? "";
   return /[sxzß]$/i.test(n) ? `${n}’ Frage` : `${n}s Frage`;
 }
+/* Streitfall: Kommentare unter den Antworten, eigene Antworten an den angehefteten Post, Klarstellung */
+const KLAR = "klarstellung";
+function kommentarModus() { return !!stand.raum?.kommentare && antworten().length > 0; }
+function kommentareZu(id) { return stand.posts.filter((p) => p.zu === id).sort((a, b) => a.ts - b.ts); }
+function klarPost() {
+  const k = stand.klarstellung;
+  if (!k) return null;
+  return {
+    id: KLAR, name: "X-Moderation", handle: "moderation", avatar: { e: "🛡️", c: "#1D9BF0" }, verified: true,
+    text: k.text, ts: k.ts, edited: k.edited ?? null, likes: k.likes, liked: k.liked,
+    views: Math.max(1, stand.geraete ?? 0), bookmarked: lesezeichen.has(KLAR),
+  };
+}
+function klarHtml() {
+  return `<div class="klar">${postHtml(klarPost(), {
+    jetzt: jetzt(),
+    oben: `<div class="mod-zeile">${icon("pin")}Klarstellung der Moderation</div>`,
+    vorText: `<div class="antwort-an">Antwort an <span class="lnk">@${esc(stand.raum.pin.handle)}</span></div>`,
+  })}</div>`;
+}
 function antwortStand(id) { return (stand.antwortStand ?? []).find((x) => x.id === id); }
 function antwortNr(id) { return antworten().findIndex((a) => a.id === id) + 1; }
 function antwortPost(id) {
@@ -624,7 +666,8 @@ function render() {
   const oben = window.scrollY > 150;
   const neueFremde = stand.posts.filter((p) => !angezeigt.has(p.id) && !p.mine);
 
-  if (!ersterLauf && oben && neueFremde.length) {
+  /* Timeline: neue Posts erst nach oben scrollen zeigen. Im Streitfall erscheinen Kommentare sofort an ihrem Platz. */
+  if (!ersterLauf && oben && neueFremde.length && !kommentarModus()) {
     for (const p of neueFremde) if (!wartend.find((w) => w.id === p.id)) wartend.push(p);
   }
   const zurueck = new Set(wartend.map((w) => w.id));
@@ -646,10 +689,11 @@ function render() {
     html += `<div class="banner" style="border-color:var(--border)">⏸️ Posten ist gerade pausiert. Du kannst weiter lesen und liken.</div>`;
   }
   const thread = antworten().length > 0;
+  const km = kommentarModus();
   const notizKnopf = notesModus() && raum.status === "offen"
     ? `<button class="note-btn" data-act="note">${icon("leute")}Community Note vorschlagen</button>` : "";
   const pinLive = pinNotes() ? stand.posts.filter((p) => p.zu === "pinned" && p.live && !p.hidden) : [];
-  html += postHtml(pinPost(), {
+  html += postHtml({ ...pinPost(), ...(thread ? { replies: antworten().length + (km ? kommentareZu("pinned").length : 0) } : {}) }, {
     menu: true, jetzt: jetzt(),
     oben: thread ? "" : `<div class="pin-line">${icon("pin")}Angehefteter Post</div>`,
     medien: (raum.bild
@@ -657,24 +701,40 @@ function render() {
       : "") + (pinNotes() ? pinLive.map((p) => noteHtml(p.text)).join("") + notizKnopf : ""),
   });
 
-  /* Thread: Antworten mit ihren live geschalteten Community Notes */
+  /* Thread: Antworten mit ihren live geschalteten Community Notes oder (Streitfall) mit ihren Kommentaren */
   if (thread) {
     const knopf = notizKnopf;
+    if (km && stand.klarstellung) html += klarHtml();
+    const anMia = `<div class="antwort-an">Antwort an <span class="lnk">@${esc(raum.pin.handle)}</span></div>`;
     for (const a of antworten()) {
-      const live = stand.posts.filter((p) => p.zu === a.id && p.live && !p.hidden);
-      html += postHtml(antwortPost(a.id), {
+      const live = km ? [] : stand.posts.filter((p) => p.zu === a.id && p.live && !p.hidden);
+      const kommentare = km ? kommentareZu(a.id) : [];
+      html += `<div class="strang${kommentare.length ? " mit-kommentaren" : ""}">` + postHtml({ ...antwortPost(a.id), replies: kommentare.length }, {
         menu: true, jetzt: jetzt(),
-        vorText: `<div class="antwort-an">Antwort an <span class="lnk">@${esc(raum.pin.handle)}</span></div>`,
+        vorText: anMia,
         medien: live.map((p) => noteHtml(p.text)).join("") + knopf,
       });
+      if (kommentare.length) {
+        html += `<div class="kommentare">${kommentare.map((p) => postHtml({ ...p, bookmarked: lesezeichen.has(p.id) }, {
+          menu: true, jetzt: jetzt(), hinweisVersteckt: true, avSize: 32,
+          vorText: `<div class="antwort-an">Antwort an <span class="lnk">@${esc(a.handle)}</span></div>`,
+        })).join("")}</div>`;
+      }
+      html += `</div>`;
+    }
+    /* Eigene Antworten an den angehefteten Post stehen hinter den vorbereiteten */
+    if (km) {
+      for (const p of kommentareZu("pinned")) {
+        html += postHtml({ ...p, bookmarked: lesezeichen.has(p.id) }, { menu: true, jetzt: jetzt(), hinweisVersteckt: true, vorText: anMia });
+      }
     }
     if (notesModus()) {
       html += `<div class="abschnitt"><h2>Vorschläge für Community Notes</h2><p>${esc(raum.notesHinweis ?? "Live gehen Notes, die aus Azubi-Sicht und aus Betriebssicht hilfreich sind.")}</p></div>`;
     }
   }
 
-  /* Live geschaltete Notes stehen schon unter ihrer Antwort */
-  const liste = thread ? sichtbar.filter((p) => !p.live) : sichtbar;
+  /* Live geschaltete Notes stehen schon unter ihrer Antwort, Kommentare im Streitfall ebenso */
+  const liste = thread ? sichtbar.filter((p) => (km ? !p.zu : !p.live)) : sichtbar;
   for (const p of liste) {
     const a = p.zu ? antworten().find((x) => x.id === p.zu) : null;
     const zuPin = p.zu === "pinned";
@@ -684,14 +744,25 @@ function render() {
         : zuPin ? `<div class="pin-line">${icon("leute")}Urteil zu ${esc(pinFrage())}</div>` : "",
     });
   }
-  if (!liste.length && !kvFehler) {
+  if (!liste.length && !kvFehler && !km) {
     html += notesModus()
       ? `<div class="leer" style="text-align:center"><p style="margin:24px 0 0">Noch keine Vorschläge.<br>Tippe bei einer Antwort auf „Community Note vorschlagen“.</p></div>`
       : `<div class="leer" style="text-align:center"><p style="margin:24px 0 0">Noch keine Posts aus deiner Klasse.<br>Tippe auf ${icon("compose").replace('class="ic "', 'class="ic" style="display:inline;width:18px;height:18px;vertical-align:-3px;color:var(--blue)"')} und sei die*der Erste!</p></div>`;
   }
 
+  /* Neue Kommentare weiter oben sollen beim Lesen nichts verschieben: obersten sichtbaren Post festhalten */
+  let anker = null;
+  if (!ersterLauf && window.scrollY > 0 && kommentarModus()) {
+    const grenze = Math.max(0, $("#topbar")?.getBoundingClientRect().bottom ?? 0);
+    const el = [...feed.querySelectorAll(".post[data-id]")].find((x) => x.getBoundingClientRect().bottom > grenze + 8);
+    if (el) anker = { id: el.dataset.id, top: el.getBoundingClientRect().top };
+  }
   const vorher = angezeigt;
   feed.innerHTML = html;
+  if (anker) {
+    const el = feed.querySelector(`.post[data-id="${CSS.escape(anker.id)}"]`);
+    if (el) window.scrollBy(0, el.getBoundingClientRect().top - anker.top);
+  }
   angezeigt = new Set(sichtbar.map((p) => p.id));
   if (!ersterLauf) {
     for (const id of angezeigt) if (!vorher.has(id)) $(`.post[data-id="${CSS.escape(id)}"]`)?.classList.add("neu");
@@ -769,10 +840,11 @@ $("#feed").addEventListener("click", async (e) => {
   const art = btn.closest(".post");
   const id = art?.dataset.id;
   const act = btn.dataset.act;
-  const post = id === "pinned" ? pinPost() : antwortPost(id) ?? stand.posts.find((p) => p.id === id);
+  const post = id === "pinned" ? pinPost() : id === KLAR ? klarPost() : antwortPost(id) ?? stand.posts.find((p) => p.id === id);
   if (!post) return;
 
   if (act === "note") return oeffneCompose(null, id);
+  if (act === "reply" && kommentarModus()) return antworteAuf(post, id);
   if (act === "like") return like(btn, id);
   if (act === "bookmark") {
     const an = !lesezeichen.has(id);
@@ -795,8 +867,18 @@ $("#feed").addEventListener("click", async (e) => {
   if (act === "menu") return menu(post);
 });
 
+/* Streitfall: Der Antworten-Knopf öffnet das Eingabefenster mit dem passenden Bezug */
+function antworteAuf(post, id) {
+  if (stand.raum.status !== "offen") return toast("Kommentieren ist gerade pausiert. Lesen und liken geht weiter.");
+  if (id === KLAR) return toast("Die Klarstellung der Moderation kannst du liken, aber nicht kommentieren.");
+  if (id === "pinned") return oeffneCompose(null, "pinned");
+  if (post.istAntwort) return oeffneCompose(null, id);
+  /* Antwort auf einen Kommentar: bleibt unter derselben Antwort und spricht die Person an */
+  return oeffneCompose(null, post.zu || "pinned", post.mine ? "" : `@${post.handle} `);
+}
+
 async function like(btn, id) {
-  const liste = id === "pinned" ? stand.pinned : antwortStand(id) ?? stand.posts.find((p) => p.id === id);
+  const liste = id === "pinned" ? stand.pinned : id === KLAR ? stand.klarstellung : antwortStand(id) ?? stand.posts.find((p) => p.id === id);
   if (!liste) return;
   const an = !liste.liked;
   liste.liked = an;
@@ -901,16 +983,17 @@ let bearbeite = null; // Post, der gerade bearbeitet wird
 
 /* Notes-Modus: Auswahl der Antwort, zu der die Community Note gehört */
 function baueBezug(post, zu) {
-  const nm = notesModus();
+  const nm = notesModus(), km = kommentarModus();
   const bz = $("#bezug");
-  bz.hidden = !nm;
-  if (!nm) { bz.innerHTML = ""; return; }
+  bz.hidden = !nm && !km;
+  if (!nm && !km) { bz.innerHTML = ""; return; }
   const gewaehlt = post ? post.zu : zu;
-  bz.innerHTML = `<label for="bezugSel">Community Note zu</label>
+  bz.innerHTML = `<label for="bezugSel">${km ? "Antwort an" : "Community Note zu"}</label>
     <select id="bezugSel" ${post ? "disabled" : ""}>
-      <option value="">Antwort auswählen …</option>
+      <option value="">${km ? "Worauf antwortest du? …" : "Antwort auswählen …"}</option>
       ${antworten().map((a, i) => `<option value="${esc(a.id)}" ${a.id === gewaehlt ? "selected" : ""}>Antwort ${i + 1} von @${esc(a.handle)}</option>`).join("")}
-      ${pinNotes() ? `<option value="pinned" ${gewaehlt === "pinned" ? "selected" : ""}>${esc(pinFrage())}: dein Urteil</option>` : ""}
+      ${km ? `<option value="pinned" ${gewaehlt === "pinned" ? "selected" : ""}>Direkt an @${esc(stand.raum.pin.handle)} (eigener Beitrag)</option>`
+        : pinNotes() ? `<option value="pinned" ${gewaehlt === "pinned" ? "selected" : ""}>${esc(pinFrage())}: dein Urteil</option>` : ""}
     </select>
     <div class="bezug-text" id="bezugText" hidden></div>`;
   $("#bezugSel").addEventListener("change", () => { zeigeBezug(); aktualisiereEditor(); });
@@ -918,7 +1001,7 @@ function baueBezug(post, zu) {
 }
 function zeigeBezug() {
   const wahl = $("#bezugSel")?.value;
-  const a = wahl === "pinned" && pinNotes()
+  const a = wahl === "pinned" && (pinNotes() || kommentarModus())
     ? { handle: stand.raum.pin.handle, text: stand.raum.pin.text }
     : antworten().find((x) => x.id === wahl);
   const el = $("#bezugText");
@@ -927,20 +1010,23 @@ function zeigeBezug() {
   el.innerHTML = a ? `<b>@${esc(a.handle)}:</b> ${esc(a.text)}` : "";
 }
 
-function oeffneCompose(post = null, zu = null) {
+function oeffneCompose(post = null, zu = null, vorn = "") {
   bearbeite = post;
   $("#composeWrap").hidden = false;
   document.body.style.overflow = "hidden";
-  const nm = notesModus();
+  const nm = notesModus(), km = kommentarModus();
   baueBezug(post, zu);
   $("#cAv").innerHTML = avatarHtml(profil.avatar, 40);
-  $("#edText").placeholder = nm ? (stand.raum?.notesPlatzhalter ?? "Was stimmt, was nicht? Höchstens zwei Sätze, am Ende der Paragraf.") : "Was passiert gerade?!";
-  $("#wer").innerHTML = nm ? `${icon("leute")}Die Klasse bewertet deine Note` : `${icon("globe")}Jeder kann antworten`;
+  $("#edText").placeholder = nm ? (stand.raum?.notesPlatzhalter ?? "Was stimmt, was nicht? Höchstens zwei Sätze, am Ende der Paragraf.")
+    : km ? (stand.raum?.kommentarPlatzhalter ?? "Poste deine Antwort") : "Was passiert gerade?!";
+  $("#wer").innerHTML = nm ? `${icon("leute")}Die Klasse bewertet deine Note`
+    : km ? `${icon("globe")}Deine Klasse sieht deinen Kommentar sofort` : `${icon("globe")}Jeder kann antworten`;
   $("#tools").innerHTML = [["image","Medien"],["gif","GIF"],["poll","Umfrage"],["emoji","Emoji"],["schedule","Planen"],["location","Standort"]]
     .map(([n, l]) => `<button data-tool="${n}" aria-label="${l}">${icon(n)}</button>`).join("");
   $("#plusRund").innerHTML = icon("plus");
-  $("#postBtn").textContent = post ? "Aktualisieren" : nm ? "Vorschlagen" : "Posten";
-  $("#edText").value = post ? post.text : LS.get("entwurf." + CODE, "");
+  $("#postBtn").textContent = post ? "Aktualisieren" : nm ? "Vorschlagen" : km ? "Antworten" : "Posten";
+  const entwurf = LS.get("entwurf." + CODE, "");
+  $("#edText").value = post ? post.text : vorn && !entwurf.startsWith(vorn) ? vorn + entwurf : entwurf;
   $("#emojiPop").hidden = true;
   aktualisiereEditor();
   passeHoeheAn();
@@ -986,7 +1072,7 @@ function aktualisiereEditor() {
   restEl.classList.toggle("rot", rest < 0);
   $("#ring svg").style.visibility = rest <= -10 ? "hidden" : "visible";
 
-  const ohneBezug = notesModus() && !bearbeite && !$("#bezugSel")?.value;
+  const ohneBezug = (notesModus() || kommentarModus()) && !bearbeite && !$("#bezugSel")?.value;
   $("#postBtn").disabled = leer || rest < 0 || ohneBezug;
 }
 
@@ -1024,26 +1110,30 @@ async function sende() {
   const text = $("#edText").value.trim();
   if (!text) return;
   $("#postBtn").disabled = true;
+  let neuId = null;
   try {
     if (bearbeite) {
       await api(`/api/posts/${encodeURIComponent(bearbeite.id)}`, { method: "PUT", body: { clientId, text } });
       $("#composeWrap").hidden = true; document.body.style.overflow = ""; bearbeite = null;
       toast("Dein Post wurde aktualisiert.");
     } else {
-      const nm = notesModus();
-      const zu = nm ? $("#bezugSel")?.value : undefined;
-      await api("/api/posts", { method: "POST", body: { clientId, text, name: profil.name, handle: profil.handle, avatar: profil.avatar, ...(zu ? { zu } : {}) } });
+      const nm = notesModus(), km = kommentarModus();
+      const zu = nm || km ? $("#bezugSel")?.value : undefined;
+      const d = await api("/api/posts", { method: "POST", body: { clientId, text, name: profil.name, handle: profil.handle, avatar: profil.avatar, ...(zu ? { zu } : {}) } });
+      neuId = d.id ?? null;
       $("#edText").value = "";
       LS.set("entwurf." + CODE, "");
       $("#composeWrap").hidden = true; document.body.style.overflow = "";
       if (nm) toast("Deine Note wurde vorgeschlagen.");
+      else if (km) toast(zu === "pinned" ? `Deine Antwort an @${stand.raum.pin.handle} ist online.` : "Dein Kommentar ist online.");
       else toast("Dein Post wurde gesendet.", { text: "Anzeigen", fn: () => window.scrollTo({ top: 0, behavior: "smooth" }) });
     }
     wartend = [];
-    window.scrollTo({ top: 0 });
+    if (!kommentarModus()) window.scrollTo({ top: 0 });
     await lade();
-    /* Note-Vorschläge stehen unter dem Thread: dorthin springen */
+    /* Note-Vorschläge stehen unter dem Thread: dorthin springen. Im Streitfall zum neuen Kommentar. */
     if (notesModus()) $(".abschnitt")?.scrollIntoView({ behavior: "smooth" });
+    if (kommentarModus() && neuId) $(`.post[data-id="${CSS.escape(neuId)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
   } catch (e) {
     toast(e.message);
     aktualisiereEditor();
