@@ -635,6 +635,7 @@ function pinFrage() {
 }
 /* Streitfall: Kommentare unter den Antworten, eigene Antworten an den angehefteten Post, Klarstellung */
 const KLAR = "klarstellung";
+const ESK = "eskalation"; // vorbereitete Antwort, die die Lehrkraft live stellt
 function kommentarModus() { return !!stand.raum?.kommentare && antworten().length > 0; }
 function kommentareZu(id) { return stand.posts.filter((p) => p.zu === id).sort((a, b) => a.ts - b.ts); }
 function klarPost() {
@@ -706,7 +707,8 @@ function render() {
     const knopf = notizKnopf;
     if (km && stand.klarstellung) html += klarHtml();
     const anMia = `<div class="antwort-an">Antwort an <span class="lnk">@${esc(raum.pin.handle)}</span></div>`;
-    for (const a of antworten()) {
+    /* Die Eskalation steht, sobald sie live ist, ganz oben unter Mias Post (Nummerierung bleibt) */
+    for (const a of [...antworten()].sort((x, y) => (y.id === ESK) - (x.id === ESK))) {
       const live = km ? [] : stand.posts.filter((p) => p.zu === a.id && p.live && !p.hidden);
       const kommentare = km ? kommentareZu(a.id) : [];
       html += `<div class="strang${kommentare.length ? " mit-kommentaren" : ""}">` + postHtml({ ...antwortPost(a.id), replies: kommentare.length }, {
@@ -785,6 +787,7 @@ $("#neuPill").addEventListener("click", () => {
 });
 
 let ladeT;
+let eskSchon = null; // war die Eskalation beim letzten Laden schon live?
 async function lade() {
   clearTimeout(ladeT);
   try {
@@ -792,6 +795,9 @@ async function lade() {
     zeitVersatz = d.now - Date.now();
     stand = d;
     kvFehler = "";
+    const esk = (d.raum.antworten ?? []).find((a) => a.id === ESK);
+    if (eskSchon === false && esk) toast(`Neue Antwort von @${esk.handle} oben im Thread`);
+    eskSchon = !!esk;
     // Posts, die inzwischen gelöscht wurden, nicht mehr als „wartend“ führen
     wartend = wartend.filter((w) => d.posts.some((p) => p.id === w.id));
     if (d.raum.status !== "offen" && !$("#composeWrap").hidden && !bearbeite) schliesseCompose();

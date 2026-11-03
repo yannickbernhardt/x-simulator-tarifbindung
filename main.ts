@@ -25,6 +25,7 @@ const RESERVIERT = ["admin", "lehrer", "lehrerin", "lehrkraft", "x", "elonmusk",
 const PIN_ID = "pinned";
 const KLAR_ID = "klarstellung"; // Likes der Klarstellung der Moderation (Streitfall-Räume)
 const MAX_KLAR = 700;
+const ESK_ID = "eskalation"; // Streitfall: vorbereitete Antwort, die die Lehrkraft in der Auswertung live stellt
 const BILD_TEIL = 60_000; // KV-Werte dürfen höchstens 64 KiB groß sein
 const BILD_MAX = 2_000_000;
 const BILD_TYPEN = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml"];
@@ -36,6 +37,7 @@ type Status = "offen" | "pausiert" | "geschlossen";
 /* Vorbereitete Antworten unter dem angehefteten Post (Thread-Räume).
    nach = Minuten nach dem angehefteten Post, daraus entsteht die Zeitangabe. */
 type Antwort = { id: string; name: string; handle: string; e: string; c: string; text: string; nach: number };
+type Eskalation = { name: string; handle: string; e: string; c: string; text: string };
 type Raum = {
   code: string;
   titel: string;
@@ -69,6 +71,9 @@ type Raum = {
      Klarstellung der Moderation oben in den Thread. */
   kommentare?: boolean;
   kommentarPlatzhalter?: string;
+  /* Streitfall: vorbereitete Antwort, die den Streit eskalieren lässt. Sie erscheint erst, wenn die Lehrkraft
+     sie an der Wand live stellt, und gehört dann wie eine Antwort zum Thread (ID „eskalation“). */
+  eskalation?: Eskalation;
   vorlageStand?: number; // nur vorbereitete Räume: Stand der Vorlage im Code
   erstellt: number;
   geaendert: number;
@@ -264,6 +269,7 @@ function raumAusBody(b: Record<string, unknown>, alt?: Raum): Raum {
     /* Antworten und Notes-Modus gibt es nur in vorbereiteten Räumen;
        die Verwaltung schickt sie nicht mit, sie bleiben beim Speichern erhalten */
     ...(alt?.antworten?.length ? { antworten: alt.antworten, notes: !!alt.notes, ...threadZusatz(alt) } : {}),
+    ...(alt?.eskalation ? { eskalation: alt.eskalation } : {}),
     ...(alt?.vorlageStand ? { vorlageStand: alt.vorlageStand } : {}),
     erstellt: alt?.erstellt ?? jetzt,
     geaendert: jetzt,
@@ -288,6 +294,17 @@ function raumOeffentlich(r: Raum, lehrer: boolean) {
 
 function istAntwort(r: Raum, id: string): boolean {
   return (r.antworten ?? []).some((a) => a.id === id);
+}
+
+/* Streitfall: Ist die Eskalation live? Dann gehört sie wie eine Antwort zum Thread (hinter den vorbereiteten). */
+async function eskalationAn(kv: Deno.Kv, r: Raum): Promise<{ ts: number } | null> {
+  if (!r.kommentare || !r.eskalation) return null;
+  return (await kv.get<{ ts: number }>(["eskalation", r.code, "an"])).value ?? null;
+}
+function mitEskalation(r: Raum, an: { ts: number } | null): Raum {
+  if (!an || !r.eskalation) return r;
+  const e: Antwort = { id: ESK_ID, ...r.eskalation, nach: Math.max(0, (an.ts - r.pin.ts) / 60_000) };
+  return { ...r, antworten: [...(r.antworten ?? []), e] };
 }
 
 async function speichereBild(kv: Deno.Kv, code: string, daten: Uint8Array, typ: string) {
@@ -319,7 +336,7 @@ async function kopiereBild(kv: Deno.Kv, von: string, nach: string) {
 }
 
 async function loescheRaumDaten(kv: Deno.Kv, code: string, auchRaum: boolean) {
-  for (const p of ["posts", "likes", "handles", "seen", "runde1", "pinfrei", "klarstellung"]) await loescheAlles(kv, [p, code]);
+  for (const p of ["posts", "likes", "handles", "seen", "runde1", "pinfrei", "klarstellung", "eskalation"]) await loescheAlles(kv, [p, code]);
   if (auchRaum) {
     await loescheAlles(kv, ["bild", code]);
     await kv.delete(["rooms", code]);
@@ -399,7 +416,7 @@ async function beanspruche(kv: Deno.Kv, code: string, handle: string, clientId: 
 function handleReserviert(r: Raum, h: string): boolean {
   const k = h.toLowerCase();
   return RESERVIERT.includes(k) || k === r.pin.handle.toLowerCase() ||
-    (r.antworten ?? []).some((a) => a.handle.toLowerCase() === k);
+    (r.antworten ?? []).some((a) => a.handle.toLowerCase() === k) || r.eskalation?.handle.toLowerCase() === k;
 }
 
 /* ---------- Übernahme der ersten Version (ein Raum, Schlüssel ohne Raumcode) ---------- */
@@ -663,7 +680,7 @@ const VORBEREITET: Vorlage[] = [
        (Runde 1 und 2), nach dem Faktencheck mit Infokarten kommentieren die Lernenden mit Beleg; am Ende stellt
        die Lehrkraft als Moderation die Klarstellung der Klasse oben in den Thread. */
     code: "eah12-piaget",
-    stand: 2,
+    stand: 3,
     titel: "Mias Thread: Lerne ich hier gerade Quatsch?",
     klasse: "EAH-12",
     status: "offen",
@@ -695,6 +712,14 @@ const VORBEREITET: Vorlage[] = [
     ],
     kommentare: true,
     kommentarPlatzhalter: "Stimmt das? Folgt der Schluss daraus? Am Ende der Beleg, z. B. (M1, Z. 21–24).",
+    eskalation: {
+      name: "Ben | Erziehungswissenschaft",
+      handle: "ben_studiert",
+      e: "🎓",
+      c: "#F4212E",
+      text:
+        "Sag ich doch, Schwesterherz 🙄 Im Spiel schaffen es 70 statt 5 von 100 Kindern, Zwillinge passen in keine Stufe, und Kultur fehlt bei Piaget komplett. Piaget ist WIDERLEGT. Streich das Kapitel und lern was Aktuelles! 🗑️ #PiagetIstTot",
+    },
     kriterien: [
       "Position klar: stimmt, teilweise oder nicht",
       "Beleg mit Zeilenangabe oder Studie",
@@ -706,13 +731,14 @@ const VORBEREITET: Vorlage[] = [
     zahlen: [],
     eh: `## Ablauf (UB, 45 Minuten)
 - Einstieg (3 Min.): „Wir haben alle Argumente gesammelt. Für wie berechtigt halten Sie diese Kritik?“ Mia fragt: „Lerne ich hier gerade Quatsch?“
-- Runde 1 (3 Min.): Like heißt: Diese Kritik halte ich für berechtigt. Dann „Runde 1 festhalten“.
-- Faktencheck (8 Min.): Infokarte zu der Antwort, bei der man am unsichersten war; den stärksten Beleg markieren. Wer dieselbe Karte hat, darf sich kurz austauschen.
-- Streit (8 Min.): Raum auf „offen“. Kommentar unter die Antwort, zustimmend oder widersprechend, mit Beleg. Wer einen Punkt vermisst, antwortet Mia direkt.
-- Runde 2 (4 Min.): Kommentare zu mindestens drei anderen Antworten lesen, Likes neu setzen. Die Wand zeigt vorher → jetzt.
-- Auswertung (7 Min.): Eine Minute mit dem Nachbarn: „Was hat Sie umgestimmt?“ Dann im Plenum: „Wo hat sich die Klasse am stärksten umentschieden?“ „Wo hat sich kaum etwas bewegt? Ist diese Kritik also berechtigt?“ Bei Antwort 7 den Spiegel aus der Diagnose zeigen (P5, 94 %).
-- Moderation (8 Min.): Klarstellung in drei Sätzen (berechtigt, übertrieben, stimmt nicht), an der Wand mitschreiben, live stellen.
-- Abschluss (2 Min.): „Kann Mia jetzt beruhigt weiterlernen?“ Wer die Klarstellung mitträgt, likt sie. Puffer (2 Min.)
+- Runde 1 (3 Min.): Like heißt: Diese Kritik halte ich für berechtigt (bewusst ein grobes Spontanurteil). Dann „Runde 1 festhalten“.
+- Faktencheck (6 Min., allein): Infokarte zu der Antwort, bei der man sich am sichersten ist. Erst ein spontaner Einwand, dann die Befunde A bis D selbst einordnen (+ oder –). Ist ein Stapel leer, die nächstsichere Antwort.
+- Prüfen und kommentieren (7 Min., zu zweit oder zu dritt): Raum auf „offen“. Alle mit derselben Karte vergleichen ihre Einordnung, prüfen mit den zwei Fragen und schreiben einen gemeinsamen Kommentar mit Beleg. Wer anders urteilt, antwortet mit eigenem Kommentar.
+- Lesen (4 Min.): den Streit unter den eigenen Likes lesen, Likes behalten oder zurücknehmen. Die Wand zeigt vorher → jetzt.
+- Auswertung (7 Min.): Murmelphase („Was hat Sie umgestimmt, oder warum hält Ihr Urteil?“), dann zwei Streitpunkte fachlich klären. Bei Antwort 7 den Spiegel zeigen (P5, 94 %).
+- Eskalation (2 Min.): Knopf „Eskalation“. Mias Bruder antwortet, der Kommentar steht oben im Thread, auf allen Handys. „Stimmt das?“ Zwei, drei spontane Reaktionen.
+- Moderation (8 Min.): „Dieser Thread eskaliert, die Moderation greift ein.“ Klarstellung in drei Sätzen (berechtigt, übertrieben, nicht haltbar), an der Wand mitschreiben, live stellen.
+- Abschluss (3 Min.): mündlich „Was antworten Sie Mia, und was ihrem Bruder?“ Auch abweichende Antworten zulassen. Puffer (2 Min.)
 
 ## Diagnose (Ankerpunkt, 02.11., 16 Abgaben)
 - P5 „Ein Kind entwickelt sein Denken vor allem allein, indem es selbst ausprobiert“: 94 % → Can (Antwort 7) in Runde 1 eher wenige Likes, nach dem Faktencheck mehr. **Spiegel:** „94 % von Ihnen haben gesagt, ein Kind entwickelt sein Denken vor allem allein. Genau das kritisiert Can.“
@@ -737,7 +763,7 @@ const VORBEREITET: Vorlage[] = [
 - Für die Auswertung: Einzelfall und Regel. Wiersings eigentlicher Punkt, Entwicklung könne auch zurückgehen (M9, Z. 49–53), reicht weiter als das Zwillingsbeispiel.
 
 ## Antwort 4 · @lea_psycho · Punkt 6, vage Begriffe · stimmt teilweise
-- M9, Z. 59–73; M1, Z. 12–20; Glossar der Klasse
+- M9, Z. 59–73; M1, Z. 12–20; eigenes Beispiel, etwa aus dem Fall Derek
 - **Kommentar:** „Teilweise: Die Begriffe sind abstrakt und lassen sich leicht im Nachhinein anwenden (M9, Z. 59–73). Sie sind aber genau bestimmt: Eine neue Erfahrung ins Schema einordnen heißt Assimilation (M1, Z. 12–20).“
 
 ## Antwort 5 · @birgit_kita · Punkt 7, Kind als Versuchsobjekt · stimmt teilweise
@@ -755,8 +781,15 @@ const VORBEREITET: Vorlage[] = [
 - **Kommentar:** „Stimmt weitgehend: Für Piaget treibt vor allem das Kind selbst seine Entwicklung an (M1, Z. 12–20). Soziale Erfahrung nennt er zwar als Faktor, entscheidend ist aber die Äquilibration (Garz, 2006, S. 84 f.). „Fehlanzeige“ übertreibt.“
 - Für die Auswertung: Spiegel aus der Diagnose (P5, 94 %); die Kritik trifft die Überzeugung der Klasse. Ausblick auf das Kita-Angebot am 16.11.
 
+## Eskalation · @ben_studiert (Mias Bruder)
+- Erscheint erst nach Klick auf „Eskalation“ an der Wand, oben im Thread; ein zweiter Klick oder „Neue Runde“ nimmt sie heraus.
+- Überdehnt drei Befunde aus dem Thread: 70 statt 5 von 100 zeigt, dass Piagets Aufgabe Kinder unterschätzt, nicht dass die Theorie falsch ist (Kinder erst sechs, „gleich viel“ ohne Begründung); Zwillinge sind ein Einzelfall (Richtwerte, M1, Z. 21–24); soziale Erfahrung ist ein Faktor, nur nicht der entscheidende (Garz, 2006, S. 84 f.).
+- „widerlegt“ macht aus „teilweise berechtigt“ ein „falsch“. P6: Niemand in der Klasse will Piaget verwerfen (0 %).
+- Erwartete Reaktionen: „Widerlegt ist er nicht, nur an manchen Stellen ungenau.“ – „Er macht aus Einzelfällen eine Regel.“ – „Fehlanzeige stimmt nicht, soziale Erfahrung ist ein Faktor.“
+- Überleitung: „Dieser Thread eskaliert. Als Moderation greifen wir ein.“
+
 ## Klarstellung der Moderation · Beispiel
-- „Berechtigt ist: Gespräch und Kultur kommen bei Piaget zu kurz, und seine Aufgaben unterschätzen Kinder oft (Light u. a., 1979). Übertrieben ist: Die Altersangaben sind nur Richtwerte, und das Spiel hat Piaget selbst untersucht (M1, Z. 21–24, 64–67). Nicht haltbar ist: Ausgedacht hat er sich die Stufen nicht, er hat Kinder beobachtet und befragt (M1, Z. 1–5).“
+- „Berechtigt ist: Gespräch und Kultur kommen bei Piaget zu kurz, und seine Aufgaben unterschätzen Kinder oft (Light u. a., 1979). Übertrieben ist: Die Altersangaben sind nur Richtwerte, und das Spiel hat Piaget selbst untersucht (M1, Z. 21–24, 64–67). Nicht haltbar ist: Widerlegt ist Piaget nicht, und ausgedacht hat er sich die Stufen auch nicht, er hat Kinder beobachtet und befragt (M1, Z. 1–5).“
 - Für den Abschluss: Mia lernt keinen Quatsch, aber auch nicht das letzte Wort. Bezug: Präkonzept P6 der Ankerpunkt-Diagnose.
 
 ## Typische Fehler
@@ -798,7 +831,8 @@ async function legeVorbereiteteRaeumeAn(kv: Deno.Kv) {
     if (!stand) continue;
     const da = await kv.get<Raum>(raumKey);
     if (!da.value || (da.value.vorlageStand ?? 0) >= stand) continue;
-    const { pinNotes: _p, notesHinweis: _h, notesPlatzhalter: _t, kommentare: _k, kommentarPlatzhalter: _kp, ...bisher } =
+    const { pinNotes: _p, notesHinweis: _h, notesPlatzhalter: _t, kommentare: _k, kommentarPlatzhalter: _kp, eskalation: _es,
+      ...bisher } =
       da.value;
     const neu: Raum = {
       ...bisher,
@@ -808,6 +842,7 @@ async function legeVorbereiteteRaeumeAn(kv: Deno.Kv) {
       kriterien: v.kriterien,
       zahlen: v.zahlen,
       ...(v.antworten ? { antworten: v.antworten, notes: !!v.notes, ...threadZusatz(v) } : {}),
+      ...(v.eskalation ? { eskalation: v.eskalation } : {}),
       vorlageStand: stand,
     };
     const ok2 = await kv.atomic().check(da).set(raumKey, neu).commit();
@@ -1025,6 +1060,8 @@ Deno.serve({ port: PORT }, async (req: Request) => {
       if (cid && !lehrer) await kv.set(["seen", code, cid], jetzt, { expireIn: LEBENSDAUER });
 
       const [posts, likes, gesehen] = await Promise.all([allePosts(kv, code), alleLikes(kv, code), alleGesehen(kv, code)]);
+      const esk = await eskalationAn(kv, r);
+      const rr = mitEskalation(r, esk);
       const runde1 = lehrer && r.antworten?.length ? (await kv.get<Runde1>(["runde1", code, "stand"])).value ?? null : null;
       const pinFrei = await urteileFrei(kv, r);
       const klar = r.kommentare ? (await kv.get<Klarstellung>(["klarstellung", code, "text"])).value ?? null : null;
@@ -1034,7 +1071,7 @@ Deno.serve({ port: PORT }, async (req: Request) => {
       return json({
         now: jetzt,
         lehrer,
-        raum: raumOeffentlich(r, lehrer),
+        raum: raumOeffentlich(rr, lehrer),
         posts: posts
           .filter((p) => lehrer || !p.hidden || p.clientId === cid)
           .map((p) => ({
@@ -1056,7 +1093,7 @@ Deno.serve({ port: PORT }, async (req: Request) => {
             ...(lehrer && r.notes && p.zu && p.zu !== PIN_ID ? { seiten: seitenDerNote(p, likes.vonMir, runde1) } : {}),
           })),
         pinned: { likes: likes.anzahl.get(PIN_ID) ?? 0, liked: meine.has(PIN_ID), views: gesehen.length },
-        antwortStand: (r.antworten ?? []).map((a) => ({
+        antwortStand: (rr.antworten ?? []).map((a) => ({
           id: a.id,
           likes: likes.anzahl.get(a.id) ?? 0,
           liked: meine.has(a.id),
@@ -1074,6 +1111,9 @@ Deno.serve({ port: PORT }, async (req: Request) => {
           }
           : null,
         ...(lehrer ? { runde1: runde1 ? { ts: runde1.ts, likes: runde1.likes } : null } : {}),
+        ...(lehrer && r.kommentare && r.eskalation
+          ? { eskalation: { an: !!esk, ts: esk?.ts ?? null, name: r.eskalation.name, handle: r.eskalation.handle } }
+          : {}),
       });
     }
 
@@ -1146,6 +1186,27 @@ Deno.serve({ port: PORT }, async (req: Request) => {
       return json({ ok: true, klarstellung: { ...k, edited: k.edited ?? null } });
     }
 
+    /* Streitfall: vorbereitete Eskalation live stellen oder zurücknehmen (nur Lehrkraft) */
+    if (rest === "/eskalation" && (req.method === "POST" || req.method === "DELETE")) {
+      if (!lehrer) return fehler("Nur mit Lehrer-Link.", 403);
+      if (!r.kommentare || !r.eskalation) return fehler("Für diesen Raum ist keine Eskalation vorbereitet.");
+      const key = ["eskalation", code, "an"];
+      if (req.method === "DELETE") {
+        await kv.delete(key);
+        await loescheAlles(kv, ["likes", code, ESK_ID]);
+        for (const p of await allePosts(kv, code)) {
+          if (p.zu !== ESK_ID) continue;
+          await kv.delete(["posts", code, p.id]);
+          await loescheAlles(kv, ["likes", code, p.id]);
+        }
+        return json({ ok: true, eskalation: { an: false, ts: null } });
+      }
+      const bisher = (await kv.get<{ ts: number }>(key)).value;
+      const an = bisher ?? { ts: Date.now() };
+      if (!bisher) await kv.set(key, an, { expireIn: LEBENSDAUER });
+      return json({ ok: true, eskalation: { an: true, ts: an.ts } });
+    }
+
     /* Neuer Post */
     if (rest === "/posts" && req.method === "POST") {
       if (r.status !== "offen") return fehler("Posten ist gerade geschlossen.", 423);
@@ -1165,7 +1226,8 @@ Deno.serve({ port: PORT }, async (req: Request) => {
       if (r.notes && !istAntwort(r, zu) && !(r.pinNotes && zu === PIN_ID)) {
         return fehler("Wähle die Antwort aus, zu der deine Community Note gehört.");
       }
-      if (r.kommentare && !r.notes && !istAntwort(r, zu) && zu !== PIN_ID) {
+      const zuRaum = zu === ESK_ID ? mitEskalation(r, await eskalationAn(kv, r)) : r;
+      if (r.kommentare && !r.notes && !istAntwort(zuRaum, zu) && zu !== PIN_ID) {
         return fehler("Wähle aus, worauf du antwortest.");
       }
       if (r.notes && zu === PIN_ID && !(await urteileFrei(kv, r))) {
@@ -1224,7 +1286,8 @@ Deno.serve({ port: PORT }, async (req: Request) => {
       if (!cid) return fehler("Gerätekennung fehlt.");
       const gibtEs = id === KLAR_ID
         ? !!(await kv.get(["klarstellung", code, "text"])).value
-        : id === PIN_ID || istAntwort(r, id) || !!(await kv.get(["posts", code, id])).value;
+        : id === PIN_ID || istAntwort(r, id) || (id === ESK_ID && !!(await eskalationAn(kv, r))) ||
+          !!(await kv.get(["posts", code, id])).value;
       if (!gibtEs) return fehler("Diesen Post gibt es nicht mehr.", 404);
       if (b?.like === false) await kv.delete(["likes", code, id, cid]);
       else await kv.set(["likes", code, id, cid], true, { expireIn: LEBENSDAUER });

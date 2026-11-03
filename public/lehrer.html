@@ -165,6 +165,8 @@
   .akarte { border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px 14px; }
   .akopf { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   .anr { font-size: 13px; font-weight: 800; color: var(--blue); background: rgba(29, 155, 240, 0.12); border-radius: 9999px; padding: 3px 10px; }
+  .akarte.esk { border-color: #F4212E; box-shadow: 0 0 0 2px rgba(244, 33, 46, 0.22); }
+  .akarte.esk .anr { color: #F4212E; background: rgba(244, 33, 46, 0.12); }
   .alikes { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-weight: 800; font-size: 18px; }
   .alikes.an { color: var(--pink); }
   .alikes .ic { width: 20px; height: 20px; }
@@ -278,6 +280,7 @@
   <button class="chip" id="bM4" hidden>Material zeigen</button>
   <button class="chip" id="bUrteile" hidden title="Erst wenn freigegeben, erscheint bei der Ausgangsfrage „Community Note vorschlagen“ für das eigene Urteil.">Urteile freigeben</button>
   <button class="chip" id="bRunde" hidden title="Likes der Antworten jetzt festhalten. Danach zeigt jede Antwort vorher → jetzt.">Runde 1 festhalten</button>
+  <button class="chip" id="bEsk" hidden title="Vorbereitete Antwort von Mias Bruder live stellen. Sie erscheint oben im Thread, auf allen Handys.">Eskalation</button>
   <button class="chip" id="bKlar" hidden title="Klarstellung der Moderation schreiben. Sie erscheint oben im Thread, auf allen Handys.">Klarstellung</button>
   <button class="chip" id="bEH">Erwartungshorizont</button>
   <button class="chip" id="bKlein" title="Schrift kleiner">A−</button>
@@ -386,6 +389,7 @@ async function lade() {
     versatz = d.now - Date.now();
     stand = d;
     uebernimmRaum(d.raum);
+    zeigeEsk();
     $("#fehler").innerHTML = "";
     render();
   } catch (e) {
@@ -578,17 +582,20 @@ function fadenHtml(jetzt) {
     : "";
   const klarBlock = r.kommentare && stand.klarstellung ? klarWandHtml(stand.klarstellung) : "";
   const vorherAlle = stand.runde1?.likes ?? null;
-  const karten = antworten().map((a, i) => {
+  /* Die Eskalation steht, sobald sie live ist, vorn (Nummerierung der übrigen bleibt) */
+  const reihe = antworten().map((a, i) => ({ a, i })).sort((x, y) => (y.a.id === "eskalation") - (x.a.id === "eskalation"));
+  const karten = reihe.map(({ a, i }) => {
     const likes = st.get(a.id)?.likes ?? 0;
-    const vorher = vorherAlle ? vorherAlle[a.id] ?? 0 : null;
+    const vorher = vorherAlle && a.id in vorherAlle ? vorherAlle[a.id] : null;
     const diff = vorher == null ? 0 : likes - vorher;
     const zahlHtml = vorher == null ? `${likes}`
       : `<span class="vorher">${vorher}</span>&nbsp;→&nbsp;${likes}${diff ? `<span class="diff ${diff < 0 ? "weniger" : "mehr"}">${diff > 0 ? "+" : "−"}${Math.abs(diff)}</span>` : ""}`;
     const zuDieser = notes.filter((p) => p.zu === a.id);
     const live = zuDieser.filter((p) => p.live).map(liveKarteHtml).join("");
     const entwuerfe = zuDieser.filter((p) => !p.live).map((p) => noteKarteHtml(p, jetzt)).join("");
-    return `<section class="akarte">
-      <div class="akopf"><span class="anr">Antwort ${i + 1}</span><span class="alikes${likes ? " an" : ""}" title="${vorher == null ? "Likes der Klasse" : "Likes in Runde 1 → jetzt"}">${icon(likes ? "liked" : "like")}${zahlHtml}</span></div>
+    const esk = a.id === "eskalation";
+    return `<section class="akarte${esk ? " esk" : ""}">
+      <div class="akopf"><span class="anr">${esk ? "Neu: Eskalation" : `Antwort ${i + 1}`}</span><span class="alikes${likes ? " an" : ""}" title="${vorher == null ? "Likes der Klasse" : "Likes in Runde 1 → jetzt"}">${icon(likes ? "liked" : "like")}${zahlHtml}</span></div>
       <div class="arow">${avatarHtml({ e: a.e, c: a.c }, 44)}<div class="amain">
         <div class="post-head"><span class="nm">${esc(a.name)}</span><span class="hd">@${esc(a.handle)}</span></div>
         <div class="atext">${formatiere(a.text)}</div>
@@ -929,6 +936,28 @@ async function klarWeg() {
     toast("Klarstellung zurückgezogen.");
   } catch (e) { toast(e.message); }
 }
+
+/* ---------- Streitfall: Eskalation (vorbereitete Antwort live stellen) ---------- */
+function zeigeEsk() {
+  const e = stand.eskalation;
+  const b = $("#bEsk");
+  b.hidden = !e;
+  if (!e) return;
+  b.classList.toggle("on", !!e.an);
+  b.textContent = e.an ? "Eskalation live ✓" : "Eskalation";
+}
+$("#bEsk").onclick = async () => {
+  const e = stand.eskalation;
+  if (!e) return;
+  if (e.an && !confirm(`Die Antwort von @${e.handle} zurücknehmen? Sie verschwindet von allen Handys, mit ihren Likes und Kommentaren.`)) return;
+  try {
+    const d = await api("/api/eskalation", { method: e.an ? "DELETE" : "POST" });
+    stand.eskalation = { ...e, ...d.eskalation };
+    zeigeEsk();
+    lade();
+    toast(d.eskalation.an ? `@${e.handle} hat geantwortet: oben im Thread, auf allen Handys.` : "Eskalation zurückgenommen.");
+  } catch (err) { toast(err.message); }
+};
 
 /* ---------- Timer ---------- */
 let dauer = LS.get("dauer", 480), rest = dauer, laeuft = false, tick = null;
