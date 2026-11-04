@@ -283,6 +283,35 @@
   .kommentare .post::after {
     content: ""; position: absolute; left: 37px; top: 27px; width: 15px; height: 2px; background: var(--border-input);
   }
+  /* Streitfall: Post-Ansicht wie in X. Mias Post steht groß oben, alle Antworten und Kommentare darunter;
+     im Feed „Für dich“ steht nur Mias Post. */
+  .tb-post { height: 53px; display: flex; align-items: center; gap: 24px; padding: 0 16px; }
+  .tb-post[hidden] { display: none; }
+  .tb-post h2 { font-size: 20px; line-height: 24px; font-weight: 700; margin: 0; }
+  .tb-post .zurueck { width: 36px; height: 36px; margin-left: -8px; border-radius: 50%; display: grid; place-items: center; color: var(--text); }
+  .tb-post .zurueck .ic { width: 20px; height: 20px; }
+  @media (hover: hover) { .tb-post .zurueck:hover { background: var(--bg-hover); } }
+  .topbar.postansicht .tb-row, .topbar.postansicht .tabs { display: none; }
+  .post.fokus { padding: 12px 16px 0; }
+  @media (hover: hover) { .post.fokus:hover { background: transparent; } }
+  .fk-kopf { display: flex; align-items: center; gap: 10px; }
+  .fk-wer { display: grid; min-width: 0; line-height: 20px; }
+  .fk-wer .nm { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+  .fk-wer .nm .ic { color: var(--blue); width: 18px; height: 18px; }
+  .fk-wer .hd { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fk-kopf .more { margin-left: auto; color: var(--muted); width: 34px; height: 34px; margin-right: -8px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+  .fk-kopf .more .ic { width: 18.75px; height: 18.75px; }
+  .post.fokus .post-text { font-size: 17px; line-height: 24px; margin-top: 12px; }
+  .fk-meta { color: var(--muted); font-size: 15px; line-height: 20px; margin: 16px 0 0; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .fk-meta b { color: var(--text); font-weight: 700; }
+  .post.fokus .actions { margin: 2px -8px 2px; }
+  .antwort-leiste {
+    position: fixed; left: 0; right: 0; bottom: calc(53px + env(safe-area-inset-bottom)); z-index: 30;
+    max-width: 600px; margin: 0 auto; display: flex; align-items: center; gap: 12px; padding: 8px 16px;
+    background: var(--bg); border-top: 1px solid var(--border); text-align: left; width: 100%;
+  }
+  .antwort-leiste[hidden] { display: none; }
+  .antwort-leiste .feld { flex: 1; color: var(--muted); font-size: 17px; line-height: 22px; padding: 8px 14px; border: 1px solid var(--border-input); border-radius: 9999px; }
   .klar { border-bottom: 1px solid var(--border); background: rgba(29, 155, 240, 0.07); box-shadow: inset 4px 0 0 var(--blue); }
   .klar .post { border-bottom: 0; }
   .mod-zeile {
@@ -387,12 +416,14 @@
       <button class="tab on" data-tab="fy" role="tab"><span>Für dich</span></button>
       <button class="tab" data-tab="fo" role="tab"><span>Folge ich</span></button>
     </nav>
+    <div class="tb-post" id="tbPost" hidden><button class="zurueck" id="zurueck" aria-label="Zurück"></button><h2>Post</h2></div>
   </header>
 
   <button class="neu-pill" id="neuPill" hidden></button>
   <main id="feed" aria-live="polite"></main>
 
   <button class="fab" id="fab" aria-label="Post verfassen"></button>
+  <button class="antwort-leiste" id="antwortLeiste" hidden aria-label="Antwort posten"></button>
   <nav class="bottomnav" id="bottomnav"><div>
     <button data-nav="home" aria-label="Startseite"></button>
     <button data-nav="search" aria-label="Suchen"></button>
@@ -444,7 +475,7 @@
 <div class="toast" id="toast" role="status"></div>
 
 <script type="module">
-import { icon, esc, postHtml, avatarHtml, relativ, zahl, pinAusRaum, bildUrl, antwortAlsPost, noteHtml } from "/x.js";
+import { icon, esc, postHtml, avatarHtml, relativ, zahl, pinAusRaum, bildUrl, antwortAlsPost, noteHtml, formatiere, langesDatum } from "/x.js";
 import { analysiere, MAX_GEWICHT } from "/zaehlen.js";
 
 /* ---------- Speicher (pro Gerät) ---------- */
@@ -628,6 +659,7 @@ async function obWeiter() {
 let stand = { raum: null, posts: [], pinned: { likes: 0, liked: false, views: 0 }, now: Date.now() };
 let zeitVersatz = 0;
 let tab = "fy";
+let ansicht = "post"; // Streitfall: „post“ = Mias Post mit allen Antworten, „feed“ = Für dich (nur Mias Post)
 let angezeigt = new Set(); // IDs, die schon in der Timeline stehen
 let wartend = []; // neue fremde Posts, während man gescrollt ist
 let kvFehler = "";
@@ -640,6 +672,7 @@ function zeigeHome() {
   $("#logo").innerHTML = icon("logo");
   $("#meBtn").innerHTML = avatarHtml(profil.avatar, 32);
   $("#fab").innerHTML = icon("compose");
+  $("#zurueck").innerHTML = icon("back");
   $$("#bottomnav button").forEach((b) => {
     const n = b.dataset.nav;
     b.innerHTML = icon(n === "home" ? "homeFill" : n);
@@ -673,7 +706,42 @@ function pinFrage() {
 const KLAR = "klarstellung";
 const ESK = "eskalation"; // vorbereitete Antwort, die die Lehrkraft live stellt
 function kommentarModus() { return !!stand.raum?.kommentare && antworten().length > 0; }
-function kommentareZu(id) { return stand.posts.filter((p) => p.zu === id).sort((a, b) => a.ts - b.ts); }
+function kommentareZu(id) {
+  return stand.posts.filter((p) => p.zu === id || (id === "pinned" && !p.zu && kommentarModus())).sort((a, b) => a.ts - b.ts);
+}
+function postAnsicht() { return kommentarModus() && ansicht === "post"; }
+/* Kopfzeile, Schreibknopf und Antwortleiste passend zur Ansicht */
+function setzeAnsicht() {
+  const km = kommentarModus(), pa = postAnsicht();
+  $("#topbar").classList.toggle("postansicht", pa);
+  $("#tbPost").hidden = !pa;
+  $("#fab").hidden = stand.raum?.status !== "offen" || km;
+  const leiste = $("#antwortLeiste");
+  leiste.hidden = !pa || stand.raum?.status !== "offen";
+  if (!leiste.hidden && profil) {
+    const html = `${avatarHtml(profil.avatar, 32)}<span class="feld">Poste deine Antwort</span>`;
+    if (leiste.dataset.sig !== html) { leiste.innerHTML = html; leiste.dataset.sig = html; }
+  }
+}
+/* Mias Post als Hauptpost der Post-Ansicht: groß, mit Uhrzeit, Datum und Aufrufen */
+function fokusHtml(p, medien = "") {
+  return `<article class="post fokus" data-id="${esc(p.id)}">
+    <div class="fk-kopf">${avatarHtml(p.avatar, 40)}<div class="fk-wer"><span class="nm">${esc(p.name)}${p.verified ? icon("verified") : ""}</span>
+      <span class="hd">@${esc(p.handle)}</span></div><button class="more" data-act="menu" aria-label="Mehr">${icon("more")}</button></div>
+    <div class="post-text" dir="auto">${formatiere(p.text)}</div>${medien}
+    <div class="fk-meta">${langesDatum(p.ts)} · <b>${zahl(p.views) || 0}</b> Mal angezeigt</div>
+    <div class="actions" role="group">
+      <button class="act a-reply" data-act="reply" aria-label="Antworten">${icon("reply")}<span>${p.replies ? zahl(p.replies) : ""}</span></button>
+      <button class="act a-repost" data-act="repost" aria-label="Reposten">${icon("repost")}<span></span></button>
+      <button class="act a-like ${p.liked ? "on" : ""}" data-act="like" aria-label="Gefällt mir">${icon(p.liked ? "liked" : "like")}<span class="cnt">${zahl(p.likes)}</span></button>
+      <button class="act a-views" data-act="views" aria-label="Aufrufe">${icon("views")}<span>${zahl(p.views)}</span></button>
+      <div class="act-end">
+        <button class="act a-bm ${p.bookmarked ? "on" : ""}" data-act="bookmark" aria-label="Lesezeichen">${icon(p.bookmarked ? "bookmarked" : "bookmark")}</button>
+        <button class="act a-share" data-act="share" aria-label="Teilen">${icon("share")}</button>
+      </div>
+    </div>
+  </article>`;
+}
 function klarPost() {
   const k = stand.klarstellung;
   if (!k) return null;
@@ -687,7 +755,6 @@ function klarHtml() {
   return `<div class="klar">${postHtml(klarPost(), {
     jetzt: jetzt(),
     oben: `<div class="mod-zeile">${icon("pin")}Klarstellung der Moderation</div>`,
-    vorText: `<div class="antwort-an">Antwort an <span class="lnk">@${esc(stand.raum.pin.handle)}</span></div>`,
   })}</div>`;
 }
 function antwortStand(id) { return (stand.antwortStand ?? []).find((x) => x.id === id); }
@@ -817,7 +884,7 @@ function render() {
   }
 
   const raum = stand.raum;
-  $("#fab").hidden = raum.status !== "offen";
+  setzeAnsicht();
   if (raum.status === "pausiert") {
     html += `<div class="banner" style="border-color:var(--border)">⏸️ Posten ist gerade pausiert. Du kannst weiter lesen und liken.</div>`;
   }
@@ -827,19 +894,31 @@ function render() {
     ? `<button class="note-btn" data-act="note">${icon("leute")}Community Note vorschlagen</button>` : "";
   const pinLive = pinNotes() ? stand.posts.filter((p) => p.zu === "pinned" && p.live && !p.hidden) : [];
   if (km) html += kartenBannerHtml();
-  html += postHtml({ ...pinPost(), ...(thread ? { replies: antworten().length + (km ? kommentareZu("pinned").length : 0) } : {}) }, {
+  const pinMedien = (raum.bild
+    ? `<button class="media" data-act="bild" aria-label="Bild ansehen"><img src="${bildUrl(raum)}" alt="${esc(raum.pin.alt || "Bild zur Aufgabe")}"></button>`
+    : "") + (pinNotes() ? pinLive.map((p) => noteHtml(p.text)).join("") + notizKnopf : "");
+  const pinMitAntworten = { ...pinPost(), ...(thread ? { replies: antworten().length + (km ? kommentareZu("pinned").length : 0) } : {}) };
+  /* Streitfall wie in X: Im Feed steht nur Mias Post, Antworten und Kommentare stehen nur unter ihrem Post */
+  if (km && ansicht === "feed") {
+    html += postHtml(pinMitAntworten, { menu: true, jetzt: jetzt(), medien: pinMedien });
+    feed.innerHTML = html;
+    angezeigt = new Set(sichtbar.map((p) => p.id));
+    ersterLauf = false;
+    zeigePill();
+    return;
+  }
+  html += km ? fokusHtml(pinMitAntworten, pinMedien) : postHtml(pinMitAntworten, {
     menu: true, jetzt: jetzt(),
     oben: thread ? "" : `<div class="pin-line">${icon("pin")}Angehefteter Post</div>`,
-    medien: (raum.bild
-      ? `<button class="media" data-act="bild" aria-label="Bild ansehen"><img src="${bildUrl(raum)}" alt="${esc(raum.pin.alt || "Bild zur Aufgabe")}"></button>`
-      : "") + (pinNotes() ? pinLive.map((p) => noteHtml(p.text)).join("") + notizKnopf : ""),
+    medien: pinMedien,
   });
 
   /* Thread: Antworten mit ihren live geschalteten Community Notes oder (Streitfall) mit ihren Kommentaren */
   if (thread) {
     const knopf = notizKnopf;
     if (km && stand.klarstellung) html += klarHtml();
-    const anMia = `<div class="antwort-an">Antwort an <span class="lnk">@${esc(raum.pin.handle)}</span></div>`;
+    /* In der Post-Ansicht stehen die Antworten direkt unter Mias Post, wie in X ohne „Antwort an“ */
+    const anMia = km ? "" : `<div class="antwort-an">Antwort an <span class="lnk">@${esc(raum.pin.handle)}</span></div>`;
     /* Die Eskalation steht, sobald sie live ist, ganz oben unter Mias Post (Nummerierung bleibt) */
     for (const a of [...antworten()].sort((x, y) => (y.id === ESK) - (x.id === ESK))) {
       const live = km ? [] : stand.posts.filter((p) => p.zu === a.id && p.live && !p.hidden);
@@ -869,7 +948,7 @@ function render() {
   }
 
   /* Live geschaltete Notes stehen schon unter ihrer Antwort, Kommentare im Streitfall ebenso */
-  const liste = thread ? sichtbar.filter((p) => (km ? !p.zu : !p.live)) : sichtbar;
+  const liste = km ? [] : thread ? sichtbar.filter((p) => !p.live) : sichtbar;
   for (const p of liste) {
     const a = p.zu ? antworten().find((x) => x.id === p.zu) : null;
     const zuPin = p.zu === "pinned";
@@ -975,15 +1054,38 @@ function wechsleTab(t) {
 }
 $$(".tab").forEach((b) => b.addEventListener("click", () => wechsleTab(b.dataset.tab)));
 
+function zeigeAnsicht(a) {
+  ansicht = a;
+  if (a === "post") wechsleTab("fy");
+  window.scrollTo({ top: 0 });
+  $("#topbar").classList.remove("weg");
+  letzteSig = "";
+  render();
+}
+$("#zurueck").addEventListener("click", () => zeigeAnsicht("feed"));
+$("#antwortLeiste").addEventListener("click", () => {
+  if (stand.raum.status !== "offen") return toast("Kommentieren ist gerade pausiert. Lesen und liken geht weiter.");
+  /* Nach dem Gruppenbilden steht die Antwort der eigenen Gruppe schon im Feld „Antwort an“ */
+  const meine = stand.karten?.status === "zu" ? stand.karten.meine : null;
+  oeffneCompose(null, meine && antworten().some((a) => a.id === meine) ? meine : null);
+});
+
 $("#bottomnav").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
-  if (b.dataset.nav === "home") { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+  if (b.dataset.nav === "home") {
+    if (postAnsicht()) return zeigeAnsicht("feed");
+    window.scrollTo({ top: 0, behavior: "smooth" }); return;
+  }
   toast("Dieser Bereich ist in der Simulation nicht verfügbar.");
 });
 
 /* ---------- Aktionen im Feed ---------- */
 $("#feed").addEventListener("click", async (e) => {
   const btn = e.target.closest("[data-act]");
+  /* Feed im Streitfall: Antippen von Mias Post öffnet den Post mit allen Antworten */
+  if (!btn && kommentarModus() && ansicht === "feed" && tab === "fy" && e.target.closest('.post[data-id="pinned"]')) {
+    if (!e.target.closest("a")) return zeigeAnsicht("post");
+  }
   if (!btn) return;
   const art = btn.closest(".post");
   const id = art?.dataset.id;

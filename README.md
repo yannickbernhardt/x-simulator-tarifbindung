@@ -27,6 +27,13 @@ Mit ✓ schaltet die Lehrkraft eine Note **live**, dann erscheint sie bei allen 
 Live geschaltete Notes lassen sich nicht mehr bearbeiten. Antworten und Notes-Modus werden nur im Code
 gepflegt; Speichern in der Verwaltung lässt sie unverändert.
 
+## Streitfall: Post-Ansicht wie in X
+In Streitfall-Räumen öffnet der Raum auf dem Handy direkt den angehefteten Post wie einen geteilten Link in X:
+Kopfzeile „← Post“, der Post groß mit Uhrzeit, Datum und Aufrufen, darunter alle Antworten und Kommentare, unten
+die Leiste „Poste deine Antwort“ (nach dem Gruppenbilden steht die Antwort der eigenen Gruppe schon unter „Antwort an“).
+Im Feed „Für dich“ (Pfeil zurück oder Startseite) steht nur der angeheftete Post; Antippen öffnet ihn wieder.
+Beiträge ohne Bezug gibt es dort nicht: Sie stehen als Antwort unter dem angehefteten Post. Die Wand bleibt unverändert.
+
 ## Streitfall: Gruppen bilden
 In Streitfall-Räumen (`kommentare: true`, z. B. `eah12-piaget`) gibt es an der Wand den Knopf **„Gruppen bilden“**.
 Er öffnet eine eigene Bühne für den Beamer: ein Feld je Antwort, nebeneinander, mit Nummer, Schlagzeile und Anzahl.
