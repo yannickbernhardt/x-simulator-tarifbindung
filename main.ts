@@ -719,7 +719,7 @@ const VORBEREITET: Vorlage[] = [
        (Runde 1 und 2), nach dem Faktencheck mit Infokarten kommentieren die Lernenden mit Beleg; am Ende stellt
        die Lehrkraft als Moderation die Klarstellung der Klasse oben in den Thread. */
     code: "eah12-piaget",
-    stand: 6,
+    stand: 7,
     titel: "Mias Thread: Lerne ich hier gerade Quatsch?",
     klasse: "EAH-12",
     status: "offen",
@@ -782,8 +782,8 @@ const VORBEREITET: Vorlage[] = [
 - Einstieg (3 Min.): „Wir haben alle Argumente gesammelt. Für wie berechtigt halten Sie diese Kritik?“ Mia fragt: „Lerne ich hier gerade Quatsch?“
 - Runde 1 (3 Min.): Like heißt: Diese Kritik halte ich für berechtigt (bewusst ein grobes Spontanurteil). Dann „Runde 1 festhalten“.
 - Gruppen bilden (2 Min.): Vorher an der Wand unter „Gruppen bilden“ → „Schlagzeilen“ die Schlagzeilen aus Stunde 1 eintragen. „Gruppenwahl starten“, Hinweis: „Achten Sie darauf, dass die Gruppen ungefähr gleich groß sind.“ Auf den Handys tippen alle die Schlagzeile an, der sie nachgehen wollen; an der Wand laufen die Figuren mit Benutzernamen in ihr Feld. Dann „Einteilung festhalten“: Die Handys zeigen die Nummer der Infokarte (= Nummer der Antwort, je Nummer drei Exemplare vorn).
-- Faktencheck (6 Min., allein): Infokarte holen, erst der erste Gedanke, dann das Material A bis D selbst einordnen.
-- Prüfen und kommentieren (7 Min., zu zweit oder zu dritt): Raum auf „offen“. Alle mit derselben Karte vergleichen ihre Einordnung, prüfen mit den zwei Fragen und schreiben einen gemeinsamen Kommentar mit Beleg. Wer anders urteilt, antwortet mit eigenem Kommentar.
+- Faktencheck (6 Min., allein): Infokarte holen, vorn eigene Argumente für und gegen die Kritik gegenüberstellen (Wissen aus der Reihe, M1). Erst wer nicht weiterkommt, dreht um: hinten ein Tipp, dann Fragen an die Kritik mit Belegen.
+- Prüfen und kommentieren (7 Min., zu zweit oder zu dritt): Raum auf „offen“. Alle mit derselben Karte bringen ihre Argumente zusammen, prüfen mit den zwei Fragen und schreiben einen gemeinsamen Kommentar mit Urteil, Beleg und Folge für die Kita. Wer anders urteilt, antwortet mit eigenem Kommentar.
 - Lesen (4 Min.): den Streit unter den eigenen Likes lesen, Likes behalten oder zurücknehmen. Die Wand zeigt vorher → jetzt.
 - Auswertung (7 Min.): Murmelphase („Was hat Sie umgestimmt, oder warum hält Ihr Urteil?“), dann zwei Streitpunkte fachlich klären. Bei Antwort 7 den Spiegel zeigen (P5, 94 %).
 - Eskalation (2 Min.): Knopf „Eskalation“. Mias Bruder antwortet, der Kommentar steht oben im Thread, auf allen Handys. „Stimmt das?“ Zwei, drei spontane Reaktionen.
