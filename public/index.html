@@ -1114,10 +1114,15 @@ $$("#composeWrap [data-close]").forEach((b) => b.addEventListener("click", schli
 $("#fab").addEventListener("click", () => oeffneCompose());
 
 const UMFANG = 2 * Math.PI * 13;
+const MAX_FREI = 2000; // technische Grenze in Räumen ohne Zeichengrenze
 function aktualisiereEditor() {
   const t = $("#edText");
   const text = t.value;
-  const { gewicht, grenze, rest } = analysiere(text);
+  /* Räume ohne Zeichengrenze: Zählring erst kurz vor der technischen Grenze von 2000 Zeichen */
+  const frei = !!stand.raum?.ohneLimit;
+  const { gewicht, grenze, rest } = frei
+    ? { gewicht: 0, grenze: Math.min(text.length, MAX_FREI), rest: MAX_FREI - text.length }
+    : analysiere(text);
 
   // Hintergrund-Ebene: Hashtags blau, Überhang rot hinterlegt
   const vorne = text.slice(0, grenze);
@@ -1131,8 +1136,8 @@ function aktualisiereEditor() {
   // Zählring
   const ring = $("#ring"), bar = $("#ringBar"), restEl = $("#ringRest");
   const leer = text.trim().length === 0;
-  ring.hidden = leer; $("#trenner").hidden = leer; $("#plusRund").hidden = leer;
-  const anteil = Math.min(1, gewicht / MAX_GEWICHT);
+  ring.hidden = leer || (frei && rest > 100); $("#trenner").hidden = leer; $("#plusRund").hidden = leer;
+  const anteil = frei ? Math.min(1, text.length / MAX_FREI) : Math.min(1, gewicht / MAX_GEWICHT);
   bar.style.strokeDashoffset = String(UMFANG * (1 - anteil));
   let farbe = "var(--blue)";
   if (rest <= 20) farbe = "var(--yellow)";
@@ -1164,7 +1169,8 @@ $("#tools").addEventListener("click", (e) => {
     pop.hidden = !pop.hidden;
     return;
   }
-  toast("In dieser Simulation geht es nur um Text – bring es in 280 Zeichen auf den Punkt.");
+  toast(stand.raum?.ohneLimit ? "In dieser Simulation geht es nur um Text."
+    : "In dieser Simulation geht es nur um Text – bring es in 280 Zeichen auf den Punkt.");
 });
 $("#emojiPop").addEventListener("click", (e) => {
   const b = e.target.closest("[data-emo]"); if (!b) return;

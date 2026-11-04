@@ -729,7 +729,7 @@ function zeigeSpot(id) {
         <span class="trenn"></span>`}
         ${kr}
       </div>
-      <div class="zeichen">${analysiere(p.text).gewicht} / 280 Zeichen</div>
+      <div class="zeichen">${stand.raum?.ohneLimit ? `${p.text.length} Zeichen` : `${analysiere(p.text).gewicht} / 280 Zeichen`}</div>
     </div>
   </div>`);
 }
@@ -853,7 +853,7 @@ $("#bDruck").onclick = () => {
     ? `<div class="d-post"><div class="d-kopf">Klarstellung der Moderation</div><div class="d-text">${esc(stand.klarstellung.text)}</div><div class="d-meta">${stand.klarstellung.likes} Likes</div></div>`
     : "";
   $("#druck").innerHTML = `<h1>${esc([stand.raum.klasse, stand.raum.titel].filter(Boolean).join(" · "))} – X-Nachrichten (${new Date().toLocaleDateString("de-DE")})</h1>` + klar +
-    liste.map((p, i) => `<div class="d-post"><div class="d-kopf">${i + 1}. ${esc(p.name)} <span>@${esc(p.handle)}</span></div><div class="d-text">${esc(p.text)}</div><div class="d-meta">${bezugDruck(p)}${analysiere(p.text).gewicht}/280 Zeichen · ${p.likes} Likes</div></div>`).join("");
+    liste.map((p, i) => `<div class="d-post"><div class="d-kopf">${i + 1}. ${esc(p.name)} <span>@${esc(p.handle)}</span></div><div class="d-text">${esc(p.text)}</div><div class="d-meta">${bezugDruck(p)}${stand.raum?.ohneLimit ? `${p.text.length} Zeichen` : `${analysiere(p.text).gewicht}/280 Zeichen`} · ${p.likes} Likes</div></div>`).join("");
   window.print();
 };
 

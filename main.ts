@@ -74,6 +74,8 @@ type Raum = {
      Klarstellung der Moderation oben in den Thread. */
   kommentare?: boolean;
   kommentarPlatzhalter?: string;
+  /* Ohne Grenze von 280 Zeichen (z. B. für Kommentare mit Urteil, Beleg und Folge); technisch höchstens 2000 Zeichen */
+  ohneLimit?: boolean;
   /* Streitfall: vorbereitete Antwort, die den Streit eskalieren lässt. Sie erscheint erst, wenn die Lehrkraft
      sie an der Wand live stellt, und gehört dann wie eine Antwort zum Thread (ID „eskalation“). */
   eskalation?: Eskalation;
@@ -225,6 +227,7 @@ function threadZusatz(r: {
   notesPlatzhalter?: string;
   kommentare?: boolean;
   kommentarPlatzhalter?: string;
+  ohneLimit?: boolean;
 }) {
   return {
     ...(r.pinNotes ? { pinNotes: true } : {}),
@@ -232,6 +235,7 @@ function threadZusatz(r: {
     ...(r.notesPlatzhalter ? { notesPlatzhalter: r.notesPlatzhalter } : {}),
     ...(r.kommentare ? { kommentare: true } : {}),
     ...(r.kommentarPlatzhalter ? { kommentarPlatzhalter: r.kommentarPlatzhalter } : {}),
+    ...(r.ohneLimit ? { ohneLimit: true } : {}),
   };
 }
 
@@ -726,7 +730,7 @@ const VORBEREITET: Vorlage[] = [
        (Runde 1 und 2), nach dem Faktencheck mit Infokarten kommentieren die Lernenden mit Beleg; am Ende stellt
        die Lehrkraft als Moderation die Klarstellung der Klasse oben in den Thread. */
     code: "eah12-piaget",
-    stand: 4,
+    stand: 5,
     titel: "Mias Thread: Lerne ich hier gerade Quatsch?",
     klasse: "EAH-12",
     status: "offen",
@@ -757,6 +761,7 @@ const VORBEREITET: Vorlage[] = [
         text: "Kinder lernen im Gespräch: mit Eltern, Erzieher*innen und anderen Kindern. Bei Piaget tüftelt das Kind allein vor sich hin. Sprache und Kultur? Fehlanzeige 🌍" },
     ],
     kommentare: true,
+    ohneLimit: true,
     kommentarPlatzhalter: "Stimmt das? Folgt der Schluss daraus? Am Ende der Beleg, z. B. (M1, Z. 21–24).",
     eskalation: {
       name: "Ben | Erziehungswissenschaft",
@@ -878,7 +883,7 @@ async function legeVorbereiteteRaeumeAn(kv: Deno.Kv) {
     const da = await kv.get<Raum>(raumKey);
     if (!da.value || (da.value.vorlageStand ?? 0) >= stand) continue;
     const { pinNotes: _p, notesHinweis: _h, notesPlatzhalter: _t, kommentare: _k, kommentarPlatzhalter: _kp, eskalation: _es,
-      ...bisher } =
+      ohneLimit: _ol, ...bisher } =
       da.value;
     const neu: Raum = {
       ...bisher,
@@ -1321,7 +1326,7 @@ Deno.serve({ port: PORT }, async (req: Request) => {
 
       if (!cid) return fehler("Gerätekennung fehlt.");
       if (!text) return fehler("Der Post ist leer.");
-      if (analysiere(text).gewicht > 280) return fehler("Dein Post ist länger als 280 Zeichen.");
+      if (!r.ohneLimit && analysiere(text).gewicht > 280) return fehler("Dein Post ist länger als 280 Zeichen.");
       if (!handleGueltig(handle) || handleReserviert(r, handle)) return fehler("Ungültiger Benutzername.");
       /* Im Notes-Modus gehört jeder Post als Note-Vorschlag zu einer Antwort */
       const zu = einzeilig(b.zu, 20);
@@ -1420,7 +1425,7 @@ Deno.serve({ port: PORT }, async (req: Request) => {
         if (p.live) return fehler("Diese Note ist schon live. Wenn du sie ändern willst, frag deine Lehrkraft.", 409);
         const text = mehrzeilig(b?.text, 2000);
         if (!text) return fehler("Der Post ist leer.");
-        if (analysiere(text).gewicht > 280) return fehler("Dein Post ist länger als 280 Zeichen.");
+        if (!r.ohneLimit && analysiere(text).gewicht > 280) return fehler("Dein Post ist länger als 280 Zeichen.");
         await kv.set(["posts", code, id], { ...p, text, edited: Date.now() }, { expireIn: LEBENSDAUER });
         return json({ ok: true });
       }
