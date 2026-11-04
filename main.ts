@@ -26,8 +26,6 @@ const PIN_ID = "pinned";
 const KLAR_ID = "klarstellung"; // Likes der Klarstellung der Moderation (Streitfall-Räume)
 const MAX_KLAR = 700;
 const ESK_ID = "eskalation"; // Streitfall: vorbereitete Antwort, die die Lehrkraft in der Auswertung live stellt
-/* Streitfall: Für die Verteilung der Infokarten zählen die Geräte, die in den letzten 90 Minuten im Raum waren */
-const KARTEN_FENSTER = 90 * 60 * 1000;
 const BILD_TEIL = 60_000; // KV-Werte dürfen höchstens 64 KiB groß sein
 const BILD_MAX = 2_000_000;
 const BILD_TYPEN = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml"];
@@ -76,6 +74,8 @@ type Raum = {
   kommentarPlatzhalter?: string;
   /* Ohne Grenze von 280 Zeichen (z. B. für Kommentare mit Urteil, Beleg und Folge); technisch höchstens 2000 Zeichen */
   ohneLimit?: boolean;
+  /* Streitfall: Standard-Schlagzeilen der Gruppen, je Antwort eine (die Lehrkraft trägt eigene an der Wand ein) */
+  kartenTitel?: string[];
   /* Streitfall: vorbereitete Antwort, die den Streit eskalieren lässt. Sie erscheint erst, wenn die Lehrkraft
      sie an der Wand live stellt, und gehört dann wie eine Antwort zum Thread (ID „eskalation“). */
   eskalation?: Eskalation;
@@ -228,6 +228,7 @@ function threadZusatz(r: {
   kommentare?: boolean;
   kommentarPlatzhalter?: string;
   ohneLimit?: boolean;
+  kartenTitel?: string[];
 }) {
   return {
     ...(r.pinNotes ? { pinNotes: true } : {}),
@@ -236,6 +237,7 @@ function threadZusatz(r: {
     ...(r.kommentare ? { kommentare: true } : {}),
     ...(r.kommentarPlatzhalter ? { kommentarPlatzhalter: r.kommentarPlatzhalter } : {}),
     ...(r.ohneLimit ? { ohneLimit: true } : {}),
+    ...(r.kartenTitel?.length ? { kartenTitel: r.kartenTitel } : {}),
   };
 }
 
@@ -412,45 +414,32 @@ async function urteileFrei(kv: Deno.Kv, r: Raum): Promise<boolean> {
   return !!(await kv.get(["pinfrei", r.code, "an"])).value;
 }
 
-/* ---------- Streitfall: Infokarten nach Interesse verteilen ----------
-   Jede Person wählt im Thread die Antwort, der sie nachgehen will, und bekommt die Infokarte mit derselben
-   Nummer (Antwort 1 bis 7). Damit alle Antworten geprüft werden, bleibt die Verteilung ausgeglichen: Bei N Geräten
-   und M Karten hat am Ende jede Karte ⌊N/M⌋ oder ⌊N/M⌋ + 1 Personen. Eine Karte ist gesperrt, sobald sonst
-   eine andere zu wenige bekäme – wie ein leerer Stapel vorn auf dem Tisch. Gespeichert wird nur Gerät → Antwort. */
+/* ---------- Streitfall: Gruppen bilden ----------
+   Eigene Phase, von der Lehrkraft moderiert: Sie trägt zu jeder Antwort eine Schlagzeile ein (aus der ersten Stunde),
+   startet die Gruppenwahl und hält sie fest. Die Lernenden wählen auf dem Handy nach Interesse und können wechseln, bis
+   festgehalten wird; die Wand zeigt alle als Figur mit Benutzernamen in ihrem Feld. Die Nummer des Feldes ist die Nummer
+   der Antwort und der Infokarte. Keine automatische Sperre: Die Klasse achtet selbst auf die Verteilung.
+   Gespeichert werden je Gerät Feld, Benutzername und Avatar (Ablauf nach 14 Tagen). */
+type KartenWahl = { zu: string | null; handle: string; e: string; c: string; ts: number };
 function kartenAntworten(r: Raum): Antwort[] {
   return r.kommentare ? (r.antworten ?? []) : [];
 }
 async function kartenStand(kv: Deno.Kv, code: string) {
   const status = (await kv.get<KartenStatus>(["karten", code, "status"])).value ?? null;
-  const wahl = new Map<string, string>();
-  for await (const e of kv.list<string>({ prefix: ["karten", code, "wahl"] })) wahl.set(String(e.key[3]), e.value);
+  const wahl = new Map<string, KartenWahl>();
+  for await (const e of kv.list<KartenWahl | string>({ prefix: ["karten", code, "wahl"] })) {
+    const w = e.value;
+    wahl.set(String(e.key[3]), typeof w === "string" ? { zu: w, handle: "", e: "", c: "", ts: 0 } : w);
+  }
   return { status, wahl };
 }
-function kartenZaehlung(r: Raum, wahl: Map<string, string>): Record<string, number> {
-  const z: Record<string, number> = {};
-  for (const a of kartenAntworten(r)) z[a.id] = 0;
-  for (const id of wahl.values()) if (id in z) z[id]++;
-  return z;
-}
-/* Darf ein Gerät mit der bisherigen Wahl `alt` die Karte `zu` nehmen, bei `n` Geräten im Raum? */
-function karteFrei(z: Record<string, number>, n: number, alt: string | null, zu: string): boolean {
-  const ids = Object.keys(z);
-  if (!ids.includes(zu)) return false;
-  if (alt === zu) return true;
-  const neu = { ...z };
-  if (alt && alt in neu) neu[alt]--;
-  neu[zu]++;
-  const vergeben = Object.values(neu).reduce((s, x) => s + x, 0);
-  const gesamt = Math.max(n, vergeben);
-  const basis = Math.floor(gesamt / ids.length);
-  const extra = gesamt - basis * ids.length;
-  if (neu[zu] > basis + (extra > 0 ? 1 : 0)) return false;
-  if (Object.values(neu).filter((x) => x > basis).length > extra) return false;
-  const fehlen = Object.values(neu).reduce((s, x) => s + Math.max(0, basis - x), 0);
-  return gesamt - vergeben >= fehlen;
-}
-function aktiveGeraete(gesehen: number[], jetzt: number): number {
-  return gesehen.filter((t) => t >= jetzt - KARTEN_FENSTER).length;
+async function kartenTitel(kv: Deno.Kv, r: Raum): Promise<Record<string, string>> {
+  const eigen = (await kv.get<Record<string, string>>(["kartentitel", r.code])).value ?? {};
+  const t: Record<string, string> = {};
+  kartenAntworten(r).forEach((a, i) => {
+    t[a.id] = eigen[a.id] || r.kartenTitel?.[i] || `Antwort ${i + 1}`;
+  });
+  return t;
 }
 
 /* Handle je Raum reservieren – false, wenn ein anderes Gerät es hat */
@@ -730,7 +719,7 @@ const VORBEREITET: Vorlage[] = [
        (Runde 1 und 2), nach dem Faktencheck mit Infokarten kommentieren die Lernenden mit Beleg; am Ende stellt
        die Lehrkraft als Moderation die Klarstellung der Klasse oben in den Thread. */
     code: "eah12-piaget",
-    stand: 5,
+    stand: 6,
     titel: "Mias Thread: Lerne ich hier gerade Quatsch?",
     klasse: "EAH-12",
     status: "offen",
@@ -762,6 +751,15 @@ const VORBEREITET: Vorlage[] = [
     ],
     kommentare: true,
     ohneLimit: true,
+    kartenTitel: [
+      "Piaget erklärt im Kreis",
+      "Stufen am Schreibtisch erfunden",
+      "Feste Stufen für alle Kinder",
+      "Grundbegriffe sind Fachchinesisch",
+      "Kinder wie Versuchskaninchen behandelt",
+      "Bei Piaget geht es nur um Physik",
+      "Das Kind tüftelt allein",
+    ],
     kommentarPlatzhalter: "Stimmt das? Folgt der Schluss daraus? Am Ende der Beleg, z. B. (M1, Z. 21–24).",
     eskalation: {
       name: "Ben | Erziehungswissenschaft",
@@ -783,13 +781,14 @@ const VORBEREITET: Vorlage[] = [
     eh: `## Ablauf (UB, 45 Minuten)
 - Einstieg (3 Min.): „Wir haben alle Argumente gesammelt. Für wie berechtigt halten Sie diese Kritik?“ Mia fragt: „Lerne ich hier gerade Quatsch?“
 - Runde 1 (3 Min.): Like heißt: Diese Kritik halte ich für berechtigt (bewusst ein grobes Spontanurteil). Dann „Runde 1 festhalten“.
-- Faktencheck (6 Min., allein): Knopf „Infokarten verteilen“. Jede Person tippt unter der Antwort, der sie nachgehen will, auf „Diese prüfen“, sieht ihre Kartennummer (= Nummer der Antwort) und holt die Karte vorn (je Nummer drei Exemplare). Volle Karten sind gesperrt, damit alle sieben Antworten geprüft werden. Erst ein spontaner Einwand, dann die Befunde A bis D selbst einordnen (+ oder –). Danach Knopf noch einmal: Verteilung beenden.
+- Gruppen bilden (2 Min.): Vorher an der Wand unter „Gruppen bilden“ → „Schlagzeilen“ die Schlagzeilen aus Stunde 1 eintragen. „Gruppenwahl starten“, Hinweis: „Achten Sie darauf, dass die Gruppen ungefähr gleich groß sind.“ Auf den Handys tippen alle die Schlagzeile an, der sie nachgehen wollen; an der Wand laufen die Figuren mit Benutzernamen in ihr Feld. Dann „Einteilung festhalten“: Die Handys zeigen die Nummer der Infokarte (= Nummer der Antwort, je Nummer drei Exemplare vorn).
+- Faktencheck (6 Min., allein): Infokarte holen, erst der erste Gedanke, dann das Material A bis D selbst einordnen.
 - Prüfen und kommentieren (7 Min., zu zweit oder zu dritt): Raum auf „offen“. Alle mit derselben Karte vergleichen ihre Einordnung, prüfen mit den zwei Fragen und schreiben einen gemeinsamen Kommentar mit Beleg. Wer anders urteilt, antwortet mit eigenem Kommentar.
 - Lesen (4 Min.): den Streit unter den eigenen Likes lesen, Likes behalten oder zurücknehmen. Die Wand zeigt vorher → jetzt.
 - Auswertung (7 Min.): Murmelphase („Was hat Sie umgestimmt, oder warum hält Ihr Urteil?“), dann zwei Streitpunkte fachlich klären. Bei Antwort 7 den Spiegel zeigen (P5, 94 %).
 - Eskalation (2 Min.): Knopf „Eskalation“. Mias Bruder antwortet, der Kommentar steht oben im Thread, auf allen Handys. „Stimmt das?“ Zwei, drei spontane Reaktionen.
 - Moderation (8 Min.): „Dieser Thread eskaliert, die Moderation greift ein.“ Klarstellung in drei Sätzen (berechtigt, übertrieben, nicht haltbar), an der Wand mitschreiben, live stellen.
-- Abschluss (3 Min.): mündlich „Was antworten Sie Mia, und was ihrem Bruder?“ Auch abweichende Antworten zulassen. Puffer (2 Min.)
+- Abschluss (3 Min.): mündlich „Was antworten Sie Mia, und was ihrem Bruder?“ Auch abweichende Antworten zulassen. (Die 2 Minuten für „Gruppen bilden“ kommen aus dem Puffer.)
 
 ## Diagnose (Ankerpunkt, 02.11., 16 Abgaben)
 - P5 „Ein Kind entwickelt sein Denken vor allem allein, indem es selbst ausprobiert“: 94 % → Can (Antwort 7) in Runde 1 eher wenige Likes, nach dem Faktencheck mehr. **Spiegel:** „94 % von Ihnen haben gesagt, ein Kind entwickelt sein Denken vor allem allein. Genau das kritisiert Can.“
@@ -883,7 +882,7 @@ async function legeVorbereiteteRaeumeAn(kv: Deno.Kv) {
     const da = await kv.get<Raum>(raumKey);
     if (!da.value || (da.value.vorlageStand ?? 0) >= stand) continue;
     const { pinNotes: _p, notesHinweis: _h, notesPlatzhalter: _t, kommentare: _k, kommentarPlatzhalter: _kp, eskalation: _es,
-      ohneLimit: _ol, ...bisher } =
+      ohneLimit: _ol, kartenTitel: _kt, ...bisher } =
       da.value;
     const neu: Raum = {
       ...bisher,
@@ -1118,17 +1117,22 @@ Deno.serve({ port: PORT }, async (req: Request) => {
       const klar = r.kommentare ? (await kv.get<Klarstellung>(["klarstellung", code, "text"])).value ?? null : null;
       const meine = likes.vonMir.get(cid) ?? new Set<string>();
       const aufrufe = (ts: number) => gesehen.filter((s) => s >= ts).length;
-      /* Streitfall: Infokarten (Schüler*innen sehen ihre Wahl und welche Karten noch frei sind, die Lehrkraft die Zahlen) */
+      /* Streitfall: Gruppen bilden. Alle sehen Felder, Schlagzeilen und wer wo steht; Gerätekennungen bleiben intern. */
       let karten = null;
       if (r.kommentare && r.antworten?.length) {
         const ks = await kartenStand(kv, code);
-        if (ks.status) {
-          const z = kartenZaehlung(r, ks.wahl);
-          const n = aktiveGeraete(gesehen, jetzt);
-          const mein = ks.wahl.get(cid) ?? null;
-          karten = lehrer
-            ? { status: ks.status, zahlen: z, gewaehlt: Object.values(z).reduce((s, x) => s + x, 0), geraete: n }
-            : { status: ks.status, meine: mein, frei: Object.fromEntries(Object.keys(z).map((id) => [id, karteFrei(z, n, mein, id)])) };
+        if (ks.status || lehrer) {
+          const titel = await kartenTitel(kv, r);
+          const gruppen: Record<string, { handle: string; e: string; c: string }[]> = {};
+          for (const id of Object.keys(titel)) gruppen[id] = [];
+          const ohne: { handle: string; e: string; c: string }[] = [];
+          for (const w of [...ks.wahl.values()].sort((a, b) => a.ts - b.ts)) {
+            if (!w.handle) continue;
+            const person = { handle: w.handle, e: w.e, c: w.c };
+            if (w.zu && w.zu in gruppen) gruppen[w.zu].push(person);
+            else ohne.push(person);
+          }
+          karten = { status: ks.status, titel, gruppen, ohne, ...(lehrer ? {} : { meine: ks.wahl.get(cid)?.zu ?? null }) };
         }
       }
 
@@ -1272,10 +1276,10 @@ Deno.serve({ port: PORT }, async (req: Request) => {
       return json({ ok: true, eskalation: { an: true, ts: an.ts } });
     }
 
-    /* Streitfall: Verteilung der Infokarten öffnen, beenden oder zurücksetzen (nur Lehrkraft) */
+    /* Streitfall: Gruppenwahl starten, festhalten oder zurücksetzen (nur Lehrkraft); Schlagzeilen bleiben */
     if (rest === "/karten" && (req.method === "POST" || req.method === "DELETE")) {
       if (!lehrer) return fehler("Nur mit Lehrer-Link.", 403);
-      if (!r.kommentare || !r.antworten?.length) return fehler("Infokarten gibt es nur in Streitfall-Räumen.");
+      if (!r.kommentare || !r.antworten?.length) return fehler("Gruppen gibt es nur in Streitfall-Räumen.");
       if (req.method === "DELETE") {
         await loescheAlles(kv, ["karten", code]);
         return json({ ok: true, status: null });
@@ -1286,32 +1290,51 @@ Deno.serve({ port: PORT }, async (req: Request) => {
       return json({ ok: true, status });
     }
 
-    /* Streitfall: Infokarte wählen (zu = ID der Antwort) oder Wahl zurücknehmen (zu = null) */
+    /* Streitfall: Schlagzeilen der Gruppen eintragen (nur Lehrkraft) */
+    if (rest === "/karten/titel" && req.method === "POST") {
+      if (!lehrer) return fehler("Nur mit Lehrer-Link.", 403);
+      if (!r.kommentare || !r.antworten?.length) return fehler("Gruppen gibt es nur in Streitfall-Räumen.");
+      const b = await leseBody(req);
+      const roh = (b?.titel ?? {}) as Record<string, unknown>;
+      const titel: Record<string, string> = {};
+      for (const a of kartenAntworten(r)) {
+        const t = einzeilig(roh[a.id], 120);
+        if (t) titel[a.id] = t;
+      }
+      await kv.set(["kartentitel", code], titel, { expireIn: LEBENSDAUER });
+      return json({ ok: true, titel: await kartenTitel(kv, r) });
+    }
+
+    /* Streitfall: Feld wählen (zu = ID der Antwort), sich nur anmelden (da = true) oder Wahl zurücknehmen (zu = null) */
     if (rest === "/karte" && req.method === "POST") {
-      if (!r.kommentare || !r.antworten?.length) return fehler("Infokarten gibt es nur in Streitfall-Räumen.");
+      if (!r.kommentare || !r.antworten?.length) return fehler("Gruppen gibt es nur in Streitfall-Räumen.");
       const b = await leseBody(req);
       const cid = einzeilig(b?.clientId, 64);
       if (!cid) return fehler("Gerätekennung fehlt.");
-      const zu = b?.zu == null ? null : einzeilig(b.zu, 20);
-      const key = ["karten", code, "wahl", cid];
-      /* Optimistisch mit Versionszähler: Greifen zwei Geräte gleichzeitig nach der letzten Karte, gewinnt eines */
-      for (let versuch = 0; versuch < 6; versuch++) {
-        const st = await kv.get<KartenStatus>(["karten", code, "status"]);
-        if (st.value !== "offen") return fehler("Die Infokarten werden gerade nicht verteilt.", 423);
-        const v = await kv.get<number>(["karten", code, "v"]);
-        const { wahl } = await kartenStand(kv, code);
-        let op = kv.atomic().check(st).check(v).set(["karten", code, "v"], (v.value ?? 0) + 1, { expireIn: LEBENSDAUER });
-        if (zu === null) op = op.delete(key);
-        else {
-          const n = aktiveGeraete(await alleGesehen(kv, code), Date.now());
-          if (!karteFrei(kartenZaehlung(r, wahl), n, wahl.get(cid) ?? null, zu)) {
-            return fehler("Diese Karte ist schon vergeben. Wähle eine andere Antwort.", 409);
-          }
-          op = op.set(key, zu, { expireIn: LEBENSDAUER });
-        }
-        if ((await op.commit()).ok) return json({ ok: true, meine: zu });
+      if ((await kv.get<KartenStatus>(["karten", code, "status"])).value !== "offen") {
+        return fehler("Die Gruppenwahl ist gerade nicht offen.", 423);
       }
-      return fehler("Gerade wählen viele gleichzeitig. Tippe noch einmal.", 409);
+      const zu = b?.zu == null ? null : einzeilig(b.zu, 20);
+      if (zu !== null && !istAntwort(r, zu)) return fehler("Dieses Feld gibt es nicht.");
+      const handle = sauberesHandle(b?.handle);
+      if (!handleGueltig(handle) || handleReserviert(r, handle)) return fehler("Ungültiger Benutzername.");
+      if (!(await beanspruche(kv, code, handle, cid))) {
+        return fehler("Diesen Benutzernamen hat hier schon jemand. Bitte ändere ihn im Profil.", 409);
+      }
+      const key = ["karten", code, "wahl", cid];
+      const alt = (await kv.get<KartenWahl>(key)).value;
+      const av = (b?.avatar ?? {}) as Record<string, unknown>;
+      const e = String(av.e ?? "").slice(0, 16) || "🙂", c = farbe(av.c, "#536471");
+      /* Nur anmelden: Feld und Reihenfolge bleiben, ein geänderter Benutzername oder Avatar wird übernommen */
+      if (b?.da === true && alt && typeof alt === "object") {
+        if (alt.handle !== handle || alt.e !== e || alt.c !== c) {
+          await kv.set(key, { ...alt, handle, e, c }, { expireIn: LEBENSDAUER });
+        }
+        return json({ ok: true, meine: alt.zu ?? null });
+      }
+      const w: KartenWahl = { zu, handle, e, c, ts: alt && typeof alt === "object" && alt.zu === zu ? alt.ts : Date.now() };
+      await kv.set(key, w, { expireIn: LEBENSDAUER });
+      return json({ ok: true, meine: zu });
     }
 
     /* Neuer Post */

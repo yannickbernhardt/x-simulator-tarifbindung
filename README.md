@@ -27,13 +27,20 @@ Mit ✓ schaltet die Lehrkraft eine Note **live**, dann erscheint sie bei allen 
 Live geschaltete Notes lassen sich nicht mehr bearbeiten. Antworten und Notes-Modus werden nur im Code
 gepflegt; Speichern in der Verwaltung lässt sie unverändert.
 
-## Streitfall: Infokarten nach Interesse
-In Streitfall-Räumen (`kommentare: true`, z. B. `eah12-piaget`) gibt es an der Wand den Knopf **„Infokarten verteilen“**.
-Dann steht auf den Handys unter jeder Antwort „Diese prüfen · Karte N“; die Nummer der Antwort ist die Nummer der
-Infokarte, die vorn liegt. Damit alle Antworten geprüft werden, bleibt die Verteilung ausgeglichen: Bei N Geräten
-(im Raum in den letzten 90 Minuten) und M Karten bekommt jede Karte ⌊N/M⌋ oder ⌊N/M⌋ + 1 Personen, volle Karten
-sind gesperrt. Die Wand zeigt je Antwort „Karte N: Anzahl“. Noch einmal klicken beendet die Verteilung, die Handys
-zeigen weiter ihre Nummer. Gespeichert wird nur Gerät → Antwort (läuft nach 14 Tagen ab, „Neue Runde“ löscht es).
+## Streitfall: Gruppen bilden
+In Streitfall-Räumen (`kommentare: true`, z. B. `eah12-piaget`) gibt es an der Wand den Knopf **„Gruppen bilden“**.
+Er öffnet eine eigene Bühne für den Beamer: ein Feld je Antwort, nebeneinander, mit Nummer, Schlagzeile und Anzahl.
+Die Nummer des Feldes ist die Nummer der Antwort und der Infokarte, die vorn liegt.
+- **Schlagzeilen:** je Antwort eine Zeile (z. B. aus der Vorstunde). Vorschläge stehen als `kartenTitel` im Raum in
+  `main.ts`; was die Lehrkraft einträgt, gilt für diesen Raum (bleibt bei „Neue Runde“ erhalten, läuft nach 14 Tagen ab).
+- **Gruppenwahl starten:** Auf den Handys erscheint die Phase über dem Thread. Wer sie sieht, steht als Figur mit
+  Benutzernamen am Rand; wer eine Schlagzeile antippt, läuft in sein Feld, bei einem Wechsel weiter. Keine Sperre:
+  Die Klasse achtet selbst auf die Verteilung, die Bühne zeigt „2 bis 3 je Gruppe“ und färbt zu volle Felder gelb.
+- **Einteilung festhalten:** Die Felder leuchten, die Handys zeigen „Deine Gruppe: Karte N“, danach oben im Thread.
+  „Wieder öffnen“ behält die Wahl, „Zurücksetzen“ löscht sie (Schlagzeilen bleiben). Wird die Wand während der Wahl
+  neu geladen, öffnet sie gleich die Bühne.
+- An den Antworten im Thread steht „Gruppe N: Anzahl“ (Benutzernamen beim Darüberfahren).
+Gespeichert werden je Gerät Feld, Benutzername und Avatar (läuft nach 14 Tagen ab, „Neue Runde“ löscht es).
 
 ## Aufbau
 - `main.ts` – Deno-Server (nur Standardbibliothek), alles in Deno KV.

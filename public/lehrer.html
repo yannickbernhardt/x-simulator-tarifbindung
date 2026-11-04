@@ -174,6 +174,104 @@
   .akarten .ic { width: 17px; height: 17px; }
   .akarten.null { color: var(--muted); }
   .arow { display: flex; gap: 10px; }
+
+  /* ---------- Streitfall: Gruppen bilden (Bühne für den Beamer) ---------- */
+  #buehne { display: none; }
+  body.buehne-an .leiste, body.buehne-an #wand { display: none; }
+  body.buehne-an #buehne { display: flex; }
+  #buehne {
+    flex-direction: column; gap: 14px; min-height: calc(100vh - 90px); padding: 16px 24px 18px;
+    --fig: clamp(44px, 3.5vw, 68px);
+  }
+  .bh-kopf { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; }
+  .bh-titel { flex: 1 1 360px; min-width: 0; }
+  .bh-titel h2 { font-size: clamp(26px, 2.2vw, 36px); line-height: 1.15; margin: 0; font-weight: 800; }
+  .bh-titel p { margin: 4px 0 0; color: var(--muted); font-size: clamp(16px, 1.25vw, 21px); line-height: 1.35; }
+  #buehne.fest .bh-titel p { color: var(--text); font-weight: 700; }
+  .bh-stand { display: flex; gap: 18px; align-items: baseline; }
+  .bh-stand b { font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .bh-stand span { color: var(--muted); font-size: 15px; margin-left: 4px; }
+  .bh-stand .ideal { display: block; margin: 2px 0 0; font-size: 14px; }
+  .bh-knoepfe { display: flex; flex-wrap: wrap; gap: 8px; }
+  .bh-knoepfe .chip { font-size: 15px; padding: 8px 16px; }
+  .chip.voll { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .chip.voll:hover { background: #1a8cd8; }
+  /* Sieben Felder nebeneinander wie auf einem Spielfeld; Figuren stellen sich von unten nach oben auf */
+  .bh-felder { flex: 1; display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; }
+  .feld {
+    --f: var(--blue); flex: 1 1 0; min-width: 132px; display: flex; flex-direction: column;
+    border-radius: 16px; border: 3px solid color-mix(in srgb, var(--f) 55%, transparent);
+    background: color-mix(in srgb, var(--f) 9%, var(--bg)); transition: box-shadow 0.5s, background-color 0.5s, border-color 0.5s, opacity 0.5s;
+  }
+  .feld.leer { border-style: dashed; }
+  .feld-kopf { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px 10px; padding: 10px 10px 4px; }
+  .feld-nr {
+    flex: 0 0 auto; width: 46px; height: 46px; border-radius: 13px; background: var(--f); color: #fff;
+    display: grid; place-items: center; font-size: 27px; font-weight: 800;
+  }
+  .feld-titel {
+    grid-column: 1 / -1; min-width: 0; font-size: clamp(16px, 1.25vw, 25px); line-height: 1.2; font-weight: 800;
+    -webkit-hyphens: auto; hyphens: auto; overflow-wrap: break-word;
+  }
+  .feld-zahl { justify-self: end; font-size: 26px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; padding-right: 4px; }
+  .feld-zahl.viel { color: #e08a00; }
+  .feld-boden {
+    flex: 1; display: flex; flex-wrap: wrap-reverse; align-content: flex-start; justify-content: center; gap: 2px 6px;
+    padding: 4px 6px 10px; min-height: calc(var(--fig) * 1.95);
+  }
+  .feld-leer { align-self: center; margin: auto; color: var(--muted); font-size: 17px; font-weight: 700; text-align: center; }
+  #buehne.fest .feld:not(.leer) {
+    background: color-mix(in srgb, var(--f) 26%, var(--bg)); border-color: var(--f);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--f) 45%, transparent), 0 0 40px color-mix(in srgb, var(--f) 50%, transparent);
+  }
+  #buehne.fest .feld.leer { opacity: 0.45; }
+  #buehne.licht .feld:not(.leer) { animation: licht 1.3s ease-out; }
+  @keyframes licht { 25% { filter: brightness(1.7); } }
+  #buehne.licht .feld:not(.leer) .fig-innen { animation: hops 0.45s ease-out 2; }
+  @keyframes hops { 50% { transform: translateY(-14px); } }
+  .bh-rand {
+    display: flex; gap: 14px; align-items: flex-end; border-top: 2px dashed var(--border); padding-top: 8px;
+    min-height: calc(var(--fig) * 1.9);
+  }
+  .bh-rand-label { flex: 0 0 auto; align-self: center; width: 112px; font-size: 17px; font-weight: 800; }
+  .bh-rand-label small { display: block; color: var(--muted); font-size: 14px; font-weight: 700; }
+  .bh-rand-leute { flex: 1; display: flex; flex-wrap: wrap; gap: 2px 6px; align-items: flex-end; }
+  .bh-rand .feld-leer { margin: 0; align-self: center; font-size: 16px; }
+  /* Figur: Kopf ist der Avatar, Rumpf, Arme und Beine in der Avatarfarbe; läuft per FLIP in ihr Feld */
+  .fig { min-width: calc(var(--fig) * 1.2); max-width: calc(var(--fig) * 3.4); display: flex; justify-content: center; position: relative; }
+  .fig-innen { display: flex; flex-direction: column; align-items: center; min-width: 0; max-width: 100%; }
+  .fig-kopf {
+    position: relative; z-index: 1; width: calc(var(--fig) * 0.62); height: calc(var(--fig) * 0.62); border-radius: 50%;
+    display: grid; place-items: center; font-size: calc(var(--fig) * 0.36); line-height: 1; box-shadow: 0 0 0 2px var(--bg);
+  }
+  .fig svg { display: block; width: var(--fig); height: calc(var(--fig) * 0.85); margin-top: calc(var(--fig) * -0.05); overflow: visible; }
+  .fig .glied { transform-box: view-box; }
+  .fig .a1 { transform-origin: 13px 7px; } .fig .a2 { transform-origin: 27px 7px; }
+  .fig .b1 { transform-origin: 16.5px 19px; } .fig .b2 { transform-origin: 23.5px 19px; }
+  .fig-name {
+    margin-top: 3px; max-width: 100%; padding: 1px 7px; border-radius: 9999px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: max(11px, calc(var(--fig) * 0.29)); font-weight: 800; line-height: 1.3;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .fig.laeuft { z-index: 5; }
+  .fig.laeuft .b1, .fig.laeuft .a2 { animation: schwing 0.34s ease-in-out infinite alternate; }
+  .fig.laeuft .b2, .fig.laeuft .a1 { animation: schwing 0.34s ease-in-out infinite alternate-reverse; }
+  .fig.laeuft .fig-innen { animation: wipp 0.17s ease-in-out infinite alternate; }
+  @keyframes schwing { from { transform: rotate(-26deg); } to { transform: rotate(26deg); } }
+  @keyframes wipp { to { transform: translateY(-3px); } }
+  .fig.kommt { animation: kommt 0.7s ease-out both; }
+  @keyframes kommt { from { opacity: 0; transform: translateY(36px); } }
+  @media (prefers-reduced-motion: reduce) { .fig.laeuft .glied, .fig.laeuft .fig-innen, #buehne.licht .feld, #buehne.licht .fig-innen { animation: none; } }
+  .ti-editor h2 { margin-bottom: 4px; }
+  .ti-liste { display: grid; gap: 12px; margin-top: 16px; max-height: 60vh; overflow-y: auto; padding-right: 4px; }
+  .ti-zeile { --f: var(--blue); display: flex; gap: 12px; align-items: flex-start; }
+  .ti-zeile .feld-nr { width: 46px; height: 46px; font-size: 25px; border-radius: 12px; }
+  .ti-mitte { flex: 1; min-width: 0; display: grid; gap: 4px; }
+  .ti-mitte input {
+    width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border-input); border-radius: 10px;
+    padding: 9px 12px; font: inherit; font-size: 20px; font-weight: 700;
+  }
+  .ti-mitte small { color: var(--muted); font-size: 14px; line-height: 1.35; }
   .amain { flex: 1; min-width: 0; }
   .amain .post-head { font-size: calc(var(--fs) * 0.7); line-height: 1.3; }
   .atext { font-size: var(--fs); line-height: 1.35; margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -283,7 +381,7 @@
   <button class="chip" id="bM4" hidden>Material zeigen</button>
   <button class="chip" id="bUrteile" hidden title="Erst wenn freigegeben, erscheint bei der Ausgangsfrage „Community Note vorschlagen“ für das eigene Urteil.">Urteile freigeben</button>
   <button class="chip" id="bRunde" hidden title="Likes der Antworten jetzt festhalten. Danach zeigt jede Antwort vorher → jetzt.">Runde 1 festhalten</button>
-  <button class="chip" id="bKarten" hidden title="Infokarten nach Interesse verteilen: Auf den Handys steht unter jeder Antwort „Diese prüfen“, die Nummer der Antwort ist die Nummer der Infokarte. Volle Karten sperrt der Simulator, damit alle Antworten geprüft werden. Noch einmal klicken beendet die Verteilung.">Infokarten verteilen</button>
+  <button class="chip" id="bGruppen" hidden title="Gruppen bilden: Auf den Handys stehen die Schlagzeilen, jede Person wählt nach Interesse. Am Beamer laufen die Figuren mit Benutzernamen in ihr Feld. Die Nummer des Feldes ist die Nummer der Infokarte.">Gruppen bilden</button>
   <button class="chip" id="bEsk" hidden title="Vorbereitete Antwort von Mias Bruder live stellen. Sie erscheint oben im Thread, auf allen Handys.">Eskalation</button>
   <button class="chip" id="bKlar" hidden title="Klarstellung der Moderation schreiben. Sie erscheint oben im Thread, auf allen Handys.">Klarstellung</button>
   <button class="chip" id="bEH">Erwartungshorizont</button>
@@ -297,6 +395,7 @@
 
 <div id="fehler"></div>
 <main class="wand" id="wand"></main>
+<section id="buehne" aria-label="Gruppen bilden"></section>
 <div id="overlay"></div>
 <div id="druck"></div>
 <div class="toast" id="toast" role="status"></div>
@@ -387,22 +486,34 @@ async function api(pfad, o = {}) {
 }
 
 /* ---------- Daten ---------- */
+let ladeNr = 0, ladeStand = 0, ersterStand = true;
 async function lade() {
+  const nr = ++ladeNr;
   try {
     const d = await api("/api/state");
+    if (nr < ladeStand) return; // eine spätere Abfrage war schneller
+    ladeStand = nr;
     versatz = d.now - Date.now();
     stand = d;
     uebernimmRaum(d.raum);
     zeigeEsk();
-    zeigeKarten();
+    if (ersterStand && d.karten?.status === "offen") buehneOffen = true;
+    ersterStand = false;
+    zeigeGruppenKnopf();
+    zeigeBuehne();
     $("#fehler").innerHTML = "";
     render();
   } catch (e) {
     $("#fehler").innerHTML = `<div class="fehlerbanner">⚠️ ${esc(e.message)}</div>`;
   }
 }
-setInterval(lade, 3000);
-lade();
+/* Alle 3 Sekunden, während der Gruppenwahl auf der Bühne jede Sekunde (damit die Figuren gleich loslaufen) */
+let ladeT;
+function planeLaden() {
+  clearTimeout(ladeT);
+  ladeT = setTimeout(async () => { await lade(); planeLaden(); }, buehneOffen && stand.karten?.status === "offen" ? 1000 : 3000);
+}
+lade().then(planeLaden);
 
 function sortiert() {
   let l = stand.posts.filter((p) => opt.moder || !p.hidden);
@@ -614,11 +725,13 @@ function fadenHtml(jetzt) {
   return `<div class="faden">${op}${klarBlock}${pinBlock}<div class="agrid">${karten}${eigene}</div></div>`;
 }
 
-/* Streitfall: Wie viele Lernende prüfen diese Antwort mit ihrer Infokarte? */
+/* Streitfall: Wer prüft diese Antwort in seiner Gruppe (Nummer = Infokarte)? */
 function kartenZahlHtml(id, nr) {
-  const n = stand.karten?.zahlen?.[id];
-  if (n == null) return "";
-  return `<span class="akarten${n ? "" : " null"}" title="${n} Lernende haben Infokarte ${nr}">${icon("search")}Karte ${nr}: ${n}</span>`;
+  const k = stand.karten;
+  if (!k?.status || !(id in (k.gruppen ?? {}))) return "";
+  const leute = k.gruppen[id];
+  const namen = leute.map((p) => "@" + p.handle).join(", ");
+  return `<span class="akarten${leute.length ? "" : " null"}" title="${esc(`Gruppe ${nr}: ${namen || "noch niemand"}`)}">${icon("leute")}Gruppe ${nr}: ${leute.length}</span>`;
 }
 
 let letzteSignatur = "";
@@ -741,6 +854,7 @@ $("#overlay").addEventListener("click", (e) => {
   const kl = e.target.closest("[data-klar]")?.dataset.klar;
   if (kl === "live") return klarLive();
   if (kl === "weg") return klarWeg();
+  if (e.target.closest('[data-ti="speichern"]')) return speichereTitel();
   if (e.target.closest("[data-zu]") || e.target.matches(".panel-back, .gross-back, .gross-back *")) { overlay(""); spotId = null; return; }
   if (s === "zu") { overlay(""); spotId = null; return; }
   if (s === "vor" || s === "nach") return blaettern(s === "vor" ? -1 : 1);
@@ -766,7 +880,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { overlay(""); spotId = null; }
   if (spotId && (e.key === "ArrowRight" || e.key === " ")) { e.preventDefault(); blaettern(1); }
   if (spotId && e.key === "ArrowLeft") blaettern(-1);
-  if (!spotId && e.key === "Enter" && !$("#overlay").innerHTML) { const l = sortiert(); if (l[0]) zeigeSpot(l[0].id); }
+  if (!spotId && !buehneOffen && e.key === "Enter" && !$("#overlay").innerHTML) { const l = sortiert(); if (l[0]) zeigeSpot(l[0].id); }
 });
 
 /* ---------- Leiste ---------- */
@@ -798,7 +912,7 @@ function uebernimmRaum(r) {
   $("#bRunde").hidden = !(r.antworten ?? []).length;
   $("#bUrteile").hidden = !r.pinNotes;
   $("#bKlar").hidden = !r.kommentare;
-  $("#bKarten").hidden = !(r.kommentare && (r.antworten ?? []).length);
+  $("#bGruppen").hidden = !(r.kommentare && (r.antworten ?? []).length);
   letzteSignatur = "";
 }
 const verwaltung = `/?lehrer=${encodeURIComponent(TOKEN)}`;
@@ -950,26 +1064,188 @@ async function klarWeg() {
   } catch (e) { toast(e.message); }
 }
 
-/* ---------- Streitfall: Infokarten nach Interesse verteilen ---------- */
-function zeigeKarten() {
-  const k = stand.karten;
-  const b = $("#bKarten");
-  b.classList.toggle("on", !!k);
-  b.textContent = !k ? "Infokarten verteilen"
-    : k.status === "offen" ? `Infokarten: ${k.gewaehlt} von ${k.geraete} · beenden`
-    : `Infokarten verteilt ✓ ${k.gewaehlt}`;
+/* ---------- Streitfall: Gruppen bilden ----------
+   Eigene Phase für den Beamer: sieben Felder mit den Schlagzeilen aus Stunde 1 (Nummer = Antwort = Infokarte).
+   Wer auf dem Handy die Phase sieht, steht als Figur am Rand; wer wählt, läuft in sein Feld. Keine Sperre:
+   Die Klasse achtet selbst auf die Verteilung. „Einteilung festhalten“ macht das Licht an. */
+let buehneOffen = false, buehneSig = "", buehneStatus, lichtT;
+const kurz = (t, n) => (t.length > n ? t.slice(0, n - 1).trimEnd() + "…" : t);
+function gruppenFelder() {
+  return antworten().filter((a) => a.id !== "eskalation").map((a, i) => ({ a, nr: i + 1 }));
 }
-$("#bKarten").onclick = async () => {
+function zeigeGruppenKnopf() {
   const k = stand.karten;
-  if (k?.status === "zu" && !confirm("Verteilung der Infokarten wieder öffnen? Die bisherige Wahl bleibt erhalten.")) return;
+  const b = $("#bGruppen");
+  if (!k) return;
+  const drin = Object.values(k.gruppen ?? {}).reduce((s, g) => s + g.length, 0);
+  b.classList.toggle("on", !!k.status);
+  b.textContent = k.status === "offen" ? `Gruppen: ${drin} gewählt` : k.status === "zu" ? `Gruppen ✓ ${drin}` : "Gruppen bilden";
+}
+function figurHtml(p) {
+  const c = esc(p.c || "#536471");
+  return `<div class="fig" data-h="${esc(p.handle.toLowerCase())}"><div class="fig-innen">
+    <div class="fig-kopf" style="background:${c}">${esc(p.e || "🙂")}</div>
+    <svg viewBox="0 0 40 34" aria-hidden="true"><g stroke="${c}" stroke-width="5" stroke-linecap="round" fill="none">
+      <path class="glied a1" d="M13 7 L6.5 18.5"/><path class="glied a2" d="M27 7 L33.5 18.5"/>
+      <path class="glied b1" d="M16.5 19 L14.5 31.5"/><path class="glied b2" d="M23.5 19 L25.5 31.5"/></g>
+      <rect x="11" y="2" width="18" height="18.5" rx="6.5" fill="${c}"/></svg>
+    <div class="fig-name">@${esc(p.handle)}</div></div></div>`;
+}
+function buehneHtml() {
+  const k = stand.karten ?? { status: null, titel: {}, gruppen: {}, ohne: [] };
+  const felder = gruppenFelder();
+  const drin = felder.reduce((s, { a }) => s + (k.gruppen?.[a.id]?.length ?? 0), 0);
+  const rand = k.ohne ?? [];
+  const alle = drin + rand.length;
+  const pruefen = k.status === "offen" && alle >= felder.length;
+  const lo = Math.floor(alle / felder.length), hi = Math.ceil(alle / felder.length);
+  const unter = k.status === "offen"
+    ? "Tippen Sie auf dem Handy die Schlagzeile an, der Sie nachgehen wollen."
+    : k.status === "zu" ? "Holen Sie sich vorn die Infokarte mit der Nummer Ihres Feldes."
+    : "Noch nicht gestartet: Schlagzeilen prüfen, dann „Gruppenwahl starten“. Bis dahin zeigen die Handys den Thread.";
+  const knoepfe = k.status === "offen"
+    ? `<button class="chip" data-g="titel">Schlagzeilen</button><button class="chip voll" data-g="fest">Einteilung festhalten</button>`
+    : k.status === "zu"
+    ? `<button class="chip gefahr" data-g="reset">Zurücksetzen</button><button class="chip" data-g="auf">Wieder öffnen</button>`
+    : `<button class="chip" data-g="titel">Schlagzeilen bearbeiten</button><button class="chip voll" data-g="start">Gruppenwahl starten</button>`;
+  const felderHtml = felder.map(({ a, nr }) => {
+    const leute = k.gruppen?.[a.id] ?? [];
+    const viel = pruefen && leute.length > hi;
+    return `<section class="feld${leute.length ? "" : " leer"}" style="--f:${esc(a.c)}">
+      <div class="feld-kopf"><span class="feld-nr">${nr}</span><span class="feld-zahl${viel ? " viel" : ""}"${viel ? ` title="Mehr als ${hi}"` : ""}>${leute.length}</span>
+        <span class="feld-titel">${esc(k.titel?.[a.id] ?? `Antwort ${nr}`)}</span></div>
+      <div class="feld-boden">${leute.map(figurHtml).join("") || `<span class="feld-leer">${k.status === "zu" ? "leer" : "noch leer"}</span>`}</div>
+    </section>`;
+  }).join("");
+  const randHtml = rand.length || (k.status === "offen" && !drin)
+    ? `<div class="bh-rand"><div class="bh-rand-label">Am Rand<small>noch ohne Gruppe</small></div>
+        <div class="bh-rand-leute">${rand.map(figurHtml).join("") || `<span class="feld-leer">${k.status === "offen" ? "Wer die Seite öffnet, steht zuerst hier." : ""}</span>`}</div></div>`
+    : "";
+  return `<div class="bh-kopf">
+      <div class="bh-titel"><h2>${k.status === "zu" ? "Die Gruppen stehen" : "Gruppen bilden"}</h2><p>${unter}</p></div>
+      ${k.status ? `<div class="bh-stand"><div><b>${drin}</b><span>in Gruppen</span>${pruefen ? `<span class="ideal">Achten Sie auf die Verteilung: ${lo === hi ? lo : `${lo} bis ${hi}`} je Gruppe</span>` : ""}</div>${rand.length ? `<div><b>${rand.length}</b><span>am Rand</span></div>` : ""}</div>` : ""}
+      <div class="bh-knoepfe">${knoepfe}<button class="chip" data-g="thread">Zum Thread</button></div>
+    </div>
+    <div class="bh-felder">${felderHtml}</div>${randHtml}`;
+}
+function zeigeBuehne() {
+  const status = stand.karten?.status ?? null;
+  const wirdFest = status === "zu" && buehneStatus === "offen";
+  buehneStatus = status;
+  document.body.classList.toggle("buehne-an", buehneOffen);
+  const el = $("#buehne");
+  if (!buehneOffen) { if (buehneSig) { buehneSig = ""; el.innerHTML = ""; } return; }
+  const sig = JSON.stringify([stand.karten ?? null, gruppenFelder().map(({ a }) => [a.id, a.c])]);
+  if (sig === buehneSig) return;
+  const erstes = !buehneSig;
+  buehneSig = sig;
+  /* FLIP: alte Plätze merken, neu zeichnen, jede Figur vom alten Platz zum neuen laufen lassen */
+  const vorher = new Map();
+  if (!erstes) for (const f of $$(".fig", el)) vorher.set(f.dataset.h, f.getBoundingClientRect());
+  el.innerHTML = buehneHtml();
+  el.classList.toggle("fest", status === "zu");
+  passeEin();
+  if (!erstes) for (const f of $$(".fig", el)) laufe(f, vorher.get(f.dataset.h));
+  if (wirdFest) {
+    el.classList.remove("licht"); void el.offsetWidth; el.classList.add("licht");
+    clearTimeout(lichtT); lichtT = setTimeout(() => el.classList.remove("licht"), 1600);
+  }
+}
+function laufe(f, alt) {
+  if (!alt) { f.classList.add("kommt"); return; }
+  const neu = f.getBoundingClientRect();
+  const dx = alt.left - neu.left, dy = alt.top - neu.top;
+  const weg = Math.hypot(dx, dy);
+  if (weg < 3) return;
+  const dauer = Math.min(2.6, Math.max(0.7, weg / 480));
+  f.style.transition = "none";
+  f.style.transform = `translate(${dx}px, ${dy}px)`;
+  f.classList.add("laeuft");
+  f.getBoundingClientRect();
+  requestAnimationFrame(() => {
+    f.style.transition = `transform ${dauer}s cubic-bezier(.42,.08,.58,.96)`;
+    f.style.transform = "";
+  });
+  const fertig = () => { f.classList.remove("laeuft"); f.style.transition = ""; };
+  f.addEventListener("transitionend", fertig, { once: true });
+  setTimeout(fertig, dauer * 1000 + 150);
+}
+/* Die Bühne füllt den Beamer unter der Kopfzeile; passt sie nicht, werden die Figuren kleiner (bis 28 px) */
+function passeEin() {
+  const el = $("#buehne");
+  if (!buehneOffen) return;
+  const frei = innerHeight - Math.ceil($(".kopf").getBoundingClientRect().height);
+  el.style.minHeight = frei + "px";
+  let f = Math.round(Math.min(68, Math.max(42, innerWidth * 0.035)));
+  el.style.setProperty("--fig", f + "px");
+  while (el.getBoundingClientRect().height > frei + 1 && f > 28) { f -= 3; el.style.setProperty("--fig", f + "px"); }
+}
+addEventListener("resize", passeEin);
+
+$("#bGruppen").onclick = () => { buehneOffen = true; zeigeBuehne(); window.scrollTo(0, 0); planeLaden(); };
+$("#buehne").addEventListener("click", async (e) => {
+  const g = e.target.closest("[data-g]")?.dataset.g;
+  if (!g) return;
+  if (g === "thread") { buehneOffen = false; zeigeBuehne(); letzteSignatur = ""; render(); planeLaden(); return; }
+  if (g === "titel") return oeffneTitel();
+  if (g === "start" || g === "auf" || g === "fest") {
+    const status = g === "fest" ? "zu" : "offen";
+    try {
+      await api("/api/karten", { method: "POST", body: { status } });
+      toast(status === "zu" ? "Festgehalten: Die Handys zeigen jetzt die Nummer der Infokarte."
+        : "Gestartet: Auf den Handys stehen jetzt die Schlagzeilen.");
+      await lade(); planeLaden();
+    } catch (err) { toast(err.message); }
+    return;
+  }
+  if (g === "reset") {
+    if (!confirm("Gruppenwahl zurücksetzen? Alle Figuren verschwinden, die Handys zeigen wieder den Thread. Die Schlagzeilen bleiben.")) return;
+    try {
+      await api("/api/karten", { method: "DELETE" });
+      toast("Zurückgesetzt. Die Schlagzeilen bleiben.");
+      await lade(); planeLaden();
+    } catch (err) { toast(err.message); }
+  }
+});
+
+/* Schlagzeilen aus Stunde 1: eine je Antwort, Entwurf bleibt bis zum Speichern im Browser */
+function oeffneTitel() {
+  const k = stand.karten ?? { titel: {} };
+  const entwurf = LS.get("titel." + CODE, null) ?? {};
+  const zeilen = gruppenFelder().map(({ a, nr }) => `<label class="ti-zeile" style="--f:${esc(a.c)}"><span class="feld-nr">${nr}</span>
+    <span class="ti-mitte"><input data-titel="${esc(a.id)}" maxlength="120" placeholder="Schlagzeile ${nr}"
+      value="${esc(entwurf[a.id] ?? k.titel?.[a.id] ?? "")}">
+    <small>Antwort ${nr}, @${esc(a.handle)}: ${esc(kurz(a.text, 110))}</small></span></label>`).join("");
+  overlay(`<div class="panel-back"></div><div class="klar-editor ti-editor" role="dialog" aria-label="Schlagzeilen der Gruppen">
+    <div class="klar-ed-kopf"><span class="abz">🏷️</span><div><h2>Schlagzeilen aus Stunde 1</h2>
+      <p>Eine Schlagzeile je Antwort. Sie steht auf den Handys und am Beamer über dem Feld; die Nummer ist die Nummer der Infokarte. Leer lassen setzt den Vorschlag wieder ein.</p></div></div>
+    <div class="ti-liste">${zeilen}</div>
+    <div class="klar-ed-fuss"><span class="spacer"></span><button class="chip" data-zu>Abbrechen</button><button class="chip on" data-ti="speichern">Speichern</button></div>
+  </div>`);
+  const felder = $$("[data-titel]");
+  const merke = () => LS.set("titel." + CODE, Object.fromEntries(felder.map((i) => [i.dataset.titel, i.value])));
+  felder.forEach((i, n) => {
+    i.addEventListener("input", merke);
+    i.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      if (felder[n + 1]) felder[n + 1].focus(); else speichereTitel();
+    });
+  });
+  felder[0]?.focus();
+}
+async function speichereTitel() {
+  const titel = Object.fromEntries($$("[data-titel]").map((i) => [i.dataset.titel, i.value.trim()]));
   try {
-    const d = await api("/api/karten", { method: "POST", body: { status: k?.status === "offen" ? "zu" : "offen" } });
-    toast(d.status === "offen"
-      ? "Auf den Handys steht jetzt unter jeder Antwort „Diese prüfen“. Die Nummer ist die Nummer der Infokarte."
-      : "Verteilung beendet. Die Handys zeigen weiter die Kartennummer.");
+    const d = await api("/api/karten/titel", { method: "POST", body: { titel } });
+    if (stand.karten) stand.karten = { ...stand.karten, titel: d.titel };
+    LS.set("titel." + CODE, null);
+    overlay("");
+    zeigeBuehne();
+    toast("Schlagzeilen gespeichert.");
     lade();
   } catch (e) { toast(e.message); }
-};
+}
 
 /* ---------- Streitfall: Eskalation (vorbereitete Antwort live stellen) ---------- */
 function zeigeEsk() {

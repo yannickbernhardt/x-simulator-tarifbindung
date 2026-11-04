@@ -299,9 +299,31 @@
   .kb-text b { font-size: 17px; line-height: 22px; }
   .kb-text span { color: var(--muted); }
   .kb-link { justify-self: start; margin-top: 2px; padding: 0; border: 0; background: none; color: var(--blue); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
-  .karte-wahl { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 15px; font-weight: 700; color: var(--blue); }
-  .karte-wahl .ic { width: 18px; height: 18px; }
-  .karte-wahl.voll { color: var(--muted); font-weight: 400; }
+  /* Streitfall: Gruppen bilden – eigene Phase über dem Thread */
+  #phase { position: fixed; inset: 0; z-index: 55; background: var(--bg); overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: max(18px, env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom)); }
+  #phase[hidden] { display: none; }
+  .ph-kopf h2 { font-size: 24px; line-height: 28px; margin: 4px 0 6px; }
+  .ph-kopf p { color: var(--muted); font-size: 15px; line-height: 20px; margin: 0 0 14px; }
+  .ph-liste { display: grid; gap: 10px; }
+  .ph-feld { display: flex; gap: 12px; align-items: center; width: 100%; text-align: left; padding: 12px 14px; border-radius: 16px;
+    border: 2px solid var(--border); background: transparent; color: var(--text); font: inherit; cursor: pointer; }
+  .ph-feld.mein { border-color: var(--f); background: color-mix(in srgb, var(--f) 16%, transparent); }
+  .ph-nr { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 12px; background: var(--f); color: #fff; display: grid;
+    place-items: center; font-size: 22px; font-weight: 800; }
+  .ph-mitte { flex: 1; min-width: 0; display: grid; gap: 5px; }
+  .ph-titel { font-size: 17px; font-weight: 700; line-height: 21px; }
+  .ph-leute { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; color: var(--muted); font-size: 13px; min-height: 22px; }
+  .av-mini { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; }
+  .ph-hier { font-size: 13px; font-weight: 800; color: var(--f); margin-right: 4px; }
+  .ph-fuss { margin: 14px 0 0; color: var(--muted); font-size: 14px; line-height: 19px; }
+  .ph-ende { display: grid; justify-items: center; text-align: center; gap: 10px; padding-top: 8vh; }
+  .ph-ende .kb-nr { width: 100px; height: 100px; font-size: 56px; border-radius: 26px; }
+  .ph-ende b { font-size: 25px; line-height: 30px; }
+  .ph-ende .ph-titel { font-size: 19px; line-height: 24px; }
+  .ph-ende span { color: var(--muted); font-size: 16px; line-height: 22px; max-width: 34ch; }
+  .ph-ende .ph-titel { color: var(--text); }
+  .ph-ende .pill { margin-top: 12px; min-height: 48px; padding: 0 28px; font-size: 17px; }
 </style>
 </head>
 <body>
@@ -417,6 +439,7 @@
   </div>
 </div>
 
+<div id="phase" hidden></div>
 <div id="overlay"></div>
 <div class="toast" id="toast" role="status"></div>
 
@@ -595,6 +618,7 @@ async function obWeiter() {
   }
   profil = { name: ob.name.trim().slice(0, 50), handle: ob.handle, avatar: { ...ob.avatar } };
   LS.set("profil", profil);
+  phaseAngemeldet = false; // Gruppen bilden: neuen Benutzernamen und Avatar an die Wand melden
   zeigeHome();
 }
 
@@ -674,48 +698,101 @@ function antwortPost(id) {
   return { ...antwortAlsPost(a, stand.raum, antwortStand(id)), bookmarked: lesezeichen.has(id) };
 }
 
-/* Streitfall: Infokarten nach Interesse. Die Lehrkraft öffnet die Verteilung an der Wand; jede Person tippt unter
-   der Antwort, der sie nachgehen will, auf „Diese prüfen“ und holt vorn die Karte mit derselben Nummer. */
-let kartenAendern = false;
+/* Streitfall: Gruppen bilden. Eigene Phase, die Lehrkraft startet und hält sie an der Wand fest. Wer die Phase sieht,
+   meldet sich an (steht dann am Spielfeldrand der Wand) und wählt nach Interesse eine Schlagzeile; die Nummer des
+   Feldes ist die Nummer der Antwort und der Infokarte. Wechseln geht, bis festgehalten wird. */
+let phaseAngemeldet = false, phaseFertigGesehen = false, phaseWaehlt = false, phaseStatus = null;
 function kartenAn() { return kommentarModus() && !!stand.karten?.status; }
 function kartenBannerHtml() {
   const k = stand.karten;
-  if (!kartenAn()) return "";
-  const mein = k.meine ? antworten().find((a) => a.id === k.meine) : null;
-  if (mein && !kartenAendern) {
-    const nr = antwortNr(mein.id);
-    return `<div class="karten-banner gewaehlt"><div class="kb-nr">${nr}</div><div class="kb-text">
-      <b>Deine Infokarte: Nr. ${nr}</b>
-      <span>Zur Antwort von @${esc(mein.handle)}. Hol dir die Karte vorn und prüf sie mit allen, die auch Karte ${nr} haben.</span>
-      ${k.status === "offen" ? `<button class="kb-link" data-act="karte-aendern">Andere Antwort wählen</button>` : ""}</div></div>`;
-  }
-  if (k.status !== "offen") return "";
-  return `<div class="karten-banner"><div class="kb-nr">${icon("search")}</div><div class="kb-text">
-    <b>Faktencheck: Welcher Antwort willst du nachgehen?</b>
-    <span>Tippe unter der Antwort auf „Diese prüfen“. Die Nummer der Antwort ist die Nummer deiner Infokarte.</span>
-    ${mein ? `<button class="kb-link" data-act="karte-behalten">Bei Karte ${antwortNr(mein.id)} bleiben</button>` : ""}</div></div>`;
+  if (!kartenAn() || k.status !== "zu" || !k.meine) return "";
+  const a = antworten().find((x) => x.id === k.meine);
+  if (!a) return "";
+  const nr = antwortNr(a.id);
+  return `<div class="karten-banner gewaehlt"><div class="kb-nr" style="background:${esc(a.c)}">${nr}</div><div class="kb-text">
+    <b>Deine Gruppe: Karte ${nr}</b>
+    <span>${esc(k.titel?.[a.id] ?? "")}. Hol dir vorn die Infokarte ${nr} und prüf sie mit deiner Gruppe.</span></div></div>`;
 }
-function kartenKnopfHtml(id) {
+function personenHtml(liste, max = 9) {
+  return liste.slice(0, max).map((p) => `<span class="av-mini" style="background:${esc(p.c)}" title="@${esc(p.handle)}">${esc(p.e)}</span>`).join("")
+    + (liste.length > max ? `<span>+${liste.length - max}</span>` : "");
+}
+function phaseHtml() {
   const k = stand.karten;
-  if (!kartenAn() || id === ESK || !(id in (k.frei ?? {}))) return "";
-  const nr = antwortNr(id);
-  if (k.meine === id) return `<div class="karte-wahl">${icon("search")}Deine Infokarte: Nr. ${nr}</div>`;
-  if (k.status !== "offen" || (k.meine && !kartenAendern)) return "";
-  return k.frei[id]
-    ? `<button class="note-btn" data-act="karte">${icon("search")}Diese prüfen · Karte ${nr}</button>`
-    : `<div class="karte-wahl voll">Karte ${nr} ist schon vergeben</div>`;
+  const ich = (profil?.handle ?? "").toLowerCase();
+  if (k.status === "offen") {
+    const felder = antworten().filter((a) => a.id !== ESK).map((a, i) => {
+      const leute = (k.gruppen?.[a.id] ?? []).filter((p) => p.handle.toLowerCase() !== ich);
+      const hier = k.meine === a.id;
+      return `<button class="ph-feld${hier ? " mein" : ""}" data-gruppe="${a.id}" style="--f:${esc(a.c)}">
+        <span class="ph-nr">${i + 1}</span><span class="ph-mitte"><span class="ph-titel">${esc(k.titel?.[a.id] ?? "")}</span>
+        <span class="ph-leute">${hier ? `<span class="ph-hier">Du stehst hier</span>` : ""}${personenHtml(leute)}${!hier && !leute.length ? "noch niemand" : ""}</span></span></button>`;
+    }).join("");
+    return `<div class="ph-kopf"><h2>Gruppen bilden</h2><p>Welcher Kritik willst du nachgehen? Tippe auf eine Schlagzeile, am Beamer
+      läuft deine Figur in das Feld. Achtet darauf, dass die Gruppen ungefähr gleich groß sind.</p></div>
+      <div class="ph-liste">${felder}</div>
+      <p class="ph-fuss">${k.meine ? "Wechseln geht, bis die Lehrkraft die Einteilung festhält." : "Du hast noch keine Gruppe gewählt."}</p>`;
+  }
+  const a = antworten().find((x) => x.id === k.meine);
+  if (!a) {
+    return `<div class="ph-ende"><b>Die Gruppen stehen.</b><span>Du hast keine Gruppe gewählt. Frag deine Lehrkraft, wo du mitmachst.</span>
+      <button class="pill pill-blue" data-ph="zu">Zum Thread</button></div>`;
+  }
+  const nr = antwortNr(a.id);
+  const andere = (k.gruppen?.[a.id] ?? []).filter((p) => p.handle.toLowerCase() !== ich).map((p) => "@" + esc(p.handle));
+  return `<div class="ph-ende"><div class="kb-nr" style="background:${esc(a.c)}">${nr}</div><b>Deine Gruppe: Karte ${nr}</b>
+    <span class="ph-titel">${esc(k.titel?.[a.id] ?? "")}</span>
+    <span>${andere.length ? `Mit dir: ${andere.join(", ")}` : "Du bist allein in dieser Gruppe."}</span>
+    <span>Hol dir vorn die Infokarte ${nr}.</span>
+    <button class="pill pill-blue" data-ph="zu">Zum Thread</button></div>`;
 }
-async function waehleKarte(id) {
+function zeigePhase() {
+  const el = $("#phase");
+  const k = stand.karten;
+  /* Nicht über das Profil legen: Wer gerade seinen Benutzernamen ändert, sieht die Phase danach */
+  const zeigen = kartenAn() && $("#onboard").hidden && (k.status === "offen" || (k.status === "zu" && !phaseFertigGesehen));
+  if (!zeigen) {
+    if (!el.hidden) { el.hidden = true; el.innerHTML = ""; el.dataset.sig = ""; document.body.style.overflow = ""; }
+    return;
+  }
+  const html = phaseHtml();
+  if (el.dataset.sig !== html) { el.innerHTML = html; el.dataset.sig = html; }
+  el.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+async function meldeAn() {
+  phaseAngemeldet = true;
   try {
-    const d = await api("/api/karte", { method: "POST", body: { clientId, zu: id } });
-    stand.karten = { ...stand.karten, meine: d.meine };
-    kartenAendern = false;
+    await api("/api/karte", { method: "POST", body: { clientId, zu: null, da: true, handle: profil.handle, avatar: profil.avatar } });
+  } catch (e) {
+    phaseAngemeldet = false;
+    if (e.status !== 423) toast(e.message);
+  }
+}
+async function waehleGruppe(id) {
+  if (phaseWaehlt || !profil) return;
+  phaseWaehlt = true;
+  try {
+    const d = await api("/api/karte", { method: "POST", body: { clientId, zu: id, handle: profil.handle, avatar: profil.avatar } });
+    const ich = { handle: profil.handle, e: profil.avatar.e, c: profil.avatar.c };
+    const gruppen = stand.karten.gruppen ?? {};
+    for (const g of Object.values(gruppen)) {
+      const i = g.findIndex((p) => p.handle.toLowerCase() === ich.handle.toLowerCase());
+      if (i >= 0) g.splice(i, 1);
+    }
+    (gruppen[id] ??= []).push(ich);
+    stand.karten = { ...stand.karten, gruppen, meine: d.meine };
     navigator.vibrate?.(12);
-    render();
-    toast(`Deine Infokarte: Nr. ${antwortNr(id)}. Hol sie dir vorn.`);
+    zeigePhase();
   } catch (e) { toast(e.message); }
+  phaseWaehlt = false;
   lade();
 }
+$("#phase").addEventListener("click", (e) => {
+  const g = e.target.closest("[data-gruppe]");
+  if (g) return waehleGruppe(g.dataset.gruppe);
+  if (e.target.closest('[data-ph="zu"]')) { phaseFertigGesehen = true; zeigePhase(); letzteSig = ""; render(); }
+});
 
 function render() {
   const feed = $("#feed");
@@ -770,7 +847,7 @@ function render() {
       html += `<div class="strang${kommentare.length ? " mit-kommentaren" : ""}">` + postHtml({ ...antwortPost(a.id), replies: kommentare.length }, {
         menu: true, jetzt: jetzt(),
         vorText: anMia,
-        medien: live.map((p) => noteHtml(p.text)).join("") + knopf + (km ? kartenKnopfHtml(a.id) : ""),
+        medien: live.map((p) => noteHtml(p.text)).join("") + knopf,
       });
       if (kommentare.length) {
         html += `<div class="kommentare">${kommentare.map((p) => postHtml({ ...p, bookmarked: lesezeichen.has(p.id) }, {
@@ -844,7 +921,6 @@ $("#neuPill").addEventListener("click", () => {
 
 let ladeT;
 let eskSchon = null; // war die Eskalation beim letzten Laden schon live?
-let kartenSchon = null; // lief die Verteilung der Infokarten beim letzten Laden schon?
 async function lade() {
   clearTimeout(ladeT);
   try {
@@ -855,12 +931,15 @@ async function lade() {
     const esk = (d.raum.antworten ?? []).find((a) => a.id === ESK);
     if (eskSchon === false && esk) toast(`Neue Antwort von @${esk.handle} oben im Thread`);
     eskSchon = !!esk;
-    const kOffen = d.karten?.status === "offen";
-    if (kartenSchon === false && kOffen && !d.karten.meine) {
-      toast("Faktencheck: Tippe unter der Antwort, der du nachgehen willst, auf „Diese prüfen“.");
+    const kSt = d.karten?.status ?? null;
+    if (kSt !== phaseStatus) {
+      phaseFertigGesehen = false;
+      if (kSt !== "offen") phaseAngemeldet = false;
+      if (kSt === "offen" && phaseStatus !== null) navigator.vibrate?.(30);
+      phaseStatus = kSt;
     }
-    kartenSchon = kOffen;
-    if (!kOffen || !d.karten?.meine) kartenAendern = false;
+    if (kSt === "offen" && !phaseAngemeldet && profil) meldeAn();
+    zeigePhase();
     // Posts, die inzwischen gelöscht wurden, nicht mehr als „wartend“ führen
     wartend = wartend.filter((w) => d.posts.some((p) => p.id === w.id));
     if (d.raum.status !== "offen" && !$("#composeWrap").hidden && !bearbeite) schliesseCompose();
@@ -870,7 +949,7 @@ async function lade() {
     if (e.status === 404 || e.status === 423) return zeigeSperre(e.status);
     if (e.status === 503) { kvFehler = e.message; render(); }
   }
-  ladeT = setTimeout(lade, document.hidden ? 15000 : 5000);
+  ladeT = setTimeout(lade, document.hidden ? 15000 : stand.karten?.status === "offen" ? 2000 : 5000);
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden) lade(); });
 window.addEventListener("scroll", () => { if (window.scrollY < 40 && wartend.length) { wartend = []; render(); } }, { passive: true });
@@ -909,11 +988,9 @@ $("#feed").addEventListener("click", async (e) => {
   const art = btn.closest(".post");
   const id = art?.dataset.id;
   const act = btn.dataset.act;
-  if (act === "karte-aendern" || act === "karte-behalten") { kartenAendern = act === "karte-aendern"; return render(); }
   const post = id === "pinned" ? pinPost() : id === KLAR ? klarPost() : antwortPost(id) ?? stand.posts.find((p) => p.id === id);
   if (!post) return;
 
-  if (act === "karte") return waehleKarte(id);
   if (act === "note") return oeffneCompose(null, id);
   if (act === "reply" && kommentarModus()) return antworteAuf(post, id);
   if (act === "like") return like(btn, id);
