@@ -26,6 +26,8 @@ const PIN_ID = "pinned";
 const KLAR_ID = "klarstellung"; // Likes der Klarstellung der Moderation (Streitfall-Räume)
 const MAX_KLAR = 700;
 const ESK_ID = "eskalation"; // Streitfall: vorbereitete Antwort, die die Lehrkraft in der Auswertung live stellt
+/* Streitfall: Für die Verteilung der Infokarten zählen die Geräte, die in den letzten 90 Minuten im Raum waren */
+const KARTEN_FENSTER = 90 * 60 * 1000;
 const BILD_TEIL = 60_000; // KV-Werte dürfen höchstens 64 KiB groß sein
 const BILD_MAX = 2_000_000;
 const BILD_TYPEN = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml"];
@@ -34,6 +36,7 @@ const BILD_TYPEN = ["image/png", "image/jpeg", "image/webp", "image/gif", "image
    alle Schüler*innen dieselbe öffentliche IP. */
 
 type Status = "offen" | "pausiert" | "geschlossen";
+type KartenStatus = "offen" | "zu";
 /* Vorbereitete Antworten unter dem angehefteten Post (Thread-Räume).
    nach = Minuten nach dem angehefteten Post, daraus entsteht die Zeitangabe. */
 type Antwort = { id: string; name: string; handle: string; e: string; c: string; text: string; nach: number };
@@ -336,7 +339,9 @@ async function kopiereBild(kv: Deno.Kv, von: string, nach: string) {
 }
 
 async function loescheRaumDaten(kv: Deno.Kv, code: string, auchRaum: boolean) {
-  for (const p of ["posts", "likes", "handles", "seen", "runde1", "pinfrei", "klarstellung", "eskalation"]) await loescheAlles(kv, [p, code]);
+  for (const p of ["posts", "likes", "handles", "seen", "runde1", "pinfrei", "klarstellung", "eskalation", "karten"]) {
+    await loescheAlles(kv, [p, code]);
+  }
   if (auchRaum) {
     await loescheAlles(kv, ["bild", code]);
     await kv.delete(["rooms", code]);
@@ -401,6 +406,47 @@ function seitenDerNote(p: Post, vonMir: Map<string, Set<string>>, runde1: Runde1
 async function urteileFrei(kv: Deno.Kv, r: Raum): Promise<boolean> {
   if (!r.pinNotes) return false;
   return !!(await kv.get(["pinfrei", r.code, "an"])).value;
+}
+
+/* ---------- Streitfall: Infokarten nach Interesse verteilen ----------
+   Jede Person wählt im Thread die Antwort, der sie nachgehen will, und bekommt die Infokarte mit derselben
+   Nummer (Antwort 1 bis 7). Damit alle Antworten geprüft werden, bleibt die Verteilung ausgeglichen: Bei N Geräten
+   und M Karten hat am Ende jede Karte ⌊N/M⌋ oder ⌊N/M⌋ + 1 Personen. Eine Karte ist gesperrt, sobald sonst
+   eine andere zu wenige bekäme – wie ein leerer Stapel vorn auf dem Tisch. Gespeichert wird nur Gerät → Antwort. */
+function kartenAntworten(r: Raum): Antwort[] {
+  return r.kommentare ? (r.antworten ?? []) : [];
+}
+async function kartenStand(kv: Deno.Kv, code: string) {
+  const status = (await kv.get<KartenStatus>(["karten", code, "status"])).value ?? null;
+  const wahl = new Map<string, string>();
+  for await (const e of kv.list<string>({ prefix: ["karten", code, "wahl"] })) wahl.set(String(e.key[3]), e.value);
+  return { status, wahl };
+}
+function kartenZaehlung(r: Raum, wahl: Map<string, string>): Record<string, number> {
+  const z: Record<string, number> = {};
+  for (const a of kartenAntworten(r)) z[a.id] = 0;
+  for (const id of wahl.values()) if (id in z) z[id]++;
+  return z;
+}
+/* Darf ein Gerät mit der bisherigen Wahl `alt` die Karte `zu` nehmen, bei `n` Geräten im Raum? */
+function karteFrei(z: Record<string, number>, n: number, alt: string | null, zu: string): boolean {
+  const ids = Object.keys(z);
+  if (!ids.includes(zu)) return false;
+  if (alt === zu) return true;
+  const neu = { ...z };
+  if (alt && alt in neu) neu[alt]--;
+  neu[zu]++;
+  const vergeben = Object.values(neu).reduce((s, x) => s + x, 0);
+  const gesamt = Math.max(n, vergeben);
+  const basis = Math.floor(gesamt / ids.length);
+  const extra = gesamt - basis * ids.length;
+  if (neu[zu] > basis + (extra > 0 ? 1 : 0)) return false;
+  if (Object.values(neu).filter((x) => x > basis).length > extra) return false;
+  const fehlen = Object.values(neu).reduce((s, x) => s + Math.max(0, basis - x), 0);
+  return gesamt - vergeben >= fehlen;
+}
+function aktiveGeraete(gesehen: number[], jetzt: number): number {
+  return gesehen.filter((t) => t >= jetzt - KARTEN_FENSTER).length;
 }
 
 /* Handle je Raum reservieren – false, wenn ein anderes Gerät es hat */
@@ -680,7 +726,7 @@ const VORBEREITET: Vorlage[] = [
        (Runde 1 und 2), nach dem Faktencheck mit Infokarten kommentieren die Lernenden mit Beleg; am Ende stellt
        die Lehrkraft als Moderation die Klarstellung der Klasse oben in den Thread. */
     code: "eah12-piaget",
-    stand: 3,
+    stand: 4,
     titel: "Mias Thread: Lerne ich hier gerade Quatsch?",
     klasse: "EAH-12",
     status: "offen",
@@ -732,7 +778,7 @@ const VORBEREITET: Vorlage[] = [
     eh: `## Ablauf (UB, 45 Minuten)
 - Einstieg (3 Min.): „Wir haben alle Argumente gesammelt. Für wie berechtigt halten Sie diese Kritik?“ Mia fragt: „Lerne ich hier gerade Quatsch?“
 - Runde 1 (3 Min.): Like heißt: Diese Kritik halte ich für berechtigt (bewusst ein grobes Spontanurteil). Dann „Runde 1 festhalten“.
-- Faktencheck (6 Min., allein): Infokarte zu der Antwort, bei der man sich am sichersten ist. Erst ein spontaner Einwand, dann die Befunde A bis D selbst einordnen (+ oder –). Ist ein Stapel leer, die nächstsichere Antwort.
+- Faktencheck (6 Min., allein): Knopf „Infokarten verteilen“. Jede Person tippt unter der Antwort, der sie nachgehen will, auf „Diese prüfen“, sieht ihre Kartennummer (= Nummer der Antwort) und holt die Karte vorn (je Nummer drei Exemplare). Volle Karten sind gesperrt, damit alle sieben Antworten geprüft werden. Erst ein spontaner Einwand, dann die Befunde A bis D selbst einordnen (+ oder –). Danach Knopf noch einmal: Verteilung beenden.
 - Prüfen und kommentieren (7 Min., zu zweit oder zu dritt): Raum auf „offen“. Alle mit derselben Karte vergleichen ihre Einordnung, prüfen mit den zwei Fragen und schreiben einen gemeinsamen Kommentar mit Beleg. Wer anders urteilt, antwortet mit eigenem Kommentar.
 - Lesen (4 Min.): den Streit unter den eigenen Likes lesen, Likes behalten oder zurücknehmen. Die Wand zeigt vorher → jetzt.
 - Auswertung (7 Min.): Murmelphase („Was hat Sie umgestimmt, oder warum hält Ihr Urteil?“), dann zwei Streitpunkte fachlich klären. Bei Antwort 7 den Spiegel zeigen (P5, 94 %).
@@ -1067,6 +1113,19 @@ Deno.serve({ port: PORT }, async (req: Request) => {
       const klar = r.kommentare ? (await kv.get<Klarstellung>(["klarstellung", code, "text"])).value ?? null : null;
       const meine = likes.vonMir.get(cid) ?? new Set<string>();
       const aufrufe = (ts: number) => gesehen.filter((s) => s >= ts).length;
+      /* Streitfall: Infokarten (Schüler*innen sehen ihre Wahl und welche Karten noch frei sind, die Lehrkraft die Zahlen) */
+      let karten = null;
+      if (r.kommentare && r.antworten?.length) {
+        const ks = await kartenStand(kv, code);
+        if (ks.status) {
+          const z = kartenZaehlung(r, ks.wahl);
+          const n = aktiveGeraete(gesehen, jetzt);
+          const mein = ks.wahl.get(cid) ?? null;
+          karten = lehrer
+            ? { status: ks.status, zahlen: z, gewaehlt: Object.values(z).reduce((s, x) => s + x, 0), geraete: n }
+            : { status: ks.status, meine: mein, frei: Object.fromEntries(Object.keys(z).map((id) => [id, karteFrei(z, n, mein, id)])) };
+        }
+      }
 
       return json({
         now: jetzt,
@@ -1101,6 +1160,7 @@ Deno.serve({ port: PORT }, async (req: Request) => {
         })),
         geraete: gesehen.length,
         pinFrei,
+        karten,
         klarstellung: klar
           ? {
             text: klar.text,
@@ -1205,6 +1265,48 @@ Deno.serve({ port: PORT }, async (req: Request) => {
       const an = bisher ?? { ts: Date.now() };
       if (!bisher) await kv.set(key, an, { expireIn: LEBENSDAUER });
       return json({ ok: true, eskalation: { an: true, ts: an.ts } });
+    }
+
+    /* Streitfall: Verteilung der Infokarten öffnen, beenden oder zurücksetzen (nur Lehrkraft) */
+    if (rest === "/karten" && (req.method === "POST" || req.method === "DELETE")) {
+      if (!lehrer) return fehler("Nur mit Lehrer-Link.", 403);
+      if (!r.kommentare || !r.antworten?.length) return fehler("Infokarten gibt es nur in Streitfall-Räumen.");
+      if (req.method === "DELETE") {
+        await loescheAlles(kv, ["karten", code]);
+        return json({ ok: true, status: null });
+      }
+      const b = await leseBody(req);
+      const status: KartenStatus = b?.status === "zu" ? "zu" : "offen";
+      await kv.set(["karten", code, "status"], status, { expireIn: LEBENSDAUER });
+      return json({ ok: true, status });
+    }
+
+    /* Streitfall: Infokarte wählen (zu = ID der Antwort) oder Wahl zurücknehmen (zu = null) */
+    if (rest === "/karte" && req.method === "POST") {
+      if (!r.kommentare || !r.antworten?.length) return fehler("Infokarten gibt es nur in Streitfall-Räumen.");
+      const b = await leseBody(req);
+      const cid = einzeilig(b?.clientId, 64);
+      if (!cid) return fehler("Gerätekennung fehlt.");
+      const zu = b?.zu == null ? null : einzeilig(b.zu, 20);
+      const key = ["karten", code, "wahl", cid];
+      /* Optimistisch mit Versionszähler: Greifen zwei Geräte gleichzeitig nach der letzten Karte, gewinnt eines */
+      for (let versuch = 0; versuch < 6; versuch++) {
+        const st = await kv.get<KartenStatus>(["karten", code, "status"]);
+        if (st.value !== "offen") return fehler("Die Infokarten werden gerade nicht verteilt.", 423);
+        const v = await kv.get<number>(["karten", code, "v"]);
+        const { wahl } = await kartenStand(kv, code);
+        let op = kv.atomic().check(st).check(v).set(["karten", code, "v"], (v.value ?? 0) + 1, { expireIn: LEBENSDAUER });
+        if (zu === null) op = op.delete(key);
+        else {
+          const n = aktiveGeraete(await alleGesehen(kv, code), Date.now());
+          if (!karteFrei(kartenZaehlung(r, wahl), n, wahl.get(cid) ?? null, zu)) {
+            return fehler("Diese Karte ist schon vergeben. Wähle eine andere Antwort.", 409);
+          }
+          op = op.set(key, zu, { expireIn: LEBENSDAUER });
+        }
+        if ((await op.commit()).ok) return json({ ok: true, meine: zu });
+      }
+      return fehler("Gerade wählen viele gleichzeitig. Tippe noch einmal.", 409);
     }
 
     /* Neuer Post */

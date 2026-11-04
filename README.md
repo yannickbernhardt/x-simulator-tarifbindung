@@ -27,6 +27,14 @@ Mit ✓ schaltet die Lehrkraft eine Note **live**, dann erscheint sie bei allen 
 Live geschaltete Notes lassen sich nicht mehr bearbeiten. Antworten und Notes-Modus werden nur im Code
 gepflegt; Speichern in der Verwaltung lässt sie unverändert.
 
+## Streitfall: Infokarten nach Interesse
+In Streitfall-Räumen (`kommentare: true`, z. B. `eah12-piaget`) gibt es an der Wand den Knopf **„Infokarten verteilen“**.
+Dann steht auf den Handys unter jeder Antwort „Diese prüfen · Karte N“; die Nummer der Antwort ist die Nummer der
+Infokarte, die vorn liegt. Damit alle Antworten geprüft werden, bleibt die Verteilung ausgeglichen: Bei N Geräten
+(im Raum in den letzten 90 Minuten) und M Karten bekommt jede Karte ⌊N/M⌋ oder ⌊N/M⌋ + 1 Personen, volle Karten
+sind gesperrt. Die Wand zeigt je Antwort „Karte N: Anzahl“. Noch einmal klicken beendet die Verteilung, die Handys
+zeigen weiter ihre Nummer. Gespeichert wird nur Gerät → Antwort (läuft nach 14 Tagen ab, „Neue Runde“ löscht es).
+
 ## Aufbau
 - `main.ts` – Deno-Server (nur Standardbibliothek), alles in Deno KV.
   Posts, Likes und Benutzernamen laufen nach 14 Tagen ab; Räume bleiben.
