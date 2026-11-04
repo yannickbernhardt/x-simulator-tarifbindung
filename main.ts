@@ -719,7 +719,7 @@ const VORBEREITET: Vorlage[] = [
        (Runde 1 und 2), nach dem Faktencheck mit Infokarten kommentieren die Lernenden mit Beleg; am Ende stellt
        die Lehrkraft als Moderation die Klarstellung der Klasse oben in den Thread. */
     code: "eah12-piaget",
-    stand: 7,
+    stand: 8,
     titel: "Mias Thread: Lerne ich hier gerade Quatsch?",
     klasse: "EAH-12",
     status: "offen",
@@ -730,20 +730,20 @@ const VORBEREITET: Vorlage[] = [
       c: "#1D9BF0",
       verifiziert: false,
       text:
-        "Wir haben in der Erzieherausbildung gerade Piaget. Mein Bruder studiert Erziehungswissenschaft und meint, Piaget ist längst überholt, ein Professor hat seine Theorie in zehn Punkten zerlegt. Lerne ich hier gerade Quatsch? 🤔 #Piaget",
+        "Wir haben in der Erzieherausbildung gerade Piaget. Mein Bruder studiert Erziehungswissenschaft und meint, Piaget ist längst überholt, ein Professor hat seine Theorie in zehn Punkten zerlegt. Und dann les ich noch, dass Piaget sich glasklar an seine eigene Entführung erinnert hat, die es nie gab 😳 Lerne ich hier gerade Quatsch? 🤔 #Piaget",
       alt: "",
     },
     antworten: [
       { id: "a1", name: "Jonas | Philosophie", handle: "jonas_denkt", e: "📚", c: "#7856FF", nach: 7,
         text: "Piagets Logik: Das Kind denkt so, weil es in Stufe 2 ist. Und woran erkennt man Stufe 2? Daran, dass es so denkt 🔄 Ein Zirkelschluss, der nichts erklärt." },
       { id: "a2", name: "Petra | Grundschule", handle: "petra_3b", e: "✏️", c: "#00BA7C", nach: 12,
-        text: "Piaget hat sich seine Stufen am Schreibtisch ausgedacht und danach Kinder gesucht, die reinpassen. Erst die Theorie, dann die Kinder 📐" },
+        text: "Piaget hat sich seine Stufen am Schreibtisch ausgedacht und danach Kinder gesucht, die reinpassen. Am liebsten seine eigenen 👀 Erst die Theorie, dann die Kinder 📐" },
       { id: "a3", name: "Sandra", handle: "zwillingsmama_s", e: "👯‍♀️", c: "#F91880", nach: 18,
         text: "Meine Zwillinge sind beide fünf. Er weiß längst, dass beim Umschütten nichts verloren geht, sie nicht. So viel zu Piagets festen Stufen für alle 🙄" },
       { id: "a4", name: "Lea | Psychologie", handle: "lea_psycho", e: "🧠", c: "#FF7A00", nach: 25,
-        text: "Assimilation, Akkommodation, Äquilibration 🤯 Klingt schlau, aber damit kann man hinterher jedes Verhalten erklären. Reines Fachchinesisch 🤷‍♀️" },
+        text: "Assimilation, Akkommodation, Äquilibration 🤯 Sagt einer, der seine Doktorarbeit über Schnecken geschrieben hat 🐌 Klingt schlau, aber damit kann man hinterher jedes Verhalten erklären. Reines Fachchinesisch 🤷‍♀️" },
       { id: "a5", name: "Birgit | Kita-Leitung", handle: "birgit_kita", e: "🏡", c: "#005A9C", nach: 33,
-        text: "Piaget hat Kinder wie Versuchskaninchen behandelt 🐹 Kein Wunder, dass sie bei seinen komischen Fragen danebenlagen. Wer kindgerecht fragt, merkt: Kinder können viel mehr!" },
+        text: "Piaget hat Kinder wie Versuchskaninchen behandelt 🐹 Angefangen hat er in Paris damit, Kinder durch einen Intelligenztest zu schleusen. Kein Wunder, dass sie bei seinen komischen Fragen danebenlagen. Wer kindgerecht fragt, merkt: Kinder können viel mehr!" },
       { id: "a6", name: "Opa Heinz", handle: "opa_heinz", e: "👴", c: "#B5651D", nach: 41,
         text: "Knete, Limo, Pendel: Bei Piaget geht's nur um Physik. Meine Enkelin spielt Kaufladen, verhandelt Preise und tröstet ihre Puppe. DAS ist Denken! 🧸" },
       { id: "a7", name: "Can | Erzieher", handle: "can_erzieher", e: "🗣️", c: "#00A3A3", nach: 52,
@@ -779,7 +779,7 @@ const VORBEREITET: Vorlage[] = [
     ],
     zahlen: [],
     eh: `## Ablauf (UB, 45 Minuten)
-- Einstieg (3 Min.): „Wir haben alle Argumente gesammelt. Für wie berechtigt halten Sie diese Kritik?“ Mia fragt: „Lerne ich hier gerade Quatsch?“
+- Einstieg (3 Min.): „Wir haben alle Argumente gesammelt. Für wie berechtigt halten Sie diese Kritik?“ Mia fragt: „Lerne ich hier gerade Quatsch?“ Ihren Klatsch (die Entführung) noch nicht auflösen, er kommt im Abschluss zurück.
 - Runde 1 (3 Min.): Like heißt: Diese Kritik halte ich für berechtigt (bewusst ein grobes Spontanurteil). Dann „Runde 1 festhalten“.
 - Gruppen bilden (2 Min.): Vorher an der Wand unter „Gruppen bilden“ → „Schlagzeilen“ die Schlagzeilen aus Stunde 1 eintragen. „Gruppenwahl starten“, Hinweis: „Achten Sie darauf, dass die Gruppen ungefähr gleich groß sind.“ Auf den Handys tippen alle die Schlagzeile an, der sie nachgehen wollen; an der Wand laufen die Figuren mit Benutzernamen in ihr Feld. Dann „Einteilung festhalten“: Die Handys zeigen die Nummer der Infokarte (= Nummer der Antwort, je Nummer drei Exemplare vorn).
 - Faktencheck (6 Min., allein): Infokarte holen, vorn eigene Argumente für und gegen die Kritik gegenüberstellen (Wissen aus der Reihe, M1). Erst wer nicht weiterkommt, dreht um: hinten ein Tipp, dann Fragen an die Kritik mit Belegen.
@@ -788,7 +788,7 @@ const VORBEREITET: Vorlage[] = [
 - Auswertung (7 Min.): Murmelphase („Was hat Sie umgestimmt, oder warum hält Ihr Urteil?“), dann zwei Streitpunkte fachlich klären. Bei Antwort 7 den Spiegel zeigen (P5, 94 %).
 - Eskalation (2 Min.): Knopf „Eskalation“. Mias Bruder antwortet, der Kommentar steht oben im Thread, auf allen Handys. „Stimmt das?“ Zwei, drei spontane Reaktionen.
 - Moderation (8 Min.): „Dieser Thread eskaliert, die Moderation greift ein.“ Klarstellung in drei Sätzen (berechtigt, übertrieben, nicht haltbar), an der Wand mitschreiben, live stellen.
-- Abschluss (3 Min.): mündlich „Was antworten Sie Mia, und was ihrem Bruder?“ Auch abweichende Antworten zulassen. (Die 2 Minuten für „Gruppen bilden“ kommen aus dem Puffer.)
+- Abschluss (3 Min.): mündlich „Was antworten Sie Mia, und was ihrem Bruder?“ Auch abweichende Antworten zulassen. Mias Klatsch aufgreifen: Die Entführung stimmt, sie war erfunden (Piaget, 1969, S. 240 f.), über seine Theorie sagt sie nichts. (Die 2 Minuten für „Gruppen bilden“ kommen aus dem Puffer.)
 
 ## Diagnose (Ankerpunkt, 02.11., 16 Abgaben)
 - P5 „Ein Kind entwickelt sein Denken vor allem allein, indem es selbst ausprobiert“: 94 % → Can (Antwort 7) in Runde 1 eher wenige Likes, nach dem Faktencheck mehr. **Spiegel:** „94 % von Ihnen haben gesagt, ein Kind entwickelt sein Denken vor allem allein. Genau das kritisiert Can.“
@@ -806,6 +806,7 @@ const VORBEREITET: Vorlage[] = [
 ## Antwort 2 · @petra_3b · Punkt 4, Schreibtisch · stimmt eher nicht
 - M1, Z. 1–5 und 45–51 (eigene Kinder), Z. 78–79 und 96–97 (Antworten der Kinder); dagegen M1, Z. 101–103 und M9, Z. 39–40
 - **Kommentar:** „Stimmt eher nicht: Piaget beobachtete jahrelang seine drei Kinder und befragte viele Kinder (M1, Z. 1–5, 45–51). Richtig ist, dass er die Stufen nach logischen Operationen benennt (M1, Z. 101–103).“
+- Klatsch „Am liebsten seine eigenen“: stimmt fürs Säuglingsalter (M1, Z. 1–3; Garz, 2006, S. 52), für die Stadien befragte er viele Kinder (M1, Z. 3–5). Spricht gegen den Schreibtisch: Wer jahrelang beobachtet, hat nicht erst die Theorie.
 
 ## Antwort 3 · @zwillingsmama_s · Punkt 5, feste Stufen · Schluss folgt nicht
 - M1, Z. 21–24 (Richtwerte), Z. 9–10 (Reihenfolge), Z. 24–29 (horizontale Verschiebung); M9, Z. 49–53
@@ -815,11 +816,13 @@ const VORBEREITET: Vorlage[] = [
 ## Antwort 4 · @lea_psycho · Punkt 6, vage Begriffe · stimmt teilweise
 - M9, Z. 59–73; M1, Z. 12–20; eigenes Beispiel, etwa aus dem Fall Derek
 - **Kommentar:** „Teilweise: Die Begriffe sind abstrakt und lassen sich leicht im Nachhinein anwenden (M9, Z. 59–73). Sie sind aber genau bestimmt: Eine neue Erfahrung ins Schema einordnen heißt Assimilation (M1, Z. 12–20).“
+- Klatsch Schnecken: stimmt, Piaget promovierte 1918 über die Weichtiere des Wallis (Garz, 2006, S. 52). Folgt nicht: Gerade aus der Biologie stammt die Anpassung, die er in Assimilation und Akkommodation unterteilt (Garz, 2006, S. 83).
 
 ## Antwort 5 · @birgit_kita · Punkt 7, Kind als Versuchsobjekt · stimmt teilweise
 - Light u. a., 1979 (Einstieg: 5 zu 70 von 100); McGarrigle/Donaldson, 1974 (frecher Teddy, rund 16 zu 62 %); Hughes, 1975, nach Donaldson, 1978 (Polizisten-Versuch, rund 90 %); dagegen M1, Z. 96–97 und 110–114 (Begründungen), Z. 30–31 (konkrete Operationen mit sieben bis acht)
 - **Kommentar:** „Teilweise: Fragt man kindgerecht, sagen viel mehr Kinder „gleich viel“, beiläufig im Spiel 70 statt 5 von 100 (Light u. a., 1979). Piaget ließ Kinder aber begründen (M1, Z. 110–114), und „gleich viel“ allein zeigt noch keine Invarianz.“
 - Für die Auswertung: Präkonzept P2 (Können und Zeigen; die Klasse lehnt P2 ab, begründet aber meist mit „ein Kind denkt immer“), Rückbezug zum Einstieg.
+- Klatsch Paris: stimmt, er sollte dort einen Intelligenztest an Kindern prüfen (Garz, 2006, S. 52). Spricht aber gegen das Versuchskaninchen: Ihn interessierte, wie die Kinder zu ihren falschen Antworten kamen, daraus entstand die Befragung mit Warum-Fragen.
 
 ## Antwort 6 · @opa_heinz · Punkt 8, nur Physik · stimmt teilweise
 - M1, Z. 26–29, 85–89, 148–158; M9, Z. 83–100; dagegen M1, Z. 64–67 (Symbolspiel), Z. 75–77, Z. 159–163; Garz, 2006, S. 60 ff. (Murmelspiel)
@@ -840,13 +843,14 @@ const VORBEREITET: Vorlage[] = [
 
 ## Klarstellung der Moderation · Beispiel
 - „Berechtigt ist: Gespräch und Kultur kommen bei Piaget zu kurz, und seine Aufgaben unterschätzen Kinder oft (Light u. a., 1979). Übertrieben ist: Die Altersangaben sind nur Richtwerte, und das Spiel hat Piaget selbst untersucht (M1, Z. 21–24, 64–67). Nicht haltbar ist: Widerlegt ist Piaget nicht, und ausgedacht hat er sich die Stufen auch nicht, er hat Kinder beobachtet und befragt (M1, Z. 1–5).“
-- Für den Abschluss: Mia lernt keinen Quatsch, aber auch nicht das letzte Wort. Bezug: Präkonzept P6 der Ankerpunkt-Diagnose.
+- Für den Abschluss: Mia lernt keinen Quatsch, aber auch nicht das letzte Wort. Bezug: Präkonzept P6 der Ankerpunkt-Diagnose. Zu Mias Klatsch: „Die Entführung stimmt, aber sie sagt nichts über seine Theorie.“
 
 ## Typische Fehler
 - Einzelfall als Beweis übernommen (Zwillinge, Enkelin) oder umgekehrt als Gegenbeweis
 - „nur“, „nichts“, „Fehlanzeige“ nicht geprüft
 - Kommentar ohne Beleg oder mit einer Zeile, die nicht passt
 - Like aus Sympathie für den Account statt für die Sache
+- Klatsch über Piaget als Argument gegen die Theorie genommen (stimmt meist, folgt aber nicht)
 - Antwort 7 „widerlegt“, obwohl sie weitgehend stimmt
 - Altersangaben als feste Grenzen gelesen`,
   },
