@@ -330,6 +330,24 @@ p { margin: 0; }
 .vergleich td:not(:first-child), .vergleich th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
 .vergleich tr.jetzt td { font-weight: 700; }
 
+/* ---------- Ablaufdiagramm ---------- */
+.ablauf { margin: 14px 0 0; background: #fff; border-radius: var(--rund); box-shadow: 0 0 0 1px var(--linie); overflow: hidden; }
+.ablauf svg { width: 100%; height: auto; }
+.bildzeile { margin-top: 8px; font-size: 14.5px; color: var(--tinte-2); }
+.ablauf-klapp { margin-top: 14px; background: var(--flaeche); border: 1px solid var(--linie); border-radius: var(--rund); }
+.ablauf-klapp summary { cursor: pointer; padding: 11px 14px; font-family: var(--titel); font-weight: 700; font-size: 18px; line-height: 1.2; list-style: none; display: flex; align-items: center; gap: 12px; min-height: 46px; }
+.ablauf-klapp summary::-webkit-details-marker { display: none; }
+.ablauf-klapp summary::before { content: ""; flex: 0 0 auto; width: 8px; height: 8px; margin-left: 2px; border-right: 2.5px solid var(--tinte); border-bottom: 2.5px solid var(--tinte); transform: rotate(-45deg); transition: transform .2s; }
+.ablauf-klapp[open] summary::before { transform: rotate(45deg); }
+.ablauf-klapp .ablauf { margin: 0 10px 10px; }
+.ablauf-schritt { margin-top: 18px; }
+.ablauf-titel { font-size: 16px; }
+.ablauf-schritt .ablauf { margin-top: 8px; }
+.ablauf .zeichnen .lin { stroke-dasharray: 420; stroke-dashoffset: 420; animation: zeichnen .9s ease-out forwards; }
+.ablauf .zeichnen .spitze, .ablauf .zeichnen .funke { animation: einblenden .35s .8s both; }
+.ablauf .einblenden { animation: einblenden .5s ease both; }
+h3.zwischen { margin-top: 22px; font-size: 21px; }
+
 /* ---------- Bewegung reduzieren ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
@@ -947,10 +965,91 @@ p { margin: 0; }
     };
   }
 
+  /* ---------- Ablaufdiagramm: eine Spalte je Stelle, eine Zeile je Schritt ----------
+     ein: Nummer der Übergabe (Index der Station), die in diese Zeile führt.
+     Ohne ein ist die Verbindung kein Entscheidungspunkt des Spiels. */
+  const SPALTEN = [
+    { id: "kundin", name: "Kundin", person: "bruening" },
+    { id: "chef", name: "Chef", person: "bernd" },
+    { id: "buero", name: "Büro", person: "lena" },
+    { id: "meister", name: "Meister", person: "kaya" },
+    { id: "lager", name: "Lager", person: "kroeger" },
+    { id: "monteur", name: "Monteur", person: "tobias" },
+  ];
+  const ABLAUF = [
+    { spalte: "kundin", text: "Anruf" },
+    { spalte: "monteur", text: "Anfrage", station: 1 },
+    { spalte: "buero", text: "Termin für das Aufmaß", ein: 0 },
+    { spalte: "meister", text: "Aufmaß", station: 2 },
+    { spalte: "buero", text: "Angebot", station: 3, ein: 1 },
+    { spalte: "kundin", text: "Angebot annehmen", ein: 2 },
+    { spalte: "buero", text: "Auftrag", station: 4 },
+    { spalte: "meister", text: "Arbeitsvorbereitung", station: 5, ein: 3 },
+    { spalte: "lager", text: "Material bestellen", ein: 4 },
+    { spalte: "monteur", text: "Montage", station: 6, ein: 4 },
+    { spalte: "monteur", text: "Unterlagen", station: 7, ein: 5 },
+    { spalte: "buero", text: "Rechnung", station: 8, ein: 6 },
+    { spalte: "kundin", text: "Wallbox läuft", ein: 7 },
+  ];
+  /* Gelbe Umwege erscheinen als zusätzlicher Schritt in einer anderen Spalte */
+  const UMWEGE = {
+    1: { chef: { spalte: "chef", text: "Umweg über den Chef" } },
+    2: { papier: { spalte: "meister", text: "Checkliste im Wagen" } },
+    3: { chef: { spalte: "chef", text: "Freigabe beim Chef" } },
+    4: { postfach: { spalte: "meister", text: "Liegt im Postfach" } },
+    5: { selbst: { spalte: "monteur", text: "Abholung Großhandel", ersetzt: true } },
+    6: { warten: { spalte: "meister", text: "Warten auf Kaya" } },
+    7: { kaya: { spalte: "meister", text: "Mappe bei Kaya" } },
+    8: { chef: { spalte: "chef", text: "Freigabe beim Chef" } },
+  };
+
+  /* Zeilen des Diagramms. Ohne Spielstand: geplanter Ablauf. Mit Spielstand: tatsächlicher Weg. */
+  function ablaufZeilen(s) {
+    const zeilen = [];
+    const ersteMitEin = {};
+    ABLAUF.forEach((z, i) => { if (z.ein !== undefined && ersteMitEin[z.ein] === undefined) ersteMitEin[z.ein] = i; });
+    ABLAUF.forEach((z, i) => {
+      if (s && z.ein !== undefined && ersteMitEin[z.ein] === i) {
+        const st = STATIONEN[z.ein];
+        const wahl = s.wahl[z.ein];
+        const um = wahl && UMWEGE[st.nr] && UMWEGE[st.nr][wahl];
+        if (um) {
+          zeilen.push({ spalte: um.spalte, text: um.text, extra: true, ein: z.ein });
+          if (um.ersetzt) return;
+        }
+      }
+      zeilen.push(Object.assign({}, z));
+    });
+    /* Zustand jeder Verbindung und jedes Schritts */
+    const schritt = s ? s.schritt : null;              /* entschiedene Stationen */
+    const gebrochen = {};
+    let erreichtBis = -1;
+    if (s) {
+      const aktuelleNr = Math.min(schritt + 1, 9);
+      zeilen.forEach((z, i) => { if (z.station && z.station <= Math.min(aktuelleNr, 8)) erreichtBis = i; });
+      if (schritt >= 8) erreichtBis = zeilen.length - 1;
+    }
+    zeilen.forEach((z, i) => {
+      if (z.station) z.stand = !s ? "soll" : z.station <= schritt ? "erledigt" : z.station === schritt + 1 ? "aktuell" : "kommt";
+      else z.stand = !s ? "soll" : i <= erreichtBis ? "erledigt" : "kommt";
+      if (i === 0) return;
+      if (!s) { z.linie = "soll"; return; }
+      if (z.ein !== undefined) {
+        const zustand = s.segmente[z.ein].zustand;
+        z.linie = zustand;
+        if (zustand === "rot" && !gebrochen[z.ein]) { z.bruch = true; gebrochen[z.ein] = true; }
+      } else {
+        z.linie = i <= erreichtBis ? "neutral" : "offen";
+      }
+    });
+    return zeilen;
+  }
+
   const Motor = {
     START, AUTO_TAG, GEWINN_GEPLANT, PERSONEN, FARBEN, STATIONEN, NACHSPIEL, BESCHWERDE_AB,
+    SPALTEN, ABLAUF, UMWEGE,
     datumVon, kalender, datum, datumKurz, kalendertage, tageText, euro,
-    neuesSpiel, entscheiden, nachspielEntscheiden, lobAbschliessen, bilanz,
+    neuesSpiel, entscheiden, nachspielEntscheiden, lobAbschliessen, bilanz, ablaufZeilen,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = Motor;
   else wurzel.Motor = Motor;
@@ -1667,7 +1766,115 @@ p { margin: 0; }
     return out + `</svg>`;
   }
 
-  window.Bilder = { szene, beschreibung, avatar, icon, stern, punkt, adern, segmentIcon, segmentSenkrecht, leitung, figur };
+  /* ---------- Ablaufdiagramm: Spalten = Stellen, Zeilen = Schritte ---------- */
+  let diagrammNr = 0;
+  function kopfbild(name, cx, cy, r, id) {
+    const p = LEUTE[name];
+    const grund = { tobias: "#d7e1ec", kaya: "#dbe3e9", lena: "#e6deea", bernd: "#e1e3e4", bruening: "#ece2d6", kroeger: "#e3e6e4" }[name];
+    const s = r / 30;
+    return `<clipPath id="${id}"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath>
+      <g clip-path="url(#${id})"><circle cx="${cx}" cy="${cy}" r="${r}" fill="${grund}"/>
+      <g transform="translate(${cx - 30 * s} ${cy - 30 * s}) scale(${s})">
+        <path d="M8 62 C8 48 16 42 24 42 L36 42 C44 42 52 48 52 62 Z" fill="${p.oben}"/>
+        <rect x="25.5" y="36" width="9" height="8" rx="2" fill="${schattieren(p.haut, -0.08)}"/>
+        <g transform="translate(30 25) scale(1.38)">${kopf(p)}</g></g></g>
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#fff" stroke-width="1.5"/>`;
+  }
+  const LINIE = {
+    soll: { c: "#535c61", w: 2 }, neutral: { c: "#7b8489", w: 2 }, offen: { c: "#c9cfca", w: 1.6, d: "2 3" },
+    wartet: { c: "#7b8489", w: 2.2, d: "3 3" }, gruen: { c: F.gruen, w: 3.4 }, gelb: { c: F.gelb, w: 3.4 }, rot: { c: F.rot, w: 3.4 },
+  };
+  function ablaufdiagramm(zeilen, spalten, opt) {
+    opt = opt || {};
+    const id = "ad" + ++diagrammNr;
+    const B = 400, L = 134, lw = (B - L) / spalten.length, kh = 54, rh = 27;
+    const sx = {};
+    spalten.forEach((sp, i) => { sx[sp.id] = L + lw * (i + 0.5); });
+    const cy = zeilen.map((_, i) => kh + rh * (i + 0.5));
+    const radius = (z) => (z.station ? 10 : z.extra ? 6.5 : 4.5);
+    const neu = opt.neu || [];
+    let koerper = "";
+    /* Spaltenflächen */
+    spalten.forEach((sp, i) => { koerper += `<rect x="${L + lw * i}" y="${kh}" width="${lw}" height="${rh * zeilen.length}" fill="${i % 2 ? "#fafbf9" : "#f1f3f0"}"/>`; });
+    zeilen.forEach((z, i) => { if (i) koerper += `<path d="M0 ${kh + rh * i} H${B}" stroke="#e6e9e5" stroke-width="1"/>`; });
+    /* Verbindungen */
+    zeilen.forEach((z, i) => {
+      if (!i) return;
+      const a = zeilen[i - 1];
+      const xa = sx[a.spalte], ya = cy[i - 1] + radius(a), xb = sx[z.spalte], yb = cy[i] - radius(z) - 2.5;
+      const ym = (cy[i - 1] + cy[i]) / 2;
+      const st = LINIE[z.linie] || LINIE.soll;
+      const strich = `stroke="${st.c}" stroke-width="${st.w}" fill="none" stroke-linecap="round" stroke-linejoin="round"${st.d ? ` stroke-dasharray="${st.d}"` : ""}`;
+      let pfad = "", funke = "";
+      if (z.bruch) {
+        if (Math.abs(xa - xb) < 0.5) {
+          pfad = `<path class="lin" d="M${xa} ${ya} V${ym - 5}" ${strich}/><path class="lin" d="M${xa} ${ym + 5} V${yb}" ${strich}/>`;
+          funke = `<path class="funke" d="M${xa - 6} ${ym - 2} L${xa - 1} ${ym + 1.5} L${xa + 1} ${ym - 1.5} L${xa + 6} ${ym + 2}" stroke="${F.rot}" stroke-width="1.7" fill="none" stroke-linecap="round"/>`;
+        } else {
+          const xm = (xa + xb) / 2, dir = xb > xa ? 1 : -1;
+          pfad = `<path class="lin" d="M${xa} ${ya} V${ym} H${xm - 5 * dir}" ${strich}/><path class="lin" d="M${xm + 5 * dir} ${ym} H${xb} V${yb}" ${strich}/>`;
+          funke = `<path class="funke" d="M${xm - 2} ${ym - 6} L${xm + 1.5} ${ym - 1} L${xm - 1.5} ${ym + 1} L${xm + 2} ${ym + 6}" stroke="${F.rot}" stroke-width="1.7" fill="none" stroke-linecap="round"/>`;
+        }
+      } else {
+        const d = Math.abs(xa - xb) < 0.5 ? `M${xa} ${ya} V${yb}` : `M${xa} ${ya} V${ym} H${xb} V${yb}`;
+        pfad = `<path class="lin" d="${d}" ${strich}/>`;
+      }
+      const spitze = `<path class="spitze" d="M${xb - 4} ${yb - 3.5} L${xb + 4} ${yb - 3.5} L${xb} ${yb + 2.5} Z" fill="${st.c}"/>`;
+      const anim = z.ein !== undefined && neu.includes(z.ein) ? (st.d ? "einblenden" : "zeichnen") : "";
+      koerper += `<g class="${anim}">${pfad}${funke}${spitze}</g>`;
+    });
+    /* Schritte */
+    zeilen.forEach((z, i) => {
+      const y = cy[i], x = sx[z.spalte];
+      const leise = z.stand === "kommt";
+      /* Beschriftung links */
+      if (z.station) {
+        const f = z.stand === "aktuell" ? F.blau : leise ? "#c3c9c5" : F.tinte;
+        koerper += `<rect x="4" y="${y - 8.5}" width="17" height="17" rx="3.5" fill="${f}"/>${text(12.5, y + 4.4, String(z.station), { g: 12, anker: "middle", f: "#fff" })}`;
+        koerper += text(27, y + 4.5, z.text, { g: 12.5, f: leise ? "#8a9499" : F.tinte });
+      } else if (z.extra) {
+        koerper += `<rect x="8.5" y="${y - 4}" width="8" height="8" transform="rotate(45 12.5 ${y})" fill="${z.linie === "gelb" ? F.gelb : "#9aa3a6"}"/>`;
+        koerper += text(27, y + 4.2, z.text, { g: 11.5, w: 600, f: z.linie === "gelb" ? "#7a5300" : "#535c61" });
+      } else {
+        koerper += `<circle cx="12.5" cy="${y}" r="3.2" fill="#fff" stroke="${leise ? "#c3c9c5" : "#7b8489"}" stroke-width="1.4"/>`;
+        koerper += text(27, y + 4.2, z.text, { g: 11.5, w: 600, f: leise ? "#a3abaf" : "#535c61" });
+      }
+      /* Hilfslinie von der Beschriftung zur Spalte */
+      koerper += `<path d="M${L + 2} ${y} H${x - radius(z) - 3}" stroke="#d6dcd7" stroke-width="1" stroke-dasharray="1.5 3"/>`;
+      /* Zeichen in der Spalte */
+      if (z.station) {
+        const fuell = z.stand === "erledigt" ? F.tinte : z.stand === "aktuell" ? F.blau : "#fff";
+        const rand = z.stand === "kommt" ? "#c3c9c5" : z.stand === "aktuell" ? F.blau : F.tinte;
+        const zahl = z.stand === "erledigt" || z.stand === "aktuell" ? "#fff" : z.stand === "kommt" ? "#a3abaf" : F.tinte;
+        if (z.stand === "aktuell") koerper += `<circle cx="${x}" cy="${y}" r="14.5" fill="none" stroke="${F.blau}" stroke-width="1.6" opacity=".35"/>`;
+        koerper += `<circle cx="${x}" cy="${y}" r="10" fill="${fuell}" stroke="${rand}" stroke-width="2"/>${text(x, y + 4.3, String(z.station), { g: 12.5, anker: "middle", f: zahl })}`;
+      } else if (z.extra) {
+        koerper += `<rect x="${x - 5}" y="${y - 5}" width="10" height="10" transform="rotate(45 ${x} ${y})" fill="${z.linie === "gelb" ? F.gelb : "#9aa3a6"}" stroke="#fff" stroke-width="1.2"/>`;
+      } else {
+        koerper += `<circle cx="${x}" cy="${y}" r="4.5" fill="#fff" stroke="${z.stand === "kommt" ? "#c3c9c5" : F.tinte}" stroke-width="1.8"/>`;
+      }
+    });
+    /* Kopf mit den Stellen */
+    let kopfteil = `<rect x="0" y="0" width="${B}" height="${kh}" fill="#e6e9e4"/>${text(6, kh - 10, "Schritt", { g: 11.5, w: 600, f: "#535c61" })}`;
+    spalten.forEach((sp, i) => {
+      const x = sx[sp.id];
+      kopfteil += kopfbild(sp.person, x, 20, 13, `${id}k${i}`) + text(x, kh - 8, sp.name, { g: 11, anker: "middle" });
+      kopfteil += `<path d="M${L + lw * i} 0 V${kh}" stroke="#d3d8d3" stroke-width="1"/>`;
+    });
+    /* Ausschnitt oder ganzes Diagramm */
+    const von = opt.ausschnitt ? opt.ausschnitt[0] : 0;
+    const bis = opt.ausschnitt ? opt.ausschnitt[1] : zeilen.length - 1;
+    const y0 = cy[von] - rh / 2, y1 = opt.ausschnitt ? cy[bis] + 16 : cy[bis] + rh / 2;
+    const hoehe = kh + (y1 - y0);
+    return `<svg viewBox="0 0 ${B} ${hoehe}" aria-hidden="true" focusable="false">
+      <clipPath id="${id}c"><rect x="0" y="${kh}" width="${B}" height="${hoehe - kh}"/></clipPath>
+      <g clip-path="url(#${id}c)"><g transform="translate(0 ${kh - y0})">${koerper}</g></g>
+      ${kopfteil}
+      <path d="M0 ${kh} H${B}" stroke="#cdd3ce" stroke-width="1.2"/>
+    </svg>`;
+  }
+
+  window.Bilder = { szene, beschreibung, avatar, icon, stern, punkt, adern, segmentIcon, segmentSenkrecht, leitung, figur, ablaufdiagramm };
 })();
 
 </script>
@@ -1792,6 +1999,26 @@ p { margin: 0; }
     document.getElementById("leitung").innerHTML = B.leitung(s.segmente, aktuell, ruhig ? [] : neu);
   }
 
+  /* ---------- Ablaufdiagramm ---------- */
+  const spaltenName = (id) => M.SPALTEN.find((sp) => sp.id === id).name;
+  function ablaufBeschreibung(zeilen) {
+    return "Ablaufdiagramm mit den Spalten " + M.SPALTEN.map((sp) => sp.name).join(", ") + ". " +
+      zeilen.map((z) => (z.station ? `Station ${z.station} ${z.text}` : z.text) + ` (${spaltenName(z.spalte)})`).join(", danach ") + ".";
+  }
+  /* Zeilen von der gerade entschiedenen Station bis zur nächsten */
+  function wegAbschnitt(zeilen, stationNr) {
+    const von = zeilen.findIndex((z) => z.station === stationNr);
+    let bis = zeilen.findIndex((z) => z.station === stationNr + 1);
+    if (bis < 0) bis = zeilen.length - 1;
+    const namen = [];
+    for (let i = von; i <= bis; i++) {
+      const n = spaltenName(zeilen[i].spalte);
+      if (namen[namen.length - 1] !== n) namen.push(n);
+    }
+    const text = namen.length > 1 ? namen.join(" → ") : `bleibt beim ${namen[0]}`;
+    return { von, bis, text };
+  }
+
   /* ---------- Start ---------- */
   function zeigeStart() {
     const laufend = daten.spiel && !daten.spiel.fertig;
@@ -1818,6 +2045,14 @@ p { margin: 0; }
         </div>
 
         <div class="block">
+          <h2>Der Ablauf bei Terhorst</h2>
+          <p>Das Organigramm regelt, wer wofür zuständig ist. Das ist die <b>Aufbauorganisation</b>. In welcher Reihenfolge ein Auftrag von Stelle zu Stelle läuft, regelt die <b>Ablauforganisation</b>.</p>
+          <p>Das Ablaufdiagramm zeigt den geplanten Weg dieses Auftrags. Jede Spalte ist eine Stelle aus dem Organigramm, jede Zeile ein Schritt. Wechselt der Auftrag die Spalte, wird er übergeben. Diese Übergaben heißen <b>Schnittstellen</b>.</p>
+          <figure class="ablauf" role="img" aria-label="${esc(ablaufBeschreibung(M.ablaufZeilen(null)))}">${B.ablaufdiagramm(M.ablaufZeilen(null), M.SPALTEN)}</figure>
+          <p class="bildzeile">Die Spalte Chef bleibt leer: Im geplanten Ablauf kommt er nicht vor. An den nummerierten Stationen entscheiden Sie.</p>
+        </div>
+
+        <div class="block">
           <h2>Ihr Ziel</h2>
           <ul class="ziele">
             <li><span class="ic-gross">${B.icon("auto")}</span><span>Die Wallbox läuft, bevor am 7. Dezember das Auto kommt.</span></li>
@@ -1829,15 +2064,15 @@ p { margin: 0; }
         <div class="block">
           <h2>So spielen Sie</h2>
           <ul class="regeln">
-            <li>${B.icon("weiche")}<span>An jeder Station wählen Sie eine von drei Möglichkeiten. Alle drei kommen in Betrieben wirklich vor.</span></li>
+            <li>${B.icon("weiche")}<span>Sie durchlaufen den Ablauf Station für Station. An jeder Station wählen Sie eine von drei Möglichkeiten. Alle drei kommen in Betrieben wirklich vor.</span></li>
             <li>${B.icon("blitz")}<span>Jede Entscheidung hat Folgen. Manche zeigen sich sofort, manche erst ein paar Stationen später.</span></li>
-            <li>${B.icon("stift")}<span>Spielen Sie allein. Am Ende tragen Sie Ihr Ergebnis ins Spielprotokoll ein.</span></li>
+            <li>${B.icon("stift")}<span>Spielen Sie allein. Am Ende kreuzen Sie Ihr Ergebnis in M1 auf dem Arbeitsblatt an.</span></li>
           </ul>
         </div>
 
         <div class="block">
-          <h2>Die Leitung</h2>
-          <p>Oben im Bild sehen Sie den Weg des Auftrags als Leitung. Jede Übergabe färbt sich, sobald klar ist, wie sie gelaufen ist.</p>
+          <h2>Die Farben der Übergaben</h2>
+          <p>Oben im Bild läuft der Ablauf als Leitung mit. Jede Übergabe färbt sich, sobald klar ist, wie sie gelaufen ist. Umwege erscheinen im Ablaufdiagramm als zusätzlicher Schritt.</p>
           <ul class="legende">
             <li>${B.segmentIcon("gruen")}<div><b>${M.FARBEN.gruen.name}</b><span>${M.FARBEN.gruen.lang}</span></div></li>
             <li>${B.segmentIcon("gelb")}<div><b>${M.FARBEN.gelb.name}</b><span>${M.FARBEN.gelb.lang}</span></div></li>
@@ -1924,6 +2159,10 @@ p { margin: 0; }
           <div><h1>${esc(st.titel)}</h1><span class="von">Station ${st.nr} von 8</span></div>
         </div>
         ${rollenZeile(st.rolle, wann, st.ort)}
+        <details class="ablauf-klapp">
+          <summary>Wo steht der Auftrag im Ablauf?</summary>
+          <figure class="ablauf" role="img" aria-label="${esc(ablaufBeschreibung(M.ablaufZeilen(s)))}">${B.ablaufdiagramm(M.ablaufZeilen(s), M.SPALTEN)}</figure>
+        </details>
         <figure class="szene" role="img" aria-label="${esc(B.beschreibung(st.bild, s))}">${B.szene(st.bild, s)}</figure>
         <p class="situation">${esc(st.situation(s))}</p>
         ${optionenHTML(s.reihenfolge[s.schritt], st.optionen, st.frage)}
@@ -1994,6 +2233,15 @@ p { margin: 0; }
     const naechste = s.schritt < 8 ? M.STATIONEN[s.schritt] : null;
     const spanne = n === 0 ? "Am selben Tag" : n === 1 ? "Einen Arbeitstag später" : `${n} Arbeitstage später`;
     const weiterText = naechste ? `Weiter zu Station ${naechste.nr}: ${naechste.titel}` : "Weiter: Post von Frau Brüning";
+    const seg = sp.station - 1;
+    const weg = wegAbschnitt(M.ablaufZeilen(s), sp.station);
+    /* vor dem Aufdecken: Übergabe dieser Station noch offen */
+    function ausschnittSVG(fertig, animiert) {
+      const stand = fertig ? s : Object.assign({}, s, { segmente: s.segmente.map((g, j) => (j === seg ? { zustand: "offen" } : g)) });
+      const zeilen = M.ablaufZeilen(stand);
+      const w = wegAbschnitt(zeilen, sp.station);
+      return B.ablaufdiagramm(zeilen, M.SPALTEN, { ausschnitt: [w.von, w.bis], neu: animiert ? [seg] : [] });
+    }
 
     /* Kopf zeigt erst den Stand vor der Entscheidung, dann Karte für Karte */
     const vorher = sp.vorher || { tag: sp.von, kosten: angezeigt.kosten, sterne: angezeigt.sterne };
@@ -2010,6 +2258,10 @@ p { margin: 0; }
             <p class="wann">${esc(M.datum(sp.bis))}</p>
           </div>
         </div>
+        <div class="ablauf-schritt">
+          <p class="ablauf-titel"><b>Im Ablauf:</b> ${esc(weg.text)}</p>
+          <figure class="ablauf" id="ablauf-ausschnitt" role="img" aria-label="${esc("Ausschnitt aus dem Ablaufdiagramm: " + weg.text)}">${ausschnittSVG(false)}</figure>
+        </div>
         <div class="ihre-wahl"><span>Ihre Entscheidung an Station ${sp.station}</span><p>${esc(sp.wahl)}</p></div>
         <ol class="karten" id="karten">${karten.map(karteHTML).join("")}</ol>
         <div class="klebt" id="weiter-rahmen" ${frisch && !ruhig ? "hidden" : ""}><button class="los" id="weiter">${esc(weiterText)}</button></div>
@@ -2023,6 +2275,7 @@ p { margin: 0; }
 
     const kartenEls = Array.from(document.querySelectorAll("#karten .karte"));
     const alleZeigen = () => {
+      document.getElementById("ablauf-ausschnitt").innerHTML = ausschnittSVG(true, false);
       kartenEls.forEach((el) => el.classList.remove("verborgen"));
       const letzte = karten[karten.length - 1];
       if (letzte) kopfSetzen(letzte.stand, s, false);
@@ -2058,6 +2311,7 @@ p { margin: 0; }
         el.classList.add("zeigen");
         const k = karten[i];
         kopfSetzen(k.stand, i === kartenEls.length - 1 ? s : Object.assign({}, s, { montageTag: k.art === "auto" ? s.montageTag : null }), true);
+        if (k.art === "ergebnis") document.getElementById("ablauf-ausschnitt").innerHTML = ausschnittSVG(true, true);
         if (!leitungFertig && (k.art === "ergebnis")) {
           leitungZeichnen(Object.assign({}, s, { segmente: s.segmente.map((g, j) => (pruefungSpaeter(karten, i, j) ? Object.assign({}, g, { zustand: "wartet" }) : g)) }), s.schritt < 8 ? s.schritt : 8);
         }
@@ -2201,7 +2455,9 @@ p { margin: 0; }
         </ul>
 
         <div class="block">
-          <h2>Ihre Leitung</h2>
+          <h2>Ihr Ablauf</h2>
+          <figure class="ablauf" role="img" aria-label="${esc(ablaufBeschreibung(M.ablaufZeilen(s)))}">${B.ablaufdiagramm(M.ablaufZeilen(s), M.SPALTEN)}</figure>
+          <h3 class="zwischen">Station für Station</h3>
           <p class="leise" style="font-size:15.5px">Grün ${b.zaehl.gruen}, gelb ${b.zaehl.gelb}, rot ${b.zaehl.rot}.</p>
           <ol class="kette">${kette}</ol>
         </div>
@@ -2213,8 +2469,8 @@ p { margin: 0; }
         <div class="protokoll">
           <h2>Für Ihr Spielprotokoll</h2>
           <ol>
-            <li>Tragen Sie Ihre Bilanz ein: Arbeitstage, Mehrkosten und Sterne.</li>
-            <li>Färben Sie Ihre Leitung so ein wie hier: Station für Station.</li>
+            <li>Tragen Sie unter M1 Ihre Bilanz ein: Arbeitstage, Mehrkosten und Sterne.</li>
+            <li>Kreuzen Sie in M1 für jede Station die Farbe an.</li>
             <li>Schauen Sie sich Ihre grünen Übergaben an. Was hatten sie gemeinsam?</li>
           </ol>
         </div>
@@ -2222,7 +2478,7 @@ p { margin: 0; }
         <div class="knopfreihe">
           <button class="los" id="nochmal">Noch einmal spielen</button>
         </div>
-        <p class="fussnote">Im zweiten Durchgang stehen die Möglichkeiten in anderer Reihenfolge. Schaffen Sie eine durchgehend grüne Leitung?</p>
+        <p class="fussnote">Im zweiten Durchgang stehen die Möglichkeiten in anderer Reihenfolge. Schaffen Sie einen durchgehend grünen Ablauf?</p>
       </div>`, false);
     document.getElementById("nochmal").addEventListener("click", () => {
       daten.spiel = M.neuesSpiel(Math.random, daten.verlauf.length + 1);
