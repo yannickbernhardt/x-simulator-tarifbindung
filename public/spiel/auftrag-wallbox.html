@@ -324,11 +324,6 @@ p { margin: 0; }
 .protokoll h2 { font-size: 24px; }
 .protokoll ol { margin: 10px 0 0; padding-left: 22px; display: grid; gap: 8px; }
 .protokoll li::marker { font-family: var(--titel); font-weight: 700; }
-.vergleich { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 15px; }
-.vergleich th, .vergleich td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--linie); }
-.vergleich th { font-family: var(--titel); font-weight: 700; font-size: 16px; }
-.vergleich td:not(:first-child), .vergleich th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
-.vergleich tr.jetzt td { font-weight: 700; }
 
 /* ---------- Ablaufdiagramm ---------- */
 .ablauf { margin: 14px 0 0; background: #fff; border-radius: var(--rund); box-shadow: 0 0 0 1px var(--linie); overflow: hidden; }
@@ -812,11 +807,10 @@ h3.zwischen { margin-top: 22px; font-size: 21px; }
     return a;
   }
 
-  function neuesSpiel(zufall, durchgang) {
+  function neuesSpiel(zufall) {
     zufall = zufall || Math.random;
     return {
       version: 1,
-      durchgang: durchgang || 1,
       schritt: 0,          /* 0..7 = Stationen, 8 = Nachspiel, 9 = Ende */
       tag: 0, kosten: 0, sterne: 10,
       flags: {},
@@ -1895,7 +1889,7 @@ h3.zwischen { margin-top: 22px; font-size: 21px; }
   const ansage = document.getElementById("ansage");
 
   /* ---------- Speichern ---------- */
-  let daten = { spiel: null, ansicht: "start", karten: null, sprung: null, verlauf: [] };
+  let daten = { spiel: null, ansicht: "start", karten: null, sprung: null };
   function speichern() {
     try { localStorage.setItem(SPEICHER, JSON.stringify(daten)); } catch (e) { /* Privatmodus: ohne Speichern weiter */ }
   }
@@ -1905,7 +1899,6 @@ h3.zwischen { margin-top: 22px; font-size: 21px; }
       if (!roh) return;
       const d = JSON.parse(roh);
       if (d && typeof d === "object") daten = Object.assign(daten, d);
-      if (!Array.isArray(daten.verlauf)) daten.verlauf = [];
     } catch (e) { /* kaputter Speicher: neu beginnen */ }
   }
 
@@ -2022,15 +2015,17 @@ h3.zwischen { margin-top: 22px; font-size: 21px; }
 
   /* ---------- Start ---------- */
   function zeigeStart() {
-    const laufend = daten.spiel && !daten.spiel.fertig;
-    const naechsterDurchgang = (daten.verlauf.length || 0) + 1;
+    const s = daten.spiel;
     let knoepfe;
-    if (laufend) {
-      const st = daten.spiel.schritt < 8 ? M.STATIONEN[daten.spiel.schritt] : null;
+    if (s && s.fertig) {
+      knoepfe = `<button class="los" id="ergebnis">Ihr Ergebnis ansehen</button>
+        <button class="los zweit" id="neu">Neu beginnen</button>`;
+    } else if (s) {
+      const st = s.schritt < 8 ? M.STATIONEN[s.schritt] : null;
       knoepfe = `<button class="los" id="weiter">Weiterspielen${st ? `: Station ${st.nr}` : ""}</button>
         <button class="los zweit" id="neu">Neu beginnen</button>`;
     } else {
-      knoepfe = `<button class="los" id="neu">${naechsterDurchgang > 1 ? `Durchgang ${naechsterDurchgang} starten` : "Auftrag annehmen"}</button>`;
+      knoepfe = `<button class="los" id="neu">Auftrag annehmen</button>`;
     }
     bildschirm(`
       <div class="start">
@@ -2087,12 +2082,14 @@ h3.zwischen { margin-top: 22px; font-size: 21px; }
 
     const neu = document.getElementById("neu");
     neu.addEventListener("click", () => {
-      daten.spiel = M.neuesSpiel(Math.random, (daten.verlauf.length || 0) + 1);
+      daten.spiel = M.neuesSpiel(Math.random);
       daten.ansicht = "station"; daten.karten = null; daten.sprung = null;
       speichern();
       angezeigt = { tag: 0, kosten: 0, sterne: 10 };
       zeigeAktuell();
     });
+    const ergebnis = document.getElementById("ergebnis");
+    if (ergebnis) ergebnis.addEventListener("click", () => { daten.ansicht = "ende"; speichern(); zeigeEnde(); });
     const weiter = document.getElementById("weiter");
     if (weiter) weiter.addEventListener("click", () => {
       angezeigt = { tag: daten.spiel.tag, kosten: daten.spiel.kosten, sterne: daten.spiel.sterne };
@@ -2403,8 +2400,6 @@ h3.zwischen { margin-top: 22px; font-size: 21px; }
   function abschliessen() {
     const s = daten.spiel;
     s.fertig = true;
-    const b = M.bilanz(s);
-    daten.verlauf.push({ durchgang: s.durchgang, tage: b.tage, kosten: b.kosten, sterne: s.sterne, farben: s.segmente.map((g) => g.farbe) });
     daten.ansicht = "ende";
     speichern();
     zeigeEnde();
@@ -2432,21 +2427,11 @@ h3.zwischen { margin-top: 22px; font-size: 21px; }
       </li>`;
     }).join("") + `<li class="ende-knoten"><div class="knoten"><span class="nr">${B.icon("haken")}</span></div><span></span><div class="was"><b>Auftrag abgeschlossen</b></div></li>`;
 
-    const verlauf = daten.verlauf;
-    const vergleich = verlauf.length > 1 ? `
-      <div class="block">
-        <h2>Ihre Durchgänge</h2>
-        <table class="vergleich">
-          <thead><tr><th>Durchgang</th><th>Tage</th><th>Mehrkosten</th><th>Sterne</th></tr></thead>
-          <tbody>${verlauf.map((v, i) => `<tr class="${i === verlauf.length - 1 ? "jetzt" : ""}"><td>${v.durchgang}</td><td>${v.tage}</td><td>${euroZahl(v.kosten)}</td><td>${(v.sterne / 2).toLocaleString("de-DE")}</td></tr>`).join("")}</tbody>
-        </table>
-      </div>` : "";
-
     const bewertung = s.nachspiel && s.nachspiel.art === "beschwerde" ? s.nachspiel.bewertung : (s.nachspiel ? s.nachspiel.saetze.join(" ") + " Gerne wieder." : "");
 
     bildschirm(`
       <div class="ende">
-        <div class="stationskopf"><span class="nr-klemme" aria-hidden="true">${B.icon("haken")}</span><div><h1>Auftrag abgeschlossen</h1><span class="von">Durchgang ${s.durchgang}</span></div></div>
+        <div class="stationskopf"><span class="nr-klemme" aria-hidden="true">${B.icon("haken")}</span><div><h1>Auftrag abgeschlossen</h1><span class="von">Wallbox für Frau Brüning</span></div></div>
         <figure class="szene" role="img" aria-label="${esc(B.beschreibung("ende", s))}">${B.szene("ende", s)}</figure>
 
         <ul class="bilanz">
@@ -2465,29 +2450,20 @@ h3.zwischen { margin-top: 22px; font-size: 21px; }
 
         ${bewertung ? `<div class="block"><h2>Die Bewertung</h2>${bewertungHTML(s.sterne, bewertung)}</div>` : ""}
 
-        ${vergleich}
-
         <div class="protokoll">
           <h2>Für Ihr Arbeitsblatt</h2>
           <ol>
-            <li>Tragen Sie unter M1 Ihre Bilanz ein: Arbeitstage, Mehrkosten und Sterne.</li>
             <li>Kreuzen Sie in M1 für jede Station die Farbe an.</li>
-            <li>Schauen Sie sich Ihre grünen Übergaben an. Was hatten sie gemeinsam?</li>
+            <li>Tragen Sie darunter Ihre Bilanz ein: Arbeitstage, Mehrkosten und Sterne.</li>
+            <li>Danach geht es mit Aufgabe 1 weiter.</li>
           </ol>
         </div>
 
         <div class="knopfreihe">
-          <button class="los" id="nochmal">Noch einmal spielen</button>
+          <button class="los zweit" id="startseite">Zur Startseite</button>
         </div>
-        <p class="fussnote">Im zweiten Durchgang stehen die Möglichkeiten in anderer Reihenfolge. Schaffen Sie einen durchgehend grünen Ablauf?</p>
       </div>`, false);
-    document.getElementById("nochmal").addEventListener("click", () => {
-      daten.spiel = M.neuesSpiel(Math.random, daten.verlauf.length + 1);
-      daten.ansicht = "station"; daten.karten = null; daten.sprung = null;
-      angezeigt = { tag: 0, kosten: 0, sterne: 10 };
-      speichern();
-      zeigeAktuell();
-    });
+    document.getElementById("startseite").addEventListener("click", () => zeigeStart());
   }
 
   /* ---------- Steuerung ---------- */
@@ -2505,8 +2481,7 @@ h3.zwischen { margin-top: 22px; font-size: 21px; }
   }
 
   laden();
-  /* Beim Öffnen immer erst die Startseite: dort geht es weiter oder neu los */
-  if (daten.spiel && daten.spiel.fertig) daten.spiel = null;
+  /* Beim Öffnen immer erst die Startseite: dort geht es weiter, zum Ergebnis oder neu los */
   zeigeStart();
   window.__spiel = { daten: () => daten, zeigeAktuell };
 })();
