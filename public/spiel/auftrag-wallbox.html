@@ -1798,8 +1798,9 @@ h3.zwischen { margin-top: 22px; font-size: 21px; }
     spalten.forEach((sp, i) => { koerper += `<rect x="${L + lw * i}" y="${kh}" width="${lw}" height="${rh * zeilen.length}" fill="${i % 2 ? "#fafbf9" : "#f1f3f0"}"/>`; });
     zeilen.forEach((z, i) => { if (i) koerper += `<path d="M0 ${kh + rh * i} H${B}" stroke="#e6e9e5" stroke-width="1"/>`; });
     /* Verbindungen */
+    const zeigeVon = opt.ausschnitt ? opt.ausschnitt[0] : 0, zeigeBis = opt.ausschnitt ? opt.ausschnitt[1] : zeilen.length - 1;
     zeilen.forEach((z, i) => {
-      if (!i) return;
+      if (!i || i <= zeigeVon || i > zeigeBis) return;
       const a = zeilen[i - 1];
       const xa = sx[a.spalte], ya = cy[i - 1] + radius(a), xb = sx[z.spalte], yb = cy[i] - radius(z) - 2.5;
       const ym = (cy[i - 1] + cy[i]) / 2;
@@ -1864,7 +1865,7 @@ h3.zwischen { margin-top: 22px; font-size: 21px; }
     /* Ausschnitt oder ganzes Diagramm */
     const von = opt.ausschnitt ? opt.ausschnitt[0] : 0;
     const bis = opt.ausschnitt ? opt.ausschnitt[1] : zeilen.length - 1;
-    const y0 = cy[von] - rh / 2, y1 = opt.ausschnitt ? cy[bis] + 16 : cy[bis] + rh / 2;
+    const y0 = opt.ausschnitt ? cy[von] - 12.5 : cy[von] - rh / 2, y1 = opt.ausschnitt ? cy[bis] + 16 : cy[bis] + rh / 2;
     const hoehe = kh + (y1 - y0);
     return `<svg viewBox="0 0 ${B} ${hoehe}" aria-hidden="true" focusable="false">
       <clipPath id="${id}c"><rect x="0" y="${kh}" width="${B}" height="${hoehe - kh}"/></clipPath>
