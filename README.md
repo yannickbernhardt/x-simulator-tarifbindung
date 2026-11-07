@@ -9,6 +9,8 @@ die Lehrkraft zeigt alle Posts live auf dem Beamer. Jede Klasse/Aufgabe ist ein 
 | Klasse ohne QR | Startseite `/` → Raumcode eingeben |
 | Lehrkraft: alle Räume | `/?lehrer=<LEHRER_TOKEN>` |
 | Lehrkraft: Wand eines Raums | `/r/<code>?lehrer=<LEHRER_TOKEN>` (auch per Knopf in der Verwaltung) |
+| Hörseiten zu Arbeitsblättern | `/hoeren/<name>` zeigt `public/hoeren/<name>.html` |
+| Lernspiele | `/spiel/<name>` zeigt `public/spiel/<name>.html`, z. B. `/spiel/auftrag-wallbox` (ELT-O, Ablauforganisation) |
 
 ## Räume verwalten (`/?lehrer=…`)
 - **Neuer Raum:** Klasse, Code (optional, sonst zufällig), angehefteter Aufgaben-Post

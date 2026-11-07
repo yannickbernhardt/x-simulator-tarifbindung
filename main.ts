@@ -1501,6 +1501,9 @@ Deno.serve({ port: PORT }, async (req: Request) => {
   /* Hörseiten zu Arbeitsblättern: /hoeren/<name> zeigt public/hoeren/<name>.html */
   const hoeren = pfad.match(/^\/hoeren\/([a-z0-9-]{3,40})\/?$/);
   if (hoeren) return await statisch(`hoeren/${hoeren[1]}.html`);
+  /* Lernspiele für den Unterricht: /spiel/<name> zeigt public/spiel/<name>.html */
+  const spiel = pfad.match(/^\/spiel\/([a-z0-9-]{3,40})\/?$/);
+  if (spiel) return await statisch(`spiel/${spiel[1]}.html`);
   if (pfad.endsWith(".html")) return new Response("Nicht gefunden", { status: 404 });
   return await statisch(pfad.replace(/^\/+/, ""));
 });
