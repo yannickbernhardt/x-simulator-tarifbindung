@@ -73,6 +73,25 @@ Quiz (6 Fälle, ←/→, L = Ergebnis) · Beispiele (anonym, „Abstimmen lassen
 Keine Namen, alles läuft nach 12 Stunden ab. Inhalte stehen in `public/rolle/szenario.js`,
 Server in `rolle.ts` (sparsam mit KV-Lesezugriffen: Raum-Cache, Versionsschlüssel, ein Zug-Schlüssel pro Gruppe).
 
+## Anonyme Gruppenwahl „Herzblatt“
+| Wer | Adresse |
+|---|---|
+| Lehrkraft (Beamer) | `/gruppen?lehrer=<LEHRER_TOKEN>` → „Neue Gruppenwahl starten“ |
+| Klasse (QR-Code am Beamer) | `/gruppen/<code>`, ohne QR: `/gruppen` → Code eingeben |
+
+Jede Person gibt ihren Vornamen ein und bekommt einen zufälligen Decknamen („Melancholische Bratwurst“)
+mit einer zufälligen Figur (Farbe, Form, Augen, Mund, Hut, Brille, Extra). Danach ein Profil mit sechs Fragen:
+Rolle, Tempo, Präsentieren, Konflikte, dazu zwei Spaßfragen (Pizza Hawaii, Getränk – das hält die Figur in der Hand).
+Auf dem Handy sieht man den Raum mit allen Tischen und zieht die eigene Figur an einen Tisch (oder tippt einen
+Tisch an und dann „Hierhin laufen“). Am Beamer laufen die Figuren mit. Volle Tische sind gesperrt, „Noch gesucht“
+zeigt fehlende Rollen, ein Spruch pro Tisch bei auffälliger Mischung.
+Phasen am Beamer (Tasten 1–3): Anmelden · Tische öffnen · Auflösen (die Vornamen erscheinen unter den Figuren).
+Tische 2–8 und Plätze 2–6 stellt man in der Leiste ein. H blendet die Leiste aus.
+Vornamen verlassen den Server erst in der Phase „Auflösen“. Alles läuft nach 12 Stunden ab.
+Figuren ohne Profil (z. B. doppelt gescannt) verschwinden beim Auflösen. Fragen und Decknamen in
+`public/gruppen/daten.js`, Figuren in `public/gruppen/figur.js`, Server in `gruppen.ts` (Sitzplan in einem
+KV-Schlüssel mit `kv.atomic()`, damit kein Platz doppelt vergeben wird).
+
 ## Deno Deploy
 KV-Datenbank muss angehängt sein, `LEHRER_TOKEN` als Secret. Update = auf `main` pushen.
 Notschalter für die ganze Seite: `DEAKTIVIERT = true` in `main.ts`.
