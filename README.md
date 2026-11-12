@@ -95,26 +95,37 @@ Figuren ohne Profil (z. B. doppelt gescannt) verschwinden beim Auflösen. Fragen
 `public/gruppen/daten.js`, Figuren in `public/gruppen/figur.js`, Server in `gruppen.ts` (Sitzplan in einem
 KV-Schlüssel mit `kv.atomic()`, damit kein Platz doppelt vergeben wird).
 
-### Handy in 3D (Zinssturm-Welt)
+### 3D-Welt auf Handy und Beamer (Zinssturm-Welt)
 
-Die Spielansicht auf dem Handy ist eine 3D-Welt: ein Platz mit Häusern und Bäumen ringsum, die Tische
-stehen genau an den Stellen aus `raum.js`. Die Kamera schaut der eigenen Figur über die Schulter. Links
-erscheint der Joystick unter dem Daumen, Wischen auf der rechten Bildhälfte dreht die Kamera, am Rechner
-WASD oder Pfeiltasten und Maus ziehen. Server, Phasen, Fragen und Decknamen sind unverändert.
+Die Spielansicht ist eine 3D-Welt: ein Platz mit Häusern und Bäumen ringsum, die Tische stehen genau an den
+Stellen aus `raum.js`. Server, Phasen, Fragen und Decknamen sind unverändert.
 
-- `public/gruppen/platz3d.js`: der Platz (Boden, Tische, Stühle, Schilder, Figuren, Kamera). Dieselbe Szene
-  ist für den Beamer vorbereitet (`sicht: "fest"`).
+**Handy:** Die Kamera schaut der eigenen Figur über die Schulter. Links erscheint der Joystick unter dem Daumen,
+Wischen auf der rechten Bildhälfte dreht die Kamera, am Rechner WASD oder Pfeiltasten und Maus ziehen.
+Kopfzeile, Tischkarte, Knopf und Meldungen sind dieselben wie vorher.
+
+**Beamer:** dieselbe Welt mit fester Kamera schräg von oben, alle Tische und der Eingang sind im Bild.
+Tafel, Steuerleiste und die Listen der Tische bleiben HTML. Die Listen liegen wie Matten auf dem Boden vor den
+Tischen: Die Leinwand hat dort ein Fenster, die Figuren laufen darüber. Bei zwei Tischreihen stehen die Listen
+der hinteren Tische als Karten über dem Platz. Beim Auflösen erscheinen die Vornamen kurz nacheinander als
+Schild an den Figuren, die Figur jubelt, der Tisch leuchtet in seiner Farbe.
+
+- `public/gruppen/platz3d.js`: der Platz (Boden, Tische, Stühle, Schilder, Figuren, Kamera) für Handy
+  (`sicht: "verfolger"`) und Beamer (`sicht: "fest"`).
 - `public/gruppen/figur3d.js`: die Figur mit dem Aussehen aus `daten.js` und das Getränk als kleines Modell.
 - `public/welt3d/`: gemeinsamer Bausatz mit Zinssturm (Welt, Grundfigur, Kamera, Steuerung, three.js 0.185.0
   als lokale Datei mit Lizenz). Der Ordner wird immer als Ganzes kopiert, siehe `public/welt3d/LIESMICH.md`.
 - **Koordinaten:** Server und alle Geräte rechnen weiter in Bühnen-Pixeln (x 0 bis 1250, y 90 bis 900).
   Die Welt rechnet um: 1 Pixel = 1,25 cm nach rechts und 2 cm in die Tiefe. Kollision und „Tisch in der Nähe“
   kommen weiter aus `raum.js`. 2D- und 3D-Geräte passen deshalb zusammen.
-- **Ohne WebGL** (oder wenn die Bausteine nicht laden) bleibt die 2D-Ansicht. Erzwingen: `?2d` an die Adresse hängen.
+- **Schilder:** Über jeder Figur steht klein der Deckname, nach dem Auflösen groß der Vorname. Nachbarn tragen
+  ihr Schild auf verschiedenen Höhen. Am Beamer hängt es in der vorderen Tischreihe am Rücken, damit es niemandem
+  am Tisch das Gesicht verdeckt.
+- **Ohne WebGL** (oder wenn die Bausteine nicht laden) bleibt die 2D-Ansicht. Erzwingen: `?2d` an die Adresse
+  hängen (am Beamer `&2d`).
 - **Leistung:** Pixeldichte höchstens 1,5, keine echten Schatten, Bäume und Häuser als InstancedMesh. Fällt die
   Bildrate drei Sekunden unter 25, schaltet die Seite eine Qualitätsstufe herunter. Wer steht oder sitzt, wird
-  als eine Geometrie gezeichnet. Prüfanzeige: `?fps=1`, feste Stufe: `?stufe=0` bis `3`.
-- Der Beamer zeigt bis auf Weiteres die 2D-Bühne.
+  als eine Geometrie gezeichnet. Prüfanzeige: `?fps=1` (am Beamer `&fps=1`), feste Stufe: `?stufe=0` bis `3`.
 
 ## Deno Deploy
 KV-Datenbank muss angehängt sein, `LEHRER_TOKEN` als Secret. Update = auf `main` pushen.

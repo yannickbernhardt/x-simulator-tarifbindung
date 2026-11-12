@@ -548,7 +548,8 @@ function figurenDrei(eingang) {
   G.drei.setzeFiguren(leute.map((p) => {
     const selbst = p.fid === ich.fid;
     const o = selbst && G.ich ? { x: G.ich.x, fuss: G.ich.y } : ortVon(p, eingang);
-    return { fid: p.fid, name: p.name, aussehen: p.aussehen, getraenk: p.profil?.getraenk, denkt: !p.profil, ich: selbst, sitz: sitzVon(p), x: o.x, y: o.fuss };
+    const amEingang = eingang.indexOf(p.fid); // wer dicht nebeneinander am Eingang steht, trägt sein Schild auf wechselnder Höhe
+    return { fid: p.fid, name: p.name, aussehen: p.aussehen, getraenk: p.profil?.getraenk, denkt: !p.profil, ich: selbst, sitz: sitzVon(p), x: o.x, y: o.fuss, stufe: amEingang >= 0 ? amEingang % 3 : 0 };
   }), G.erstesBild);
   G.erstesBild = false;
   const sitze = leute.map(sitzVon);
@@ -612,9 +613,10 @@ function toast(text) {
 /* Spielschleife: eigene Figur bewegen, Kamera nachführen */
 function schleife(jetzt) {
   if (!G) return;
-  const dt = Math.min(0.05, (jetzt - G.zuletzt) / 1000);
+  const vergangen = (jetzt - G.zuletzt) / 1000;
+  const dt = Math.min(0.05, vergangen);
   G.zuletzt = jetzt;
-  if (G.drei) return schleifeDrei(jetzt, dt);
+  if (G.drei) return schleifeDrei(jetzt, dt, Math.min(0.25, vergangen));
   const r = stand.raum;
   let vx = G.v.x, vy = G.v.y;
   if (G.tasten.size) {
@@ -637,8 +639,10 @@ function schleife(jetzt) {
   kamera(dt);
   G.raf = requestAnimationFrame(schleife);
 }
-/* 3D: Der Joystick zählt aus Sicht der Kamera. Gelaufen wird weiter in Bühnen-Pixeln mit den Regeln aus raum.js. */
-function schleifeDrei(jetzt, dt) {
+/* 3D: Der Joystick zählt aus Sicht der Kamera. Gelaufen wird weiter in Bühnen-Pixeln mit den Regeln aus raum.js.
+   dt begrenzt den eigenen Schritt (wie in 2D); die Welt bekommt die echte Zeit seit dem letzten Bild, damit die
+   anderen Figuren auch bei schwacher Bildrate nicht hinterherhinken. */
+function schleifeDrei(jetzt, dt, dtBild) {
   const r = stand.raum;
   const dreh = G.steuer.holeDrehung();
   if (dreh.x || dreh.y) {
@@ -659,7 +663,7 @@ function schleifeDrei(jetzt, dt) {
   } else if (G.laeuftZuletzt) posSenden(jetzt);
   G.laeuftZuletzt = laeuft;
   if (G.ich && !meinSitz()) G.drei.setzeIch(G.ich.x, G.ich.y);
-  G.drei.bild(dt);
+  G.drei.bild(dtBild);
   if (schalter.has("fps") && jetzt - G.pruefZeit > 500) {
     G.pruefZeit = jetzt;
     const b = G.drei.buehne;

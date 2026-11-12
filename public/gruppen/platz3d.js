@@ -35,8 +35,10 @@ export const zuWelt = (x, y) => [(x - MITTE_X) * SX, (y - MITTE_Y) * SZ];
 export const LAUFTEMPO = 3.6; // Meter je Sekunde, entspricht dem Tempo der 2D-Ansicht
 const STUHL_ABSTAND = 0.3; // Stuhlmitte hinter der Tischkante
 const ARME_AM_TISCH = -1.33; // Arme beim Sitzen: Die Hände liegen auf der Platte
-const MAST_HOEHE = 2.45; // Mast am Tischende mit Fähnchen und Nummernschild
 const MAX_FIGUREN = 64;
+// Feste Kamera (Beamer): Neigung nach unten, langes Objektiv (wenig Verzerrung, die hinteren Tische bleiben groß),
+// dazu die Ränder des Platzes im Bild (−1 = unten, 1 = oben)
+const FEST = { neigung: 0.72, blickwinkel: 15, unten: -0.95, seite: 0.965 };
 const NAH_SCHILD = 6.5; // näher als so viele Meter wachsen Namensschilder auf dem Bildschirm nicht weiter
 
 const FARBEN = {
@@ -84,13 +86,15 @@ function haus(x, z, hw, hd, winkel, hoehe, dachHoehe, wand, dach) {
  * Baut den Platz.
  * optionen:
  *   layout      Ergebnis von berechneLayout(tische, plaetze) aus raum.js
- *   sicht       "verfolger" (Handy: Kamera folgt der eigenen Figur) oder "fest" (Beamer: schräg von oben)
+ *   sicht       "verfolger" (Handy: Kamera folgt der eigenen Figur) oder "fest" (Beamer: schräg von oben,
+ *               alle Tische und der Eingang sind im Bild; aufBild rechnet Orte für Anzeigen über der Szene um)
  *   festeStufe  feste Bildqualität 0 bis 3 (sonst schaltet die Bühne bei schwacher Bildrate selbst herunter)
  *   abstand, folgen   Abstand der Kamera und wie stark sie von selbst hinter die Figur dreht
  */
 export function erzeugePlatz(leinwand, optionen) {
   const L = optionen.layout;
   const sicht = optionen.sicht ?? "verfolger";
+  const fest = sicht === "fest";
   const zufall = wuerfel(20261112);
   const zw = (von, bis) => von + zufall() * (bis - von);
   const rausch = (farbe, staerke) => toene(farbe, (zufall() - 0.5) * staerke);
@@ -107,10 +111,15 @@ export function erzeugePlatz(leinwand, optionen) {
   const SITZ_HOEHE = (FIGUR.hueftHoehe - FIGUR.sitzTiefe) * mass;
   const TISCH_HOEHE = 0.8 * mass;
   const BECHER = mass * 1.4; // Getränke etwas größer, damit man sie erkennt
+  const VORNAME_HOEHE = Math.max(0.42, Math.min(0.6, eng * 0.62)); // Namensschild nach dem Auflösen: groß, aber Nachbarn sollen sich nicht verdecken
+  // Mast am Tischende mit Fähnchen und Nummernschild. Am Beamer niedriger: Über den hinteren Tischen stehen dort die Listen.
+  const MAST_HOEHE = fest ? 1.85 : 2.45;
+  const SCHILD_HOEHE = fest ? 0.8 : 0.95;
 
   const buehne = erzeugeBuehne(leinwand, {
     festeStufe: optionen.festeStufe,
-    blickwinkel: (v) => (sicht === "fest" ? 36 : v < 0.8 ? 74 : v < 1.25 ? 66 : 58),
+    durchsichtig: fest, // am Beamer liegen die Listen der Tische als HTML unter der Szene und scheinen durch Fenster im Boden
+    blickwinkel: (v) => (fest ? FEST.blickwinkel : v < 0.8 ? 74 : v < 1.25 ? 66 : 58),
     beiStufe(s) {
       wolken.visible = s.wolken;
       const randZahl = Math.round((baeume.eintraege.length - baeumeNah) * s.randAnteil);
@@ -202,17 +211,20 @@ export function erzeugePlatz(leinwand, optionen) {
   // ------------------------------------------------------------------
   const tische = L.tische.map((T, i) => {
     const [x, z] = zuWelt(T.cx, T.cy);
-    const t = { nr: i + 1, x, z, a: (T.tw * SX) / 2, c: (T.th * SZ) / 2, farbe: TISCHFARBEN[i], T, belegt: -1, nah: false, leuchtet: 0 };
+    const t = { nr: i + 1, x, z, a: (T.tw * SX) / 2, c: (T.th * SZ) / 2, farbe: TISCHFARBEN[i], T, belegt: -1, nah: false, leuchtet: 0, dauerlicht: 0 };
     t.mastX = x - t.a - 0.32;
     // Sitzplätze: hintere Reihe schaut zum Eingang, vordere zu ihr hin. Die Platte ist oval,
     // deshalb stehen die Stühle am Rand etwas näher zur Mitte.
+    let hinten = 0;
+    let vorn = 0;
     t.sitze = T.plaetze.map((p) => {
       const [sx] = zuWelt(p.x, 0);
       const u = Math.min(0.95, Math.abs(sx - x) / t.a);
       const kante = t.c * Math.sqrt(1 - u * u);
+      // „stufe“: Nachbarn in einer Reihe tragen ihr Schild abwechselnd auf zwei Höhen, damit sich die Schilder nicht verdecken
       return p.hinten
-        ? { x: sx, z: z - kante - STUHL_ABSTAND, richtung: 0, kante }
-        : { x: sx, z: z + kante + STUHL_ABSTAND, richtung: Math.PI, kante };
+        ? { x: sx, z: z - kante - STUHL_ABSTAND, richtung: 0, kante, hinten: true, stufe: hinten++ % 2 }
+        : { x: sx, z: z + kante + STUHL_ABSTAND, richtung: Math.PI, kante, hinten: false, stufe: vorn++ % 2 };
     });
     return t;
   });
@@ -266,10 +278,10 @@ export function erzeugePlatz(leinwand, optionen) {
   }
 
   // Schild über jedem Tisch: große Nummer in der Tischfarbe, darunter „2/4“. Von Weitem lesbar.
-  const schildOptionen = (t) => ({ hoehe: 0.95, groessen: [1.5, 0.62], grund: t.farbe, schrift: "#ffffff" });
+  const schildOptionen = (t) => ({ hoehe: SCHILD_HOEHE, groessen: [1.5, 0.62], grund: t.farbe, schrift: "#ffffff" });
   for (const t of tische) {
     t.schild = textSchild([String(t.nr), `0/${L.P}`], schildOptionen(t));
-    t.schild.position.set(t.mastX, MAST_HOEHE + 0.47, t.z);
+    t.schild.position.set(t.mastX, MAST_HOEHE + SCHILD_HOEHE / 2, t.z);
     szene.add(t.schild);
     // Leuchtfeld: zeigt „hier stehst du“ und leuchtet beim Auflösen auf
     const [fx, fz] = zuWelt(t.T.x + t.T.cw / 2, t.T.y + t.T.ch / 2);
@@ -291,7 +303,13 @@ export function erzeugePlatz(leinwand, optionen) {
   // ------------------------------------------------------------------
   // Ringsum: Häuser und Bäume stehen nur außen, damit sie keine Wege versperren
   // ------------------------------------------------------------------
-  const haeuser = [
+  // Am Beamer zeigt die feste Kamera nur einen schmalen Streifen hinter dem Platz: Dort steht eine Häuserzeile dicht am Rand.
+  const haeuser = fest ? [
+    haus(-12.4, z0 - 4.5, 3.8, 2.8, 0.05, 2.7, 1.6, 0, 0),
+    haus(-4.2, z0 - 4.9, 3.7, 2.8, 0, 2.5, 1.5, 2, 1),
+    haus(4.1, z0 - 4.6, 3.9, 2.8, -0.04, 2.8, 1.6, 1, 2),
+    haus(12.5, z0 - 5, 3.6, 2.8, 0.07, 2.5, 1.5, 0, 1),
+  ] : [
     haus(-13, z0 - 10.5, 4.4, 3.2, 0.12, 3.6, 2, 0, 0),
     haus(-3, z0 - 12, 4.2, 3.1, 0, 3.4, 1.9, 2, 1),
     haus(7.5, z0 - 10.8, 4.8, 3.3, -0.08, 3.9, 2.1, 1, 2),
@@ -311,16 +329,17 @@ export function erzeugePlatz(leinwand, optionen) {
     return !haeuser.some((h) => Math.abs(x - h.x) < h.hw + h.hd + 1.5 && Math.abs(z - h.z) < h.hw + h.hd + 1.5);
   };
   const liste = [];
+  const baumRand = fest ? 2.3 : 3.4; // so viel Abstand halten die Bäume zum Platz
   for (let versuch = 0; versuch < 900 && liste.length < 46; versuch++) {
     const w = zw(0, 2 * Math.PI);
-    const rho = zw(10.5, 34);
+    const rho = zw(fest ? 9.5 : 10.5, fest ? 22 : 34);
     const x = Math.sin(w) * rho;
     const z = Math.cos(w) * rho;
-    if (!frei(x, z, 3.4) || liste.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < 14)) continue;
+    if (!frei(x, z, baumRand) || liste.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < 14)) continue;
     const nadel = zufall() < 0.3;
     liste.push({
       x, z, art: nadel ? "nadel" : "laub", ton: Math.floor(zufall() * 3),
-      hoehe: nadel ? zw(6.5, 9.5) : zw(5, 7.5), krone: nadel ? zw(1.5, 2) : zw(1.9, 2.7),
+      hoehe: nadel ? zw(6.5, 9.5) : zw(5, 7.5), krone: nadel ? zw(1.5, 2) : zw(1.9, fest ? 2.2 : 2.7),
     });
   }
   const baeumeNah = liste.length;
@@ -395,13 +414,15 @@ export function erzeugePlatz(leinwand, optionen) {
       e.schild.material.dispose();
     }
     if (e.daten.vorname) {
-      // nach dem Auflösen: Vorname groß, Deckname klein darunter
-      e.schild = textSchild([e.daten.vorname, e.daten.name], { hoehe: 0.86, groessen: [1.5, 0.55], punkt: farbeVon(e.daten.aussehen) });
+      // nach dem Auflösen: der Vorname, groß (der Deckname steht daneben in der Liste des Tisches)
+      e.schild = textSchild(e.daten.vorname, { hoehe: VORNAME_HOEHE, punkt: farbeVon(e.daten.aussehen), immerSichtbar: e.amRuecken });
+      e.pop = 0; // das Schild springt auf
     } else {
       // vorher: nur der Deckname, klein
       const worte = String(e.daten.name ?? "").split(" ");
       const zeilen = worte.length > 1 ? [worte.slice(0, -1).join(" "), worte[worte.length - 1]] : worte;
-      e.schild = textSchild(zeilen, { hoehe: 0.19 * zeilen.length + 0.08, punkt: farbeVon(e.daten.aussehen), immerSichtbar: !!e.daten.ich });
+      e.schild = textSchild(zeilen, { hoehe: (0.19 * zeilen.length + 0.08) * (fest ? 1.2 : 1), punkt: farbeVon(e.daten.aussehen), immerSichtbar: !!e.daten.ich || e.amRuecken });
+      e.pop = 1;
     }
     e.schildMass = e.schild.scale.clone();
     szene.add(e.schild);
@@ -458,7 +479,8 @@ export function erzeugePlatz(leinwand, optionen) {
 
   /**
    * Stand aller Figuren. Jede: { fid, name, vorname?, aussehen, getraenk, denkt, ich,
-   *   sitz: { tisch, platz } | null, x, y } – x und y in Bühnen-Pixeln (Füße).
+   *   sitz: { tisch, platz } | null, x, y, stufe? } – x und y in Bühnen-Pixeln (Füße).
+   * stufe: Höhe des Schilds (0, 1, 2) für Figuren, die dicht nebeneinander am Eingang stehen.
    * „sofort“: ohne Hinlaufen an den Ort stellen (erster Aufbau).
    */
   function setzeFiguren(leute, sofort = false) {
@@ -473,18 +495,23 @@ export function erzeugePlatz(leinwand, optionen) {
         e = {
           fid: p.fid, daten: p, figur: null, schild: null, blase: null, starr: {}, starrArt: null, ruhe: 0,
           x: 0, z: 0, y: 0, richtung: Math.PI, sitz: null, sitzNr: "", huepf: null, zielX: 0, zielZ: 0, schritt: 0,
+          stufe: 0, amRuecken: false, pop: 1,
         };
         figuren.set(p.fid, e);
       }
       e.daten = p;
+      const sitz = p.sitz ? sitzOrt(p.sitz.tisch, p.sitz.platz) : null;
+      // Schild: Nachbarn tragen es auf verschiedenen Höhen. Am Beamer hängt es in der vorderen Reihe am Rücken,
+      // damit es niemandem am Tisch das Gesicht verdeckt.
+      e.stufe = sitz ? sitz.stufe : p.stufe ?? 0;
+      e.amRuecken = fest && !!sitz && !sitz.hinten;
       const aussehen = JSON.stringify(p.aussehen);
-      const text = `${p.name}|${p.vorname ?? ""}`;
+      const text = `${p.name}|${p.vorname ?? ""}|${e.amRuecken}`;
       if (e.aussehen !== aussehen) { e.aussehen = aussehen; baue(e); }
       if (e.text !== text) { e.text = text; schildFuer(e); }
       if (p.denkt && !e.blase) { e.blase = denkblase(0.5); szene.add(e.blase); }
       if (e.blase) e.blase.visible = !!p.denkt;
 
-      const sitz = p.sitz ? sitzOrt(p.sitz.tisch, p.sitz.platz) : null;
       if (sitz) {
         const nr = `${p.sitz.tisch}-${p.sitz.platz}`;
         if (e.sitzNr !== nr) {
@@ -501,8 +528,10 @@ export function erzeugePlatz(leinwand, optionen) {
           e.sitz = null;
           e.sitzNr = "";
         }
-        if (neu || sofort) { e.x = x; e.z = z; e.zielX = x; e.zielZ = z; e.schritt = 0; }
-        else if (!p.ich) {
+        if (neu || sofort) {
+          e.x = x; e.z = z; e.zielX = x; e.zielZ = z; e.schritt = 0;
+          if (!sofort) e.huepf = { t: 0, dauer: 0.4, vonX: x, vonZ: z, zuX: x, zuZ: z, jubel: false }; // wer dazukommt, hüpft kurz
+        } else if (!p.ich) {
           // die anderen laufen weich zu ihrem neuen Ort (so schnell, dass sie bis zur nächsten Meldung da sind)
           const weg = Math.hypot(x - e.x, z - e.z);
           e.zielX = x;
@@ -564,18 +593,80 @@ export function erzeugePlatz(leinwand, optionen) {
   });
   const blick = verfolgung.blick;
 
-  /** Feste Kamera für den Beamer: schräg von oben, alle Tische und der Eingang sind im Bild. */
+  /**
+   * Feste Kamera für den Beamer: schräg von oben, alle Tische und der Eingang sind im Bild.
+   * Sie steht südlich des Platzes und schaut nach Norden. Höhe und Abstand ergeben sich daraus, wo der
+   * vordere und der hintere Rand des Platzes im Bild liegen sollen.
+   */
+  let festesBild = 0;
   function festeKamera() {
-    const mz = (z0 + z1) / 2;
-    const halbeBreite = (x1 - x0) / 2 + 1.2;
-    const halbeTiefe = (z1 - z0) / 2 + 1.4;
-    const neigung = 0.86; // etwa 49 Grad nach unten
-    const tanV = Math.tan((kamera.fov * Math.PI) / 360);
-    const tanH = tanV * kamera.aspect;
-    // Abstand so, dass der Platz in Breite und Tiefe ins Bild passt
-    const abstand = Math.max(halbeBreite / tanH + halbeTiefe * Math.cos(neigung), (halbeTiefe * Math.sin(neigung)) / tanV + halbeTiefe * Math.cos(neigung)) * 1.04;
-    kamera.position.set(0, Math.sin(neigung) * abstand, mz + Math.cos(neigung) * abstand);
-    kamera.lookAt(0, 0, mz - 0.4);
+    if (festesBild === kamera.aspect) return;
+    festesBild = kamera.aspect;
+    const sin = Math.sin(FEST.neigung);
+    const cos = Math.cos(FEST.neigung);
+    const t = Math.tan((kamera.fov * Math.PI) / 360);
+    const zs = z1 + 0.45; // vorderer Rand (Eingang) samt Bordüre
+    const zn = z0 - 0.2; // hinterer Rand
+    // g(y): So weit nördlich der Kamera liegt der Bodenpunkt, der in der Bildhöhe y erscheint (je Meter Kamerahöhe)
+    const g = (y) => (cos + y * t * sin) / (sin - y * t * cos);
+    let rand = 1;
+    let hoehe = 0;
+    let zk = 0;
+    // Bei zwei Tischreihen stehen die Listen der hinteren Tische über dem Platz: Dafür bleibt oben mehr frei.
+    const festOben = L.eng ? 0.6 - Math.max(0, L.P - 4) * 0.045 : 0.64;
+    for (let versuch = 0; versuch < 40; versuch++) {
+      const mitte = (festOben + FEST.unten) / 2;
+      const oben = mitte + (festOben - mitte) * rand;
+      const unten = mitte + (FEST.unten - mitte) * rand;
+      hoehe = (zs - zn) / (g(oben) - g(unten));
+      zk = zs + hoehe * g(unten);
+      // passt der Platz vorn auch in die Breite?
+      const vor = hoehe * sin + (zk - zs) * cos;
+      if ((x1 + 0.45) / (vor * t * kamera.aspect) <= FEST.seite) break;
+      rand *= 0.97;
+    }
+    kamera.position.set(0, hoehe, zk);
+    kamera.lookAt(0, hoehe - sin * 10, zk - cos * 10);
+    kamera.updateMatrixWorld(true);
+  }
+
+  /**
+   * Fenster im Boden (Beamer): An diesen Stellen wird die Leinwand durchsichtig, und die Seite darunter
+   * scheint durch, zum Beispiel die Liste eines Tisches. Figuren, Schatten und Schilder liegen darüber:
+   * Wer über eine Liste läuft, verdeckt sie kurz, so wie in der 2D-Ansicht.
+   * rechtecke: [links, oben, rechts, unten] als Anteile der Bildbreite und Bildhöhe.
+   */
+  let fenster = null;
+  function setzeFenster(rechtecke) {
+    if (fenster) {
+      szene.remove(fenster);
+      fenster.geometry.dispose();
+      fenster.material.dispose();
+      fenster = null;
+    }
+    if (!rechtecke.length) return;
+    // Punkt am Boden, der an einer Stelle des Bildes zu sehen ist
+    const amBoden = (u, v) => {
+      V.set(u * 2 - 1, 1 - v * 2, 0.5).unproject(kamera).sub(kamera.position);
+      const t = (0.046 - kamera.position.y) / V.y;
+      return [kamera.position.x + V.x * t, 0.046, kamera.position.z + V.z * t];
+    };
+    const orte = [];
+    for (const [links, oben, rechts, unten] of rechtecke) {
+      const a = amBoden(links, oben);
+      const b = amBoden(rechts, oben);
+      const c = amBoden(rechts, unten);
+      const d = amBoden(links, unten);
+      orte.push(...a, ...b, ...c, ...a, ...c, ...d);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(orte), 3));
+    fenster = new THREE.Mesh(g, new THREE.MeshBasicMaterial({
+      color: 0x000000, opacity: 0, transparent: true, blending: THREE.NoBlending, depthWrite: false, side: THREE.DoubleSide, fog: false,
+    }));
+    fenster.frustumCulled = false;
+    fenster.renderOrder = -5; // vor Schatten, Leuchtfeldern und Schildern, damit diese über dem Fenster liegen
+    szene.add(fenster);
   }
 
   // ------------------------------------------------------------------
@@ -590,7 +681,7 @@ export function erzeugePlatz(leinwand, optionen) {
     wolken.rotation.y = zeit * 0.004;
 
     // „rechts“ aus Sicht der Kamera, für alles, was neben einer Figur schwebt
-    const gier = sicht === "fest" ? Math.PI : blick.gier;
+    const gier = fest ? Math.PI : blick.gier;
     const rechtsX = -Math.cos(gier);
     const rechtsZ = Math.sin(gier);
 
@@ -655,10 +746,18 @@ export function erzeugePlatz(leinwand, optionen) {
       const kopf = (f.kopfHoehe - (sitzt ? FIGUR.sitzTiefe : 0) + e.y) * mass;
       // Dicht vor der Kamera wachsen Schilder nicht weiter und blenden aus, damit sie nicht den Blick verstellen
       const ferne = V.set(e.x, kopf, e.z).distanceTo(kamera.position);
-      const klein = Math.max(0.3, Math.min(1, ferne / NAH_SCHILD));
+      let klein = Math.max(0.3, Math.min(1, ferne / NAH_SCHILD));
       const sichtbar = Math.max(0, Math.min(1, (ferne - 2.4) / 1.6));
+      if (e.pop < 1) {
+        // neues Namensschild: springt mit etwas Überschwung auf
+        e.pop = Math.min(1, e.pop + dt / 0.45);
+        const t = e.pop - 1;
+        klein *= Math.max(0.05, 1 + 2.70158 * t * t * t + 1.70158 * t * t);
+      }
       e.schild.scale.set(e.schildMass.x * klein, e.schildMass.y * klein, 1);
-      e.schild.position.set(e.x, kopf + e.schild.scale.y / 2 + 0.08, e.z);
+      const hoch = e.schildMass.y * Math.min(1, ferne / NAH_SCHILD);
+      if (e.amRuecken) e.schild.position.set(e.x, Math.max(hoch / 2 + 0.04, 0.95 * mass - e.stufe * (hoch + 0.03)), e.z + 0.36);
+      else e.schild.position.set(e.x, kopf + hoch / 2 + 0.08 + e.stufe * (hoch + 0.04), e.z);
       e.schild.material.opacity = sichtbar;
       if (e.blase?.visible) {
         e.blase.scale.set(0.625 * klein, 0.5 * klein, 1);
@@ -694,7 +793,7 @@ export function erzeugePlatz(leinwand, optionen) {
     }
 
     // Eigene Figur hervorheben
-    ring.visible = duSchild.visible = !!ich && sicht !== "fest";
+    ring.visible = duSchild.visible = !!ich && !fest;
     if (ring.visible) {
       const puls = 1 + Math.sin(zeit * 4) * 0.06;
       ring.position.set(ich.x, 0.08, ich.z);
@@ -704,13 +803,13 @@ export function erzeugePlatz(leinwand, optionen) {
 
     // Leuchtfelder der Tische
     for (const t of tische) {
-      const ziel = t.nah ? 0.2 + Math.sin(zeit * 5) * 0.06 : t.leuchtet > 0 ? 0.55 * Math.min(1, t.leuchtet) : 0;
+      const ziel = Math.max(t.nah ? 0.2 + Math.sin(zeit * 5) * 0.06 : 0, t.leuchtet > 0 ? 0.6 * Math.min(1, t.leuchtet) : 0, t.dauerlicht);
       if (t.leuchtet > 0) t.leuchtet -= dt * 0.7;
       t.feld.material.opacity += (ziel - t.feld.material.opacity) * Math.min(1, dt * 8);
       t.feld.visible = t.feld.material.opacity > 0.01;
     }
 
-    if (sicht === "fest") festeKamera();
+    if (fest) festeKamera();
     else if (ich) {
       const laeuft = ich.sitz || ich.starrArt ? 0 : Math.min(1, ich.figur.tempo / LAUFTEMPO);
       verfolgung.setze(kamera, { x: ich.x, y: ich.y * mass, z: ich.z, richtung: ich.richtung, laeuft }, dt);
@@ -721,6 +820,7 @@ export function erzeugePlatz(leinwand, optionen) {
   }
 
   buehne.passeGroesseAn();
+  if (fest) festeKamera();
 
   return {
     bild,
@@ -746,20 +846,42 @@ export function erzeugePlatz(leinwand, optionen) {
       t.belegt = belegt;
       schreibeSchild(t.schild, [String(t.nr), `${belegt}/${plaetze}`], schildOptionen(t));
     },
-    /** Tisch kurz aufleuchten lassen (beim Auflösen). */
-    leuchte(nr) {
+    setzeFenster,
+    /** Tisch aufleuchten lassen (beim Auflösen). „bleibt“: Danach leuchtet das Feld schwach weiter. */
+    leuchte(nr, bleibt = false) {
       const t = tische[nr - 1];
-      if (t) t.leuchtet = 1.6;
+      if (!t) return;
+      t.leuchtet = 1.6;
+      t.dauerlicht = bleibt ? 0.16 : 0;
+    },
+    /** Alle Leuchtfelder wieder aus. */
+    lichtAus() {
+      for (const t of tische) { t.leuchtet = 0; t.dauerlicht = 0; }
+    },
+    /** Kurzer Jubelsprung auf der Stelle (beim Auflösen). */
+    jubel(fid) {
+      const e = figuren.get(fid);
+      if (e && !e.huepf) e.huepf = { t: 0, dauer: 0.55, vonX: e.x, vonZ: e.z, zuX: e.x, zuZ: e.z, jubel: true };
+    },
+    /**
+     * Ort im Bild für Anzeigen über der Szene: Bühnen-Pixel (und Höhe in Metern) → [x, y] als Anteil
+     * der Bildbreite und Bildhöhe (0 bis 1, y von oben). Gedacht für die feste Kamera.
+     */
+    aufBild(x, y, hoehe = 0) {
+      const [wx, wz] = zuWelt(x, y);
+      V.set(wx, hoehe, wz).project(kamera);
+      return [V.x * 0.5 + 0.5, 0.5 - V.y * 0.5];
     },
     blick,
     buehne,
     mass,
-    /** Für Tests: Ort einer Figur in der Welt. */
+    /** Für Tests: Ort einer Figur in der Welt und der Text auf ihrem Schild. */
     ortVon(fid) {
       const e = figuren.get(fid);
-      return e ? { x: e.x, z: e.z, y: e.y, richtung: e.richtung, sitzt: !!e.sitz, huepft: !!e.huepf, starr: e.starrArt } : null;
+      return e ? { x: e.x, z: e.z, y: e.y, richtung: e.richtung, sitzt: !!e.sitz, huepft: !!e.huepf, starr: e.starrArt, schild: e.daten.vorname ?? e.daten.name } : null;
     },
     anzahl: () => figuren.size,
+    kennungen: () => [...figuren.keys()],
     zerlegen() {
       buehne.zerlegen();
     },

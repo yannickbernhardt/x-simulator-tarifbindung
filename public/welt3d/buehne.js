@@ -34,6 +34,7 @@ export function kannDrei() {
  *   beiStufe(s)   wird bei jedem Stufenwechsel aufgerufen (Wolken an oder aus, weniger Bäume …)
  *   nebel         { farbe, nah, fern }
  *   blickwinkel   Funktion: Seitenverhältnis → Blickwinkel der Kamera in Grad
+ *   durchsichtig  true: Die Leinwand kann stellenweise durchsichtig sein (für Fenster auf die Seite darunter)
  */
 export function erzeugeBuehne(leinwand, optionen = {}) {
   const {
@@ -42,6 +43,7 @@ export function erzeugeBuehne(leinwand, optionen = {}) {
     beiStufe = () => {},
     nebel = { farbe: HIMMEL.unten, nah: 80, fern: 460 },
     blickwinkel = (verhaeltnis) => (verhaeltnis < 1.2 ? 68 : 58),
+    durchsichtig = false,
   } = optionen;
 
   const dichte = window.devicePixelRatio || 1;
@@ -49,7 +51,7 @@ export function erzeugeBuehne(leinwand, optionen = {}) {
     canvas: leinwand,
     antialias: dichte < 2, // auf dichten Handy-Bildschirmen reicht die Auflösung
     powerPreference: 'high-performance',
-    alpha: false,
+    alpha: durchsichtig,
     stencil: false,
   });
   renderer.setClearColor(nebel.farbe);

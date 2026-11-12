@@ -147,6 +147,42 @@ body.ohne-leiste #leiste { display: none; }
 #zeigeLeiste { position: fixed; right: 8px; bottom: 8px; width: 18px; height: 18px; border-radius: 50%; border: none; background: rgba(18,50,74,.12); cursor: pointer; display: none; z-index: 21; }
 body.ohne-leiste #zeigeLeiste { display: block; }
 #netz { position: fixed; left: 12px; top: 12px; background: #8c2a1c; color: #fff; padding: 8px 14px; border-radius: 10px; font-size: 16px; display: none; z-index: 30; }
+
+/* ---------- 3D-Ansicht ----------
+   Drei Lagen: unten die Bühne (Tafel, Listen der Tische), darüber die Leinwand mit der Welt, ganz oben #ueber.
+   Die Listen liegen wie Matten auf dem Boden: Die Leinwand hat dort ein Fenster, die Figuren laufen darüber.
+   Ohne WebGL (oder mit &2d) bleibt die 2D-Bühne von oben. */
+#leinwand { position: fixed; left: 0; top: 0; display: none; pointer-events: none; }
+#ueber { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0; display: none; pointer-events: none; }
+body.drei:not(.startseite) #leinwand, body.drei:not(.startseite) #ueber { display: block; }
+body.drei .titel { display: none; }
+#tafel .marke { display: none; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1; margin-bottom: -4px; }
+#tafel .marke span { color: var(--blitz); }
+body.drei #tafel .marke { display: block; }
+body.drei #tafel { padding-top: 26px; }
+/* Liste eines Tisches als Karte */
+body.drei .zelle { transform-origin: 0 0; padding: 4px 10px 0; border: 2px solid color-mix(in srgb, var(--t) 60%, #fff); border-left: 8px solid var(--t); }
+body.drei #zellen .zelle { border-radius: 8px; box-shadow: 0 0 0 40px #f7f1e3; } /* Matte am Boden; der Rand ringsum hat die Farbe des Bodens */
+body.drei #ueber .zelle { background: rgba(255,255,255,.94); border-radius: 14px; box-shadow: 0 3px 12px rgba(18,50,74,.22); } /* Karte über dem Platz */
+body.drei .zelle .szene { display: none; }
+body.drei .zelle .zkopf { position: absolute; left: 4px; right: 8px; top: -13px; height: 22px; gap: 6px; }
+body.drei .zelle .tnr { display: none; font-size: 13px; padding: 1px 9px; border-radius: 8px; box-shadow: 0 1px 4px rgba(18,50,74,.25); }
+body.drei #ueber .zelle .tnr { display: inline-block; }
+body.drei .zelle .tzahl { display: none; }
+body.drei .zelle .tspruch { font-size: 12.5px; background: #fff; border: 1.5px solid var(--linie); box-shadow: 0 1px 4px rgba(18,50,74,.18); }
+body.drei #zellen .zelle .zkopf { display: none; } /* am Boden steht der Spruch als Zeile in der Liste */
+.zeile.spruch span { font-weight: 800; background: var(--kreide); border-radius: 8px; padding: 1px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.drei .zelle .tgesucht { margin-top: 0; padding: 2px 0 4px; min-height: 24px; }
+body.ph-aufloesen.drei .zelle { box-shadow: 0 0 0 3px color-mix(in srgb, var(--t) 35%, transparent); }
+body.ph-aufloesen.drei #zellen .zelle { box-shadow: 0 0 0 40px #f7f1e3; }
+#ueber.licht .zelle { animation: licht 1.3s ease-out; }
+body.drei .eingang { left: 0; top: 0; width: 1250px; height: 900px; border: none; }
+body.drei .eingang .lab { left: 0; top: 0; transform-origin: 0 0; background: rgba(255,255,255,.94); border-radius: 14px; padding: 6px 14px 8px; box-shadow: 0 3px 12px rgba(18,50,74,.2); font-size: 0; }
+body.drei .eingang .lab small { font-size: 15px; }
+body.drei .eingang .lab b { font-size: 38px; margin-top: 2px; }
+body.drei .eingang .leer { left: 0; top: 0; right: auto; bottom: auto; display: block; transform: translate(-50%, -50%); background: rgba(255,255,255,.92); border-radius: 12px; padding: 6px 16px; white-space: nowrap; }
+body.drei .eingang .leer:empty { display: none; }
+.pruef { position: fixed; left: 10px; bottom: calc(var(--leiste) + 8px); z-index: 31; pointer-events: none; background: rgba(18,50,74,.82); color: #fff; border-radius: 8px; padding: 3px 8px; font: 600 12px/1.3 ui-monospace, monospace; }
 </style>
 </head>
 <body class="startseite">
@@ -172,6 +208,8 @@ body.ohne-leiste #zeigeLeiste { display: block; }
     <aside id="tafel" aria-live="polite"></aside>
   </div>
 </div>
+<canvas id="leinwand" aria-hidden="true"></canvas>
+<div id="ueber"></div>
 
 <nav id="leiste" aria-label="Steuerung"></nav>
 <button id="zeigeLeiste" title="Steuerung einblenden (H)" aria-label="Steuerung einblenden"></button>
@@ -188,6 +226,28 @@ const teile = location.pathname.split("/").filter(Boolean);
 const code = /^[a-z0-9]{4}$/.test(teile[1] ?? "") ? teile[1] : null;
 const TOKEN_ROH = location.search.match(/[?&]lehrer=([^&]*)/)?.[1] ?? "";
 const LS = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+/* ---------- 3D-Welt (dieselbe wie auf dem Handy) ----------
+   Ohne WebGL, wenn die Bausteine nicht laden oder mit &2d in der Adresse bleibt die 2D-Bühne.
+   Zum Prüfen: &fps=1 zeigt Bildrate und Zeichenaufrufe. */
+const schalter = new URLSearchParams(location.search);
+let DREI = null; // { erzeugePlatz } · false = 2D · null = noch offen
+function kannDrei() {
+  try {
+    const gl = document.createElement("canvas").getContext("webgl2");
+    if (!gl) return false;
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
+    return true;
+  } catch { return false; }
+}
+function ladeDrei(fertig) {
+  if (schalter.has("2d") || !kannDrei()) { DREI = false; return; }
+  const frist = setTimeout(() => { if (DREI === null) { DREI = false; fertig(); } }, 8000); // lädt es zu lange, geht es in 2D weiter
+  import("/gruppen/platz3d.js")
+    .then((m) => { if (DREI === null) DREI = { erzeugePlatz: m.erzeugePlatz }; })
+    .catch(() => { if (DREI === null) DREI = false; })
+    .finally(() => { clearTimeout(frist); fertig(); });
+}
 
 async function api(pfad, body) {
   const trenner = pfad.includes("?") ? "&" : "?";
@@ -218,6 +278,11 @@ function skalieren() {
   const W = innerWidth, H = innerHeight - leiste;
   const s = Math.min(W / 1600, H / 900);
   buehne.style.transform = `translate(${(W - 1600 * s) / 2}px, ${(H - 900 * s) / 2}px) scale(${s})`;
+  $("#ueber").style.transform = buehne.style.transform;
+  /* 3D: Die Leinwand liegt in echten Pixeln genau über dem Raum (links von der Tafel), so bleibt das Bild scharf */
+  const lw = $("#leinwand");
+  lw.style.left = `${(W - 1600 * s) / 2}px`; lw.style.top = `${(H - 900 * s) / 2}px`;
+  lw.style.width = `${1250 * s}px`; lw.style.height = `${900 * s}px`;
 }
 addEventListener("resize", skalieren);
 if (LS.get("gruppen-leiste") === "aus") document.body.classList.add("ohne-leiste");
@@ -278,6 +343,7 @@ function start() {
     holT = setTimeout(holen, document.hidden ? 3000 : 900);
   }
   function abgelaufen() {
+    cancelAnimationFrame(bildT); platz?.zerlegen(); platz = null; // die 3D-Welt wird nicht mehr gebraucht
     document.body.className = "startseite";
     $("#start h1").textContent = "Diese Gruppenwahl ist abgelaufen";
     $("#start p").textContent = "Räume werden nach 12 Stunden gelöscht. Starten Sie eine neue Gruppenwahl.";
@@ -318,11 +384,21 @@ function start() {
     L = berechneLayout(r.tische, r.plaetze);
     const zellen = $("#zellen");
     zellen.innerHTML = "";
+    $("#ueber").querySelectorAll(".zelle").forEach((z) => z.remove());
     zellCache.clear();
+    if (DREI) {
+      try { return baueTischeDrei(); }
+      catch (fehler) {
+        /* Die 3D-Welt lässt sich hier nicht aufbauen: weiter mit der 2D-Bühne */
+        console.warn("Herzblatt: 3D-Ansicht nicht möglich, weiter in 2D.", fehler);
+        dreiAus();
+      }
+    }
     L.tische.forEach((T, i) => {
       const farbe = TISCHFARBEN[i];
       const z = document.createElement("section");
       z.className = "zelle" + (L.eng ? "" : " weit");
+      z.dataset.tisch = i + 1;
       z.style.cssText = `left:${T.x}px;top:${T.y}px;width:${T.cw}px;height:${T.ch}px;--t:${farbe};--kopf:${L.kopf}px;--zh:${L.zh}px;--zf:${L.zf}px;--kf:${L.kf}px;--szene:${L.S}px`;
       z.innerHTML = `<div class="zkopf"><span class="tnr">Tisch ${i + 1}</span><span class="tzahl"></span><span class="tspruch" hidden></span></div><div class="szene"></div><div class="liste"></div><div class="tgesucht"></div>`;
       zellen.appendChild(z);
@@ -346,6 +422,151 @@ function start() {
         return s;
       });
     });
+  }
+
+  /* ---------- 3D: Platz mit fester Kamera, Listen als Karten über der Szene ---------- */
+  let platz = null, bildT = 0, bildZeit = 0, erstesBild = true, dreiVerluste = 0, pruefZeit = 0;
+  const SZ = 0.02; // Meter je Bühnen-Pixel in die Tiefe (wie in platz3d.js)
+  function dreiAus() {
+    DREI = false;
+    cancelAnimationFrame(bildT);
+    platz?.zerlegen();
+    platz = null;
+    window.herzblattPruef = undefined;
+    document.body.classList.remove("drei");
+    $("#zellen").innerHTML = "";
+    $("#ueber").querySelectorAll(".zelle").forEach((z) => z.remove());
+    $("#eingang .lab").style.cssText = "";
+    $("#eingangLeer").style.cssText = "";
+    $("#spiel").insertBefore($("#eingang"), $("#figuren")); // zurück auf die 2D-Bühne
+  }
+  function baueTischeDrei() {
+    const zellen = $("#zellen"), ueber = $("#ueber");
+    cancelAnimationFrame(bildT);
+    platz?.zerlegen();
+    platz = null;
+    /* Jeder Aufbau bekommt eine frische Leinwand: Die alte hat ihren Grafikkontext zurückgegeben */
+    const alt = $("#leinwand"), lw = alt.cloneNode(false);
+    alt.replaceWith(lw);
+    document.body.classList.add("drei");
+    skalieren();
+    platz = DREI.erzeugePlatz(lw, { layout: L, sicht: "fest" });
+    erstesBild = true;
+    if (schalter.has("fps")) {
+      window.herzblattPruef = platz; // nur zum Prüfen
+      if (!$("#pruef")) document.body.insertAdjacentHTML("beforeend", `<div class="pruef" id="pruef"></div>`);
+    }
+    /* Geht der Grafikspeicher verloren, einmal neu aufbauen, beim zweiten Mal in 2D weiter */
+    lw.addEventListener("webglcontextlost", (ev) => {
+      ev.preventDefault();
+      if (!platz || lw !== $("#leinwand")) return; // gilt einer alten Leinwand
+      if (++dreiVerluste > 1) dreiAus();
+      setTimeout(() => { layoutKey = ""; if (stand) aktualisieren(); }, 300);
+    });
+    /* Ort im Bild (Bühnen-Pixel des Raums) zu einem Ort am Boden */
+    const ort = (x, y, hoehe) => { const [u, v] = platz.aufBild(x, y, hoehe); return [u * 1250, v * 900]; };
+    /* Karten: Jede Liste liegt als Matte auf dem Boden vor ihrem Tisch (unter der Leinwand, die dort ein Fenster hat).
+       Nur bei zwei Tischreihen stehen die Listen der hinteren Tische als Karten über dem Platz: So bleibt der
+       Streifen zwischen den Reihen frei für Figuren und Schilder. */
+    const spalten = L.eng ? Math.ceil(L.n / 2) : L.n;
+    const hoeheKarte = L.P * L.zh + 32;
+    const tischAbstand = spalten > 1 ? ort(L.tische[1].cx, L.tische[0].cy)[0] - ort(L.tische[0].cx, L.tische[0].cy)[0] : 0;
+    const fenster = [];
+    L.tische.forEach((T, i) => {
+      const z = document.createElement("section");
+      const hinten = L.eng && i < spalten;
+      z.className = "zelle" + (L.eng ? "" : " weit");
+      z.dataset.tisch = i + 1;
+      /* Karten über dem Platz dürfen so breit sein, wie nebeneinander passt; Matten so breit wie ihr Feld */
+      const breite = hinten ? Math.min(400, Math.max(T.cw - 16, (1250 - 16 - 10 * (spalten - 1)) / spalten)) : Math.min(T.cw - 16, 340);
+      let links, oben, k;
+      if (hinten) {
+        const frei = ort(T.cx, T.y)[1] - 66 - 4 - 14; // unter der Karte brauchen die hinteren Figuren Platz für Kopf und Schild
+        k = Math.min(1, (1250 - 16 - 10 * (spalten - 1)) / (spalten * breite), frei / hoeheKarte);
+        const schritt = Math.max(tischAbstand, breite * k + 10);
+        links = 625 + (i - (spalten - 1) / 2) * schritt - (breite * k) / 2;
+        oben = 14;
+      } else {
+        const stuhlEnde = T.cy + T.th / 2 + (0.3 + 0.26) / SZ; // hier enden die Stühle der vorderen Reihe
+        const [l1, o1] = ort(T.x + 7, stuhlEnde + 6), [r1] = ort(T.x + T.cw - 7, stuhlEnde + 6);
+        const [l2, o2] = ort(T.x + 7, T.y + T.ch - 5), [r2] = ort(T.x + T.cw - 7, T.y + T.ch - 5);
+        const li = Math.max(l1, l2), re = Math.min(r1, r2);
+        k = Math.min(1, (re - li) / breite, (o2 - o1) / hoeheKarte);
+        links = (li + re) / 2 - (breite * k) / 2;
+        oben = o1;
+        fenster.push([links / 1250, oben / 900, (links + breite * k) / 1250, (oben + hoeheKarte * k) / 900]);
+      }
+      z.style.cssText = `left:${links.toFixed(1)}px;top:${oben.toFixed(1)}px;width:${breite}px;${hinten ? "" : `height:${hoeheKarte}px;`}transform:scale(${k.toFixed(4)});--t:${TISCHFARBEN[i]};--kopf:${L.kopf}px;--zh:${L.zh}px;--zf:${L.zf}px;--kf:${L.kf}px;--szene:0px`;
+      z.innerHTML = `<div class="zkopf"><span class="tnr">Tisch ${i + 1}</span><span class="tzahl"></span><span class="tspruch" hidden></span></div><div class="szene"></div><div class="liste"></div><div class="tgesucht"></div>`;
+      (hinten ? ueber : zellen).appendChild(z);
+      T.stuehle = [];
+    });
+    platz.setzeFenster(fenster);
+    /* Eingang: Schild mit der Zahl derer, die noch keinen Tisch haben, links neben den Figuren */
+    ueber.appendChild($("#eingang"));
+    const [ex, ey] = ort(44, 764);
+    $("#eingang .lab").style.cssText = `left:${ex.toFixed(1)}px;top:${ey.toFixed(1)}px;transform:scale(${((ort(144, 764)[0] - ex) / 100).toFixed(3)})`;
+    const [mx, my] = ort(690, 842, 0.6);
+    $("#eingangLeer").style.cssText = `left:${mx.toFixed(1)}px;top:${my.toFixed(1)}px`;
+    bildZeit = performance.now();
+    bildT = requestAnimationFrame(bildDrei);
+  }
+  function bildDrei(jetzt) {
+    if (!platz) return;
+    const dt = Math.min(0.25, (jetzt - bildZeit) / 1000);
+    bildZeit = jetzt;
+    platz.bild(dt);
+    if (schalter.has("fps") && jetzt - pruefZeit > 500) {
+      pruefZeit = jetzt;
+      const b = platz.buehne;
+      $("#pruef").textContent = `${Math.round(b.fps())} B/s · Stufe ${b.stufe()} · ${b.zeichenaufrufe()} Aufrufe · ${Math.round(b.dreiecke() / 1000)}k Dreiecke · ${platz.anzahl()} Figuren`;
+    }
+    bildT = requestAnimationFrame(bildDrei);
+  }
+  /* 3D: dieselben Angaben an den Platz geben. Ein Vorname geht erst hinein, wenn die Figur aufgedeckt ist. */
+  const aufgedeckt = new Set();
+  let aufdeckT = 0;
+  function figurenDrei(leute, eingang) {
+    const r = stand.raum;
+    platz.setzeFiguren(leute.map((p) => {
+      const sitz = p.tisch && L.tische[p.tisch - 1]?.plaetze[p.platz] ? { tisch: p.tisch, platz: p.platz } : null;
+      const pos = posMap[p.fid];
+      let x = 625, y = 842, stufe = 0;
+      if (pos) [x, y] = pos;
+      else if (!sitz) { const i = eingang.indexOf(p.fid), e = eingangPlatz(i, eingang.length); x = e.x; y = e.fuss; stufe = i % 3; }
+      return {
+        fid: p.fid, name: p.name, vorname: aufgedeckt.has(p.fid) ? p.vorname : undefined, aussehen: p.aussehen,
+        getraenk: p.profil?.getraenk, denkt: !p.profil && (r.phase === "anmelden" || r.phase === "wahl"), sitz, x, y, stufe,
+      };
+    }), erstesBild);
+    /* Nach einem Neuaufbau während des Auflösens leuchten die Tische der schon Aufgedeckten gleich wieder */
+    if (erstesBild) for (const t of new Set(leute.filter((p) => p.tisch && aufgedeckt.has(p.fid)).map((p) => p.tisch))) platz.leuchte(t, true);
+    erstesBild = false;
+    L.tische.forEach((_, i) => platz.zaehler(i + 1, leute.filter((p) => p.tisch === i + 1).length, r.plaetze));
+    aufdecken(leute);
+  }
+  /* Auflösen: Die Namensschilder erscheinen kurz nacheinander, Tisch für Tisch. Jeder Tisch leuchtet auf,
+     und die Figur macht einen Jubelsprung. */
+  function aufdecken(leute) {
+    if (stand.raum.phase !== "aufloesen") {
+      if (aufgedeckt.size) { aufgedeckt.clear(); platz.lichtAus(); }
+      clearTimeout(aufdeckT); aufdeckT = 0;
+      return;
+    }
+    if (aufdeckT) return;
+    const offen = leute.filter((p) => p.vorname && !aufgedeckt.has(p.fid))
+      .sort((a, b) => (a.tisch ?? 99) - (b.tisch ?? 99) || (a.platz ?? 0) - (b.platz ?? 0));
+    if (!offen.length) return;
+    aufdeckT = setTimeout(() => {
+      aufdeckT = 0;
+      if (!platz || !stand || stand.raum.phase !== "aufloesen") return;
+      const p = offen[0];
+      const ersteAmTisch = p.tisch && !stand.leute.some((q) => q.tisch === p.tisch && aufgedeckt.has(q.fid));
+      aufgedeckt.add(p.fid);
+      if (ersteAmTisch) platz.leuchte(p.tisch, true);
+      figurenAktualisieren();
+      platz.jubel(p.fid);
+    }, aufgedeckt.size ? 130 : 600);
   }
 
   /* ---------- Figuren ---------- */
@@ -398,6 +619,12 @@ function start() {
     const leute = stand.leute.filter(sichtbar);
     const eingang = leute.filter((p) => (!p.tisch || !L.tische[p.tisch - 1]?.plaetze[p.platz]) && !posMap[p.fid]).map((p) => p.fid);
     const ohneTisch = leute.filter((p) => !p.tisch || !L.tische[p.tisch - 1]?.plaetze[p.platz]).length;
+    if (platz) {
+      figurenDrei(leute, eingang);
+      $("#eingangZahl").textContent = ohneTisch;
+      $("#eingangLeer").textContent = eingang.length ? "" : !ohneTisch ? "Alle sitzen ✓" : r.phase === "anmelden" && !leute.length ? "Hier tauchen gleich die Figuren auf …" : "";
+      return;
+    }
     const da = new Set();
     for (const p of leute) {
       da.add(p.fid);
@@ -472,14 +699,18 @@ function start() {
   function zellenAktualisieren() {
     const r = stand.raum;
     const zellen = $$(".zelle");
-    zellen.forEach((z, i) => {
-      const t = i + 1;
+    zellen.forEach((z, nr) => {
+      const t = Number(z.dataset.tisch ?? nr + 1), i = t - 1; // in 3D liegen die Karten in zwei Lagen, also nicht in der Reihenfolge der Tische
       const leute = stand.leute.filter((p) => p.tisch === t && sichtbar(p)).sort((a, b) => a.platz - b.platz);
       const profile = leute.map((p) => p.profil);
       const spruch = tischSpruch(profile);
       const gesucht = leute.length && leute.length < r.plaetze ? nochGesucht(profile) : [];
       const zeilen = leute.map((p) => `<div class="zeile"><i style="background:${esc(farbe(p))}"></i><span class="zn">${p.vorname ? `${esc(p.vorname)}<small>${esc(p.name)}</small>` : esc(p.name)}</span>${p.profil ? `<span class="zr"><span class="zi">${icons(p.profil)}</span><span class="zs">${ANTWORT.pizza[p.profil.pizza]?.e ?? ""}${ANTWORT.getraenk[p.profil.getraenk]?.e ?? ""}</span></span>` : ""}</div>`);
-      for (let k = leute.length; k < r.plaetze; k++) zeilen.push(`<div class="zeile frei"><i style="background:#dbe4ea"></i><span class="zn">freier Platz</span></div>`);
+      /* 3D: Die Matte am Boden hat eine feste Höhe. Der Spruch steht dort als Zeile statt eines freien Platzes. */
+      const matte = !!platz && z.parentElement.id === "zellen";
+      const spruchZeile = matte && spruch && leute.length < r.plaetze;
+      if (spruchZeile) zeilen.push(`<div class="zeile spruch"><span>${esc(spruch)}</span></div>`);
+      for (let k = leute.length + (spruchZeile ? 1 : 0); k < r.plaetze; k++) zeilen.push(`<div class="zeile frei"><i style="background:#dbe4ea"></i><span class="zn">freier Platz</span></div>`);
       const html = JSON.stringify([leute.length, spruch, zeilen, gesucht]);
       if (zellCache.get(i) === html) return;
       zellCache.set(i, html);
@@ -487,9 +718,10 @@ function start() {
       zahl.textContent = `${leute.length}/${r.plaetze}`;
       zahl.classList.toggle("voll", leute.length >= r.plaetze);
       const sp = z.querySelector(".tspruch");
-      sp.hidden = !spruch; sp.textContent = spruch ?? "";
+      sp.hidden = !spruch || matte; sp.textContent = spruch ?? "";
       z.querySelector(".liste").innerHTML = zeilen.join("");
-      z.querySelector(".tgesucht").innerHTML = gesucht.length ? `Noch gesucht: <b>${gesucht.map((g) => ANTWORT.rolle[g].e + " " + ANTWORT.rolle[g].kurz).join(" · ")}</b>` : (leute.length >= r.plaetze ? "Tisch voll ✓" : "");
+      const voll = leute.length >= r.plaetze;
+      z.querySelector(".tgesucht").innerHTML = gesucht.length ? `Noch gesucht: <b>${gesucht.map((g) => ANTWORT.rolle[g].e + " " + ANTWORT.rolle[g].kurz).join(" · ")}</b>` : (voll ? (matte && spruch ? `Tisch voll ✓ · <b>${esc(spruch)}</b>` : "Tisch voll ✓") : "");
     });
   }
   const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -528,6 +760,7 @@ function start() {
         ${ohne.length ? `<div class="warnung">Noch ohne Tisch: ${ohne.map((p) => esc(p.vorname || p.name)).join(", ")}</div>` : ""}
         ${legende()}`;
     }
+    h = `<div class="marke">Herz<span>blatt</span></div>` + h; // in 3D steht der Name hier statt über dem Raum
     if (h !== tafelHtml) { tafelHtml = h; $("#tafel").innerHTML = h; }
     $("#unter").textContent = { anmelden: "Die anonyme Gruppenwahl", wahl: "Wer setzt sich wohin?", aufloesen: "Aufgelöst!" }[ph] ?? "";
   }
@@ -578,6 +811,7 @@ function start() {
     const r = stand.raum;
     document.body.classList.remove("ph-anmelden", "ph-wahl", "ph-aufloesen");
     document.body.classList.add("ph-" + r.phase);
+    if (DREI === null) { tafel(); leiste(); return; } // die 3D-Welt lädt noch: Tafel und Leiste schon zeigen
     const key = `${r.tische}.${r.plaetze}`;
     if (key !== layoutKey) { layoutKey = key; baueTische(); }
     figurenAktualisieren();
@@ -585,12 +819,14 @@ function start() {
     tafel();
     leiste();
     if (r.phase === "aufloesen" && letztePhase && letztePhase !== "aufloesen") {
-      buehne.classList.remove("licht"); void buehne.offsetWidth; buehne.classList.add("licht");
-      setTimeout(() => buehne.classList.remove("licht"), 1500);
+      const ueber = $("#ueber");
+      buehne.classList.remove("licht"); ueber.classList.remove("licht"); void buehne.offsetWidth; buehne.classList.add("licht"); ueber.classList.add("licht");
+      setTimeout(() => { buehne.classList.remove("licht"); ueber.classList.remove("licht"); }, 1500);
     }
     letztePhase = r.phase;
   }
 
+  if (DREI === null) ladeDrei(() => { if (stand) aktualisieren(); });
   holen();
   posHolen();
 }
