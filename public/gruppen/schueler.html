@@ -136,6 +136,13 @@ body.im-spiel { overflow: hidden; overscroll-behavior: none; }
 .toast { position: absolute; left: 50%; bottom: calc(160px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--tafel); color: #fff; padding: 9px 14px; border-radius: 12px; font-size: 15px; font-weight: 600; z-index: 22; opacity: 0; transition: opacity .25s; pointer-events: none; text-align: center; width: max-content; max-width: 84vw; }
 .toast.an { opacity: 1; }
 
+/* 3D-Ansicht: die Welt als Leinwand hinter den Anzeigen (ohne WebGL bleibt die 2D-Ansicht oben) */
+.spiel.drei { background: #dff0f2; }
+.leinwand { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+.wisch { position: absolute; right: calc(20px + env(safe-area-inset-right)); bottom: calc(154px + env(safe-area-inset-bottom)); z-index: 21; pointer-events: none; background: rgba(255,255,255,.9); color: var(--tafel); border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 800; box-shadow: 0 2px 8px rgba(18,50,74,.18); transition: opacity .4s; }
+.spiel.gedreht .wisch, .spiel.sitzt .wisch { opacity: 0; }
+.pruef { position: absolute; left: max(10px, env(safe-area-inset-left)); bottom: max(6px, env(safe-area-inset-bottom)); z-index: 23; pointer-events: none; background: rgba(18,50,74,.82); color: #fff; border-radius: 8px; padding: 3px 8px; font: 600 12px/1.3 ui-monospace, monospace; }
+
 /* Tischkarte */
 .tisch { --t: var(--tafel); background: #fff; border: 2px solid var(--linie); border-left: 8px solid var(--t); border-radius: 16px; padding: 12px; display: grid; gap: 10px; }
 .tisch.meiner { border-color: var(--t); }
@@ -182,6 +189,30 @@ let ansicht = null; // "name" | "ausweis" | "fragen" | null (dann entscheidet di
 let frageNr = 0, entwurf = {};
 let meldung = "", letztesHtml = "";
 
+/* ---------- 3D-Welt (dieselbe wie in Zinssturm) ----------
+   Die Bausteine werden erst nach dem Anmelden geladen. Ohne WebGL, wenn das Laden scheitert oder mit ?2d
+   in der Adresse bleibt die 2D-Ansicht. Schalter zum Prüfen: ?stufe=0…3 (Bildqualität), ?fps=1 (Bildrate). */
+const schalter = new URLSearchParams(location.search);
+let DREI = null; // { erzeugePlatz, erzeugeSteuerung } · false = 2D · null = noch offen
+let dreiLaedt = false, dreiFrist = 0, dreiVerluste = 0;
+function kannDrei() {
+  try {
+    const gl = document.createElement("canvas").getContext("webgl2");
+    if (!gl) return false;
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
+    return true;
+  } catch { return false; }
+}
+function ladeDrei() {
+  if (DREI !== null || dreiLaedt) return;
+  if (schalter.has("2d") || !kannDrei()) { DREI = false; return; }
+  dreiLaedt = true;
+  Promise.all([import("/gruppen/platz3d.js"), import("/welt3d/steuerung.js")])
+    .then(([platz, steuerung]) => { if (DREI === null) DREI = { erzeugePlatz: platz.erzeugePlatz, erzeugeSteuerung: steuerung.erzeugeSteuerung }; })
+    .catch(() => { if (DREI === null) DREI = false; })
+    .finally(() => { dreiLaedt = false; clearTimeout(dreiFrist); dreiFrist = 0; if (ich && stand) darstellen(); });
+}
+
 async function api(aktion, body) {
   const r = await fetch(`/api/gruppen/${code}/${aktion}`, body
     ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }
@@ -219,6 +250,7 @@ function angemeldet(j) {
   entwurf = { ...(ich.profil ?? {}) };
   ansicht = ich.profil ? null : speicher.get("gruppen-gesehen-" + code) === pid ? "fragen" : "ausweis";
   letztesHtml = "";
+  ladeDrei();
   darstellen();
   holen();
 }
@@ -334,6 +366,8 @@ function spielWeg() {
   if (!G) return;
   cancelAnimationFrame(G.raf);
   clearTimeout(G.posT);
+  G.steuer?.zerlegen();
+  G.drei?.zerlegen();
   G = null;
   document.body.classList.remove("im-spiel");
 }
@@ -342,19 +376,21 @@ function spielAufbauen() {
   spielWeg();
   const r = stand.raum;
   const L = berechneLayout(r.tische, r.plaetze);
+  const mitDrei = !!DREI;
   document.body.classList.add("im-spiel");
-  app.innerHTML = `<div class="spiel" id="spiel">
-    <div class="welt" id="welt"></div>
+  app.innerHTML = `<div class="spiel${mitDrei ? " drei" : ""}" id="spiel">
+    ${mitDrei ? `<canvas class="leinwand" id="leinwand"></canvas>` : `<div class="welt" id="welt"></div>`}
     <div class="hud"><span class="mini" id="hudFig"></span><div class="wer"><small id="hudStatus"></small><b>${esc(ich.name)}</b></div><button class="hudknopf" data-a="aendern">✏️ Profil</button></div>
     <div class="info" id="info"></div>
     <div class="geist"><i></i></div>
     <div class="stick" id="stick"><i></i></div>
     <button class="aktion" id="aktion" hidden></button>
     <div class="toast" id="toast" role="status"></div>
+    ${mitDrei ? `<div class="wisch">Hier wischen: umsehen</div>${schalter.has("fps") ? `<div class="pruef" id="pruef"></div>` : ""}` : ""}
   </div>`;
   letztesHtml = "";
   let h = `<div class="boden"></div>`;
-  L.tische.forEach((T, i) => {
+  if (!mitDrei) L.tische.forEach((T, i) => {
     const farbe = TISCHFARBEN[i], kante = T.th * 0.2;
     h += `<div class="zelle" data-zelle="${i + 1}" style="left:${T.x}px;top:${T.y}px;width:${T.cw}px;height:${T.ch}px;--t:${farbe}"><div class="zk"><span class="tnr">Tisch ${i + 1}</span><span class="tz"></span></div></div>`;
     h += `<div class="tischbild" style="left:${T.cx - T.tw / 2}px;top:${T.tischOben}px"><svg width="${T.tw}" height="${T.th + kante}" viewBox="0 0 ${T.tw} ${T.th + kante}"><ellipse cx="${T.tw / 2}" cy="${T.th / 2 + kante}" rx="${T.tw / 2 - 1}" ry="${T.th / 2}" fill="var(--holz-dunkel)"/><ellipse cx="${T.tw / 2}" cy="${T.th / 2}" rx="${T.tw / 2 - 1}" ry="${T.th / 2}" fill="var(--holz)"/><ellipse cx="${T.tw / 2}" cy="${T.th / 2}" rx="${T.tw / 2 - 12}" ry="${T.th / 2 - 6}" fill="none" stroke="${farbe}" stroke-opacity=".35" stroke-width="3"/></svg></div>`;
@@ -366,16 +402,54 @@ function spielAufbauen() {
     });
   });
   h += `<div class="eingang"><span class="lab">Eingang</span></div>`;
-  $("#welt").innerHTML = h;
+  if (!mitDrei) $("#welt").innerHTML = h;
   G = {
     L, key: `${r.tische}.${r.plaetze}`, spiel: $("#spiel"), welt: $("#welt"), fig: new Map(),
+    drei: null, steuer: null, erstesBild: true, pruefZeit: 0,
     ich: null, bewegt: false, richtung: 1, v: { x: 0, y: 0 }, tasten: new Set(), stick: null, cam: null,
     zuletzt: performance.now(), gesendet: 0, sendet: false, nochmal: false, laeuftZuletzt: false,
     meinZiel: undefined, posMap: {}, nah: null, html: {}, toastT: 0, beschaeftigt: false,
   };
-  spielEingaben();
+  if (mitDrei) {
+    try { dreiAufbauen(); }
+    catch (fehler) {
+      /* Die 3D-Welt lässt sich auf diesem Gerät nicht aufbauen: weiter mit der 2D-Ansicht */
+      console.warn("Herzblatt: 3D-Ansicht nicht möglich, weiter in 2D.", fehler);
+      DREI = false;
+      return spielAufbauen();
+    }
+  } else spielEingaben();
   G.raf = requestAnimationFrame(schleife);
   posHolen();
+}
+
+/* 3D: Platz und Eingaben aus dem gemeinsamen Bausatz. Der Joystick bleibt das Element dieser Seite. */
+function dreiAufbauen() {
+  const spiel = G.spiel, leinwand = $("#leinwand"), stick = $("#stick"), knauf = stick.firstElementChild;
+  const stufe = Number(schalter.get("stufe"));
+  G.drei = DREI.erzeugePlatz(leinwand, { layout: G.L, festeStufe: schalter.has("stufe") && stufe >= 0 && stufe <= 3 ? Math.round(stufe) : undefined });
+  G.steuer = DREI.erzeugeSteuerung({
+    flaeche: spiel,
+    ausnahme: (ziel) => !!ziel.closest("button, .info, .hud"),
+    zeigeStick(bx, by, dx, dy, radius) {
+      stick.style.left = bx + "px"; stick.style.top = by + "px";
+      stick.style.width = stick.style.height = 2 * radius + "px";
+      stick.style.margin = `${-radius}px 0 0 ${-radius}px`;
+      knauf.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
+      if (stick.classList.contains("an")) return;
+      stick.classList.add("an"); spiel.classList.add("lenkt");
+      if (meinSitz() && stand.raum.phase === "wahl") toast("Du sitzt. Erst aufstehen – Knopf rechts unten.");
+    },
+    versteckeStick() { stick.classList.remove("an"); spiel.classList.remove("lenkt"); },
+  });
+  if (schalter.has("fps")) window.herzblattPruef = G.drei; // nur zum Prüfen: Bildrate und Orte der Figuren
+  /* Geht der Grafikspeicher verloren (zum Beispiel nach langer Pause), einmal neu aufbauen, beim zweiten Mal in 2D weiter */
+  leinwand.addEventListener("webglcontextlost", (ev) => {
+    ev.preventDefault();
+    if (!G || G.spiel !== spiel) return;
+    if (++dreiVerluste > 1) DREI = false;
+    setTimeout(() => { if (G && G.spiel === spiel) { spielAufbauen(); darstellen(); } }, 300);
+  });
 }
 
 /* Sitzt jemand? Für mich zählt ein gerade abgeschickter Wunsch, bis der Server ihn bestätigt. */
@@ -434,6 +508,7 @@ function figurenAktualisieren() {
     if (pos) G.ich = { x: pos[0], y: pos[1] };
     else if (!G.ich) { const e = eingangPlatz(Math.max(0, eingang.indexOf(ich.fid)), eingang.length); G.ich = { x: e.x, y: e.fuss }; }
   }
+  if (G.drei) return figurenDrei(eingang);
   const da = new Set();
   for (const p of leute) {
     da.add(p.fid);
@@ -467,6 +542,19 @@ function figurenAktualisieren() {
   });
 }
 
+/* 3D: dieselben Angaben an den Platz geben. Orte bleiben Bühnen-Pixel, Vornamen gibt es hier nicht. */
+function figurenDrei(eingang) {
+  const leute = stand.leute;
+  G.drei.setzeFiguren(leute.map((p) => {
+    const selbst = p.fid === ich.fid;
+    const o = selbst && G.ich ? { x: G.ich.x, fuss: G.ich.y } : ortVon(p, eingang);
+    return { fid: p.fid, name: p.name, aussehen: p.aussehen, getraenk: p.profil?.getraenk, denkt: !p.profil, ich: selbst, sitz: sitzVon(p), x: o.x, y: o.fuss };
+  }), G.erstesBild);
+  G.erstesBild = false;
+  const sitze = leute.map(sitzVon);
+  G.L.tische.forEach((_, i) => G.drei.zaehler(i + 1, sitze.filter((s) => s?.tisch === i + 1).length, stand.raum.plaetze));
+}
+
 /* Anzeigen: Kopfzeile, Tischinfo, Aktionsknopf */
 function setzeHtml(id, html) {
   if (G.html[id] === html) return;
@@ -489,7 +577,8 @@ function anzeigenAktualisieren() {
   setzeHtml("hudFig", figurSvg(ich.aussehen, { getraenk: ich.profil?.getraenk }));
   $("#hudStatus").textContent = r.phase === "anmelden" ? "Gleich öffnen die Tische" : sitz ? `Du sitzt an Tisch ${sitz.tisch}` : G.nah ? `Am Tisch ${G.nah.nr}` : "Lauf zu einem Tisch";
   G.spiel.classList.toggle("sitzt", !!sitz);
-  G.welt.querySelectorAll(".zelle").forEach((z) => z.classList.toggle("nah", r.phase === "wahl" && Number(z.dataset.zelle) === t));
+  if (G.drei) G.drei.nah(r.phase === "wahl" ? t : null);
+  else G.welt.querySelectorAll(".zelle").forEach((z) => z.classList.toggle("nah", r.phase === "wahl" && Number(z.dataset.zelle) === t));
   const info = $("#info");
   if (r.phase === "wahl" && t) {
     info.style.setProperty("--t", TISCHFARBEN[t - 1]);
@@ -525,6 +614,7 @@ function schleife(jetzt) {
   if (!G) return;
   const dt = Math.min(0.05, (jetzt - G.zuletzt) / 1000);
   G.zuletzt = jetzt;
+  if (G.drei) return schleifeDrei(jetzt, dt);
   const r = stand.raum;
   let vx = G.v.x, vy = G.v.y;
   if (G.tasten.size) {
@@ -545,6 +635,36 @@ function schleife(jetzt) {
   } else if (G.laeuftZuletzt) { eigeneFigur(false); posSenden(jetzt); }
   G.laeuftZuletzt = laeuft;
   kamera(dt);
+  G.raf = requestAnimationFrame(schleife);
+}
+/* 3D: Der Joystick zählt aus Sicht der Kamera. Gelaufen wird weiter in Bühnen-Pixeln mit den Regeln aus raum.js. */
+function schleifeDrei(jetzt, dt) {
+  const r = stand.raum;
+  const dreh = G.steuer.holeDrehung();
+  if (dreh.x || dreh.y) {
+    const k = dreh.maus ? 0.0046 : 0.0062;
+    G.drei.dreheKamera(dreh.x * k, dreh.y * k * 0.62);
+    G.spiel.classList.add("gedreht");
+  }
+  const e = G.steuer.richtung();
+  const darf = (r.phase === "anmelden" || r.phase === "wahl") && G.ich && !meinSitz() && !G.beschaeftigt;
+  const laeuft = darf && (Math.abs(e.x) > 0.01 || Math.abs(e.y) > 0.01);
+  if (laeuft) {
+    const [vx, vy] = G.drei.eingabeZuBuehne(e.x, e.y);
+    [G.ich.x, G.ich.y] = schritt(G.L, G.ich.x, G.ich.y, vx * dt, vy * dt);
+    G.bewegt = true;
+    if (jetzt - G.gesendet > 300) posSenden(jetzt);
+    const nah = r.phase === "wahl" ? tischInDerNaehe(G.L, G.ich.x, G.ich.y) : null;
+    if (nah !== G.nah) { G.nah = nah; anzeigenAktualisieren(); }
+  } else if (G.laeuftZuletzt) posSenden(jetzt);
+  G.laeuftZuletzt = laeuft;
+  if (G.ich && !meinSitz()) G.drei.setzeIch(G.ich.x, G.ich.y);
+  G.drei.bild(dt);
+  if (schalter.has("fps") && jetzt - G.pruefZeit > 500) {
+    G.pruefZeit = jetzt;
+    const b = G.drei.buehne;
+    $("#pruef").textContent = `${Math.round(b.fps())} B/s · Stufe ${b.stufe()} · ${b.zeichenaufrufe()} Aufrufe · ${Math.round(b.dreiecke() / 1000)}k Dreiecke`;
+  }
   G.raf = requestAnimationFrame(schleife);
 }
 function kamera(dt) {
@@ -665,6 +785,14 @@ function darstellen() {
   if (!ich.profil) return zeigeHtml(`${ichLeiste("Du bist")}<h1>Die Gruppenwahl ist schon vorbei.</h1><p class="leise">Sag deiner Lehrkraft Bescheid.</p>`);
   if (ph === "aufloesen") return zeigeHtml(aufgeloestHtml());
   /* anmelden (Profil fertig) oder wahl: das Spiel */
+  if (DREI === null) {
+    /* Die 3D-Welt lädt noch: kurz warten, nach zehn Sekunden geht es in 2D weiter */
+    ladeDrei();
+    if (DREI === null) {
+      dreiFrist ||= setTimeout(() => { if (DREI === null) { DREI = false; darstellen(); } }, 10000);
+      return zeigeHtml(`${ichLeiste("Du bist")}<p class="leise">Die Welt wird aufgebaut …</p>`);
+    }
+  }
   if (!G || G.key !== `${r.tische}.${r.plaetze}` || !document.body.contains(G.spiel)) spielAufbauen();
   if (ph !== "wahl") G.nah = null;
   else if (!meinSitz() && G.ich) G.nah = tischInDerNaehe(G.L, G.ich.x, G.ich.y);
