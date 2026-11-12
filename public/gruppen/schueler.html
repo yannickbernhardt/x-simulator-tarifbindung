@@ -64,48 +64,77 @@ input.name { font: inherit; font-size: 24px; font-weight: 800; padding: 14px 16p
 .ich .wer small { display: block; font-size: 13px; color: var(--muted); font-weight: 600; }
 .ich .wer b { display: block; font-size: 18px; line-height: 1.15; overflow-wrap: break-word; }
 
-/* ---------- Raum ---------- */
-.raum { position: relative; width: 100%; user-select: none; -webkit-user-select: none; }
-.zelle { --t: var(--tafel); position: absolute; background: #fff; border: 2px solid var(--linie); border-radius: 14px; cursor: pointer; transition: border-color .2s, box-shadow .2s, background .2s; }
-.zelle .zk { display: flex; align-items: center; gap: 6px; padding: 5px 8px 0; font-size: 14px; font-weight: 800; }
-.zelle .tnr { background: var(--t); color: #fff; border-radius: 7px; padding: 0 7px; }
+/* ---------- Spiel: Fortnite-Steuerung ---------- */
+body.im-spiel { overflow: hidden; overscroll-behavior: none; }
+.spiel { position: fixed; inset: 0; overflow: hidden; background: #d6e0e7; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.welt { position: absolute; left: 0; top: 0; width: 1250px; height: 900px; transform-origin: 0 0; will-change: transform; }
+.boden { position: absolute; left: 12px; top: 90px; width: 1226px; height: 808px; background: var(--kreide); border-radius: 28px; box-shadow: inset 0 0 0 4px #c9d6df; }
+.zelle { --t: var(--tafel); position: absolute; background: rgba(255,255,255,.72); border: 2px solid var(--linie); border-radius: 18px; transition: border-color .2s, box-shadow .2s, background .2s; }
+.zelle .zk { display: flex; align-items: center; gap: 8px; padding: 7px 12px; font-size: 21px; font-weight: 800; }
+.zelle .tnr { background: var(--t); color: #fff; border-radius: 9px; padding: 1px 10px; }
 .zelle .tz { color: var(--muted); font-variant-numeric: tabular-nums; }
 .zelle .tz.voll { color: var(--t); }
-.zelle.gewaehlt { border-color: var(--t); box-shadow: 0 0 0 3px color-mix(in srgb, var(--t) 30%, transparent); }
-.zelle.ziel { border-color: var(--t); background: color-mix(in srgb, var(--t) 10%, #fff); box-shadow: 0 0 0 4px color-mix(in srgb, var(--t) 45%, transparent); }
-.zelle.ziel-voll { border-color: #8c2a1c; background: #fbe9e6; }
+.zelle.nah { border-color: var(--t); background: color-mix(in srgb, var(--t) 9%, #fff); box-shadow: 0 0 0 5px color-mix(in srgb, var(--t) 40%, transparent); }
+.eingang { position: absolute; left: 30px; top: 724px; width: 1190px; height: 164px; border: 3px dashed #c3d0d9; border-radius: 18px; }
+.eingang .lab { position: absolute; left: 18px; top: 14px; font-size: 24px; font-weight: 800; color: var(--muted); }
 .tischbild, .stuhl { position: absolute; pointer-events: none; }
 .tischbild { z-index: 3; }
 .stuhl { transition: opacity .3s; }
 .stuhl.hinten { z-index: 2; } .stuhl.vorn { z-index: 4; }
 .stuhl.besetzt { opacity: 0; }
-.eingang { position: absolute; left: 0; right: 0; border: 3px dashed #c3d0d9; border-radius: 14px; cursor: pointer; }
-.eingang .lab { position: absolute; right: 10px; top: 6px; font-size: 13px; font-weight: 800; color: var(--muted); }
-.eingang.ziel { border-color: var(--tafel); background: #fff; }
-.eingang.gewaehlt { border-color: var(--tafel); }
 .fig { position: absolute; left: 0; top: 0; width: 100px; height: 125.45px; transform-origin: 0 0; z-index: 4; }
 .fig .innen { width: 100%; height: 100%; }
 .fig svg { width: 100%; height: 100%; display: block; overflow: visible; }
-.fig.gleitet { transition: transform var(--dauer, 1s) cubic-bezier(.42,.08,.58,.96); }
-.fig.laeuft .glied { transform-box: view-box; }
+.fig.links svg { transform: scaleX(-1); }
+.fig.gleitet { transition: transform var(--dauer, .5s) linear; }
+.fig .glied { transform-box: view-box; }
 .fig .a1 { transform-origin: 25px 74px; } .fig .a2 { transform-origin: 75px 74px; }
 .fig .b1 { transform-origin: 40px 104px; } .fig .b2 { transform-origin: 60px 104px; }
-.fig .glied { transform-box: view-box; }
-.fig.laeuft .b1, .fig.laeuft .a2 { animation: schwing .28s ease-in-out infinite alternate; }
-.fig.laeuft .b2, .fig.laeuft .a1 { animation: schwing .28s ease-in-out infinite alternate-reverse; }
-.fig.laeuft .innen { animation: wipp .14s ease-in-out infinite alternate; }
-@keyframes schwing { from { transform: rotate(-24deg); } to { transform: rotate(24deg); } }
+.fig.laeuft .b1, .fig.laeuft .a2 { animation: schwing .26s ease-in-out infinite alternate; }
+.fig.laeuft .b2, .fig.laeuft .a1 { animation: schwing .26s ease-in-out infinite alternate-reverse; }
+.fig.laeuft .innen { animation: wipp .13s ease-in-out infinite alternate; }
+@keyframes schwing { from { transform: rotate(-26deg); } to { transform: rotate(26deg); } }
 @keyframes wipp { to { transform: translateY(-5px); } }
-.fig.ich-fig { touch-action: none; cursor: grab; }
-.fig.ich-fig::before { content: ""; position: absolute; inset: -6% -14% -2%; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,197,49,.9), rgba(255,197,49,0)); z-index: -1; }
-.fig.ich-fig .du { position: absolute; left: 50%; top: -34px; transform: translateX(-50%); background: var(--tafel); color: #fff; font-weight: 800; font-size: 26px; border-radius: 10px; padding: 0 9px; white-space: nowrap; }
-.fig.ich-fig .du::after { content: ""; position: absolute; left: 50%; bottom: -7px; margin-left: -7px; border: 7px solid transparent; border-bottom: 0; border-top-color: var(--tafel); }
-.fig.ich-fig.zieht, .fig.ich-fig.gleitet { cursor: grabbing; z-index: 10 !important; }
-.fig.wackelt .innen { animation: wackel .45s ease-in-out; }
-@keyframes wackel { 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
-@media (prefers-reduced-motion: reduce) { .fig.laeuft .glied, .fig.laeuft .innen, .figur .propeller, .fig.wackelt .innen { animation: none; } }
-.hinweis { background: var(--tafel); color: #fff; border-radius: 14px; padding: 10px 14px; font-size: 16px; line-height: 1.35; display: flex; gap: 10px; align-items: center; }
-.hinweis b { font-size: 22px; }
+.fig.ich-fig::before { content: ""; position: absolute; inset: -6% -16% -2%; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,197,49,.9), rgba(255,197,49,0)); z-index: -1; }
+.fig.ich-fig .du { position: absolute; left: 50%; top: -40px; transform: translateX(-50%); background: var(--tafel); color: #fff; font-weight: 800; font-size: 30px; border-radius: 12px; padding: 0 11px; white-space: nowrap; }
+.fig.ich-fig .du::after { content: ""; position: absolute; left: 50%; bottom: -8px; margin-left: -8px; border: 8px solid transparent; border-bottom: 0; border-top-color: var(--tafel); }
+@media (prefers-reduced-motion: reduce) { .fig.laeuft .glied, .fig.laeuft .innen, .figur .propeller { animation: none; } }
+
+/* Anzeigen über dem Spiel */
+.hud { position: absolute; left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right)); top: max(10px, env(safe-area-inset-top)); z-index: 20; display: flex; gap: 10px; align-items: center; background: rgba(255,255,255,.95); border-radius: 16px; padding: 5px 8px 5px 10px; box-shadow: 0 2px 12px rgba(18,50,74,.18); }
+.hud .mini svg { width: 34px; height: 43px; }
+.hud .wer { flex: 1; min-width: 0; }
+.hud .wer small { display: block; font-size: 13px; color: var(--muted); font-weight: 600; }
+.hud .wer b { display: block; font-size: 16px; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hudknopf { border: 2px solid var(--linie); background: #fff; border-radius: 10px; font-size: 14px; font-weight: 700; padding: 6px 9px; color: var(--tafel); white-space: nowrap; }
+.info { --t: var(--tafel); position: absolute; left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right)); top: calc(max(10px, env(safe-area-inset-top)) + 64px); max-height: 40vh; overflow: auto; z-index: 19; background: #fff; border-radius: 16px; border-left: 7px solid var(--t); box-shadow: 0 4px 16px rgba(18,50,74,.22); padding: 9px 12px; display: none; gap: 7px; touch-action: pan-y; }
+.info.an { display: grid; }
+.info h3 { margin: 0; font-size: 18px; color: var(--t); display: flex; gap: 8px; align-items: baseline; }
+.info h3 span { margin-left: auto; font-size: 14px; color: var(--muted); white-space: nowrap; }
+.info .spruch { font-size: 13px; padding: 2px 8px; }
+.info .person { gap: 8px; }
+.info .mini svg { width: 28px; height: 35px; }
+.info .pname { font-size: 14px; }
+.info .chip { font-size: 12px; padding: 1px 7px 1px 5px; }
+.info .gesucht, .info .leer { font-size: 13px; }
+@media (orientation: landscape) and (max-height: 560px) {
+  .hud { right: auto; max-width: 48vw; }
+  .info { left: auto; width: min(340px, 44vw); top: max(10px, env(safe-area-inset-top)); max-height: calc(100vh - 150px); }
+}
+.stick, .geist { position: absolute; width: 124px; height: 124px; margin: -62px 0 0 -62px; border-radius: 50%; background: rgba(18,50,74,.2); border: 3px solid rgba(255,255,255,.9); z-index: 21; pointer-events: none; }
+.stick { display: none; }
+.stick.an { display: block; }
+.stick i, .geist i { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: rgba(255,255,255,.96); box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+.geist { left: calc(env(safe-area-inset-left) + 92px); top: calc(100% - 120px - env(safe-area-inset-bottom)); opacity: .6; }
+.geist::after { content: "Daumen hier: laufen"; position: absolute; top: 128px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 13px; font-weight: 800; color: var(--tafel); }
+.spiel.lenkt .geist, .spiel.sitzt .geist { display: none; }
+.aktion { --t: var(--tafel); position: absolute; right: calc(18px + env(safe-area-inset-right)); bottom: calc(26px + env(safe-area-inset-bottom)); width: 112px; height: 112px; border-radius: 50%; border: 4px solid #fff; background: var(--t); color: #fff; font-size: 16px; font-weight: 800; line-height: 1.1; box-shadow: 0 6px 18px rgba(18,50,74,.35); z-index: 21; padding: 8px; }
+.aktion[hidden] { display: none; }
+.aktion:disabled { opacity: .55; }
+.aktion .e { display: block; font-size: 30px; margin-bottom: 2px; }
+.aktion:active:not(:disabled) { transform: scale(.94); }
+.toast { position: absolute; left: 50%; bottom: calc(160px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--tafel); color: #fff; padding: 9px 14px; border-radius: 12px; font-size: 15px; font-weight: 600; z-index: 22; opacity: 0; transition: opacity .25s; pointer-events: none; text-align: center; width: max-content; max-width: 84vw; }
+.toast.an { opacity: 1; }
 
 /* Tischkarte */
 .tisch { --t: var(--tafel); background: #fff; border: 2px solid var(--linie); border-left: 8px solid var(--t); border-radius: 16px; padding: 12px; display: grid; gap: 10px; }
@@ -138,13 +167,13 @@ input.name { font: inherit; font-size: 24px; font-weight: 800; padding: 14px 16p
 <script type="module">
 import { FRAGEN, ANTWORT, nochGesucht, tischSpruch, TISCHFARBEN } from "/gruppen/daten.js";
 import { figurSvg } from "/gruppen/figur.js";
+import { berechneLayout, eingangPlatz, schritt, tischInDerNaehe, hinterTisch, vorDemTisch, H_FIG, TEMPO } from "/gruppen/raum.js";
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const code = location.pathname.split("/").filter(Boolean)[1];
 const speicher = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} }, weg(k) { try { localStorage.removeItem(k); } catch {} } };
 const app = $("#app");
-const H_FIG = 1.2545;
 
 let pid = speicher.get("gruppen-" + code);
 let ich = null; // { fid, name, vorname, aussehen, profil }
@@ -152,7 +181,6 @@ let stand = null, sig = "";
 let ansicht = null; // "name" | "ausweis" | "fragen" | null (dann entscheidet die Phase)
 let frageNr = 0, entwurf = {};
 let meldung = "", letztesHtml = "";
-let auswahl = null; // gewählter Tisch (Zahl) oder "eingang" für die Karte unter dem Raum
 
 async function api(aktion, body) {
   const r = await fetch(`/api/gruppen/${code}/${aktion}`, body
@@ -163,7 +191,7 @@ async function api(aktion, body) {
   return j;
 }
 function zeigeHtml(html) {
-  raumWeg();
+  spielWeg();
   if (html !== letztesHtml) { letztesHtml = html; app.innerHTML = html; }
 }
 
@@ -298,226 +326,331 @@ function aufgeloestHtml() {
     <p class="leise" style="text-align:center">Ab an euren Tisch!</p>`;
 }
 
-/* ---------- Raum: Tische und Eingang, die eigene Figur lässt sich an einen Tisch ziehen ---------- */
-let R = null; // aufgebauter Raum
-function raumWeg() { if (R) { R = null; } }
-
-function raumMass(n, P, W) {
-  const gap = 10, cols = 2, rows = Math.ceil(n / 2);
-  const cw = (W - gap) / 2, kopfH = 26, szeneH = 100, ch = kopfH + szeneH + 4;
-  const nb = Math.ceil(P / 2), nf = P - nb;
-  const f = Math.min(szeneH / 2.15, (cw / (Math.max(nb, nf * 1.3) + 0.5)) * 0.95, 46);
-  const tw = Math.min(cw * 0.86, Math.max(nb * f * 1.12 + f * 0.5, f * 2.2));
-  const th = Math.min(tw * 0.3, f * 0.62);
-  const tische = [];
-  for (let t = 0; t < n; t++) {
-    const c = t % cols, r = Math.floor(t / cols);
-    const x = n % 2 === 1 && t === n - 1 ? (W - cw) / 2 : c * (cw + gap), y = r * (ch + gap);
-    const cx = x + cw / 2;
-    const hoehe = 0.55 * th + 1.8 * f;
-    const szeneOben = y + kopfH + Math.max(0, (szeneH - hoehe) / 2);
-    const tischOben = szeneOben + H_FIG * f - 0.45 * th;
-    const sb = Math.min(f, (tw * 0.9) / nb), sf = nf ? Math.min(f * 1.3, (cw * 0.94) / nf) : 0;
-    const plaetze = [];
-    for (let i = 0; i < nb; i++) plaetze.push({ x: cx + (i - (nb - 1) / 2) * sb, fuss: tischOben + th * 0.45, hinten: true });
-    for (let j = 0; j < nf; j++) plaetze.push({ x: cx + (j - (nf - 1) / 2) * sf, fuss: tischOben + th + 0.55 * f, hinten: false });
-    tische.push({ x, y, cw, ch, cx, tischOben, tw, th, plaetze });
-  }
-  const eingangOben = rows * (ch + gap), eingangH = 96;
-  return { W, f, tische, eingangOben, eingangH, hoehe: eingangOben + eingangH };
+/* ---------- Spiel: Figur mit dem Joystick durch den Raum steuern (wie Fortnite auf dem Handy) ----------
+   Links erscheint der Joystick dort, wo der Daumen aufsetzt. Rechts unten der Knopf zum Hinsetzen bzw. Aufstehen.
+   Die Kamera folgt der eigenen Figur. Die anderen Figuren laufen live mit (Positionen ca. zweimal pro Sekunde). */
+let G = null;
+function spielWeg() {
+  if (!G) return;
+  cancelAnimationFrame(G.raf);
+  clearTimeout(G.posT);
+  G = null;
+  document.body.classList.remove("im-spiel");
 }
 
-function raumAufbauen() {
+function spielAufbauen() {
+  spielWeg();
   const r = stand.raum;
-  app.innerHTML = `<div id="rKopf"></div><div class="raum" id="raum"></div><div id="rHinweis"></div><div id="karte"></div><button class="link" data-a="aendern">Profil ändern</button>`;
+  const L = berechneLayout(r.tische, r.plaetze);
+  document.body.classList.add("im-spiel");
+  app.innerHTML = `<div class="spiel" id="spiel">
+    <div class="welt" id="welt"></div>
+    <div class="hud"><span class="mini" id="hudFig"></span><div class="wer"><small id="hudStatus"></small><b>${esc(ich.name)}</b></div><button class="hudknopf" data-a="aendern">✏️ Profil</button></div>
+    <div class="info" id="info"></div>
+    <div class="geist"><i></i></div>
+    <div class="stick" id="stick"><i></i></div>
+    <button class="aktion" id="aktion" hidden></button>
+    <div class="toast" id="toast" role="status"></div>
+  </div>`;
   letztesHtml = "";
-  const raum = $("#raum");
-  const M = raumMass(r.tische, r.plaetze, raum.clientWidth);
-  raum.style.height = M.hoehe + "px";
-  let html = "";
-  M.tische.forEach((T, i) => {
-    const farbe = TISCHFARBEN[i];
-    html += `<div class="zelle" data-zelle="${i + 1}" style="left:${T.x}px;top:${T.y}px;width:${T.cw}px;height:${T.ch}px;--t:${farbe}"><div class="zk"><span class="tnr">Tisch ${i + 1}</span><span class="tz"></span></div></div>`;
-    const kante = T.th * 0.2;
-    html += `<div class="tischbild" style="left:${T.cx - T.tw / 2}px;top:${T.tischOben}px"><svg width="${T.tw}" height="${T.th + kante}" viewBox="0 0 ${T.tw} ${T.th + kante}"><ellipse cx="${T.tw / 2}" cy="${T.th / 2 + kante}" rx="${T.tw / 2 - 1}" ry="${T.th / 2}" fill="var(--holz-dunkel)"/><ellipse cx="${T.tw / 2}" cy="${T.th / 2}" rx="${T.tw / 2 - 1}" ry="${T.th / 2}" fill="var(--holz)"/></svg></div>`;
+  let h = `<div class="boden"></div>`;
+  L.tische.forEach((T, i) => {
+    const farbe = TISCHFARBEN[i], kante = T.th * 0.2;
+    h += `<div class="zelle" data-zelle="${i + 1}" style="left:${T.x}px;top:${T.y}px;width:${T.cw}px;height:${T.ch}px;--t:${farbe}"><div class="zk"><span class="tnr">Tisch ${i + 1}</span><span class="tz"></span></div></div>`;
+    h += `<div class="tischbild" style="left:${T.cx - T.tw / 2}px;top:${T.tischOben}px"><svg width="${T.tw}" height="${T.th + kante}" viewBox="0 0 ${T.tw} ${T.th + kante}"><ellipse cx="${T.tw / 2}" cy="${T.th / 2 + kante}" rx="${T.tw / 2 - 1}" ry="${T.th / 2}" fill="var(--holz-dunkel)"/><ellipse cx="${T.tw / 2}" cy="${T.th / 2}" rx="${T.tw / 2 - 1}" ry="${T.th / 2}" fill="var(--holz)"/><ellipse cx="${T.tw / 2}" cy="${T.th / 2}" rx="${T.tw / 2 - 12}" ry="${T.th / 2 - 6}" fill="none" stroke="${farbe}" stroke-opacity=".35" stroke-width="3"/></svg></div>`;
     T.plaetze.forEach((p, j) => {
-      const w = M.f * 0.62, h = p.hinten ? M.f * 0.9 : M.f * 0.55;
-      html += `<div class="stuhl ${p.hinten ? "hinten" : "vorn"}" data-stuhl="${i + 1}-${j}" style="left:${p.x - w / 2}px;top:${p.fuss - h}px">${p.hinten
-        ? `<svg width="${w}" height="${h}" viewBox="0 0 62 90"><rect x="6" y="2" width="50" height="70" rx="12" fill="#c7d3dc"/></svg>`
-        : `<svg width="${w}" height="${h}" viewBox="0 0 62 55"><rect x="2" y="4" width="58" height="14" rx="7" fill="#c7d3dc"/><path d="M12 18 L8 53 M50 18 L54 53" stroke="#c7d3dc" stroke-width="6" stroke-linecap="round"/></svg>`}</div>`;
+      const w = L.f * 0.62, hh = p.hinten ? L.f * 0.9 : L.f * 0.55;
+      h += `<div class="stuhl ${p.hinten ? "hinten" : "vorn"}" data-stuhl="${i + 1}-${j}" style="left:${p.x - w / 2}px;top:${p.fuss - hh}px">${p.hinten
+        ? `<svg width="${w}" height="${hh}" viewBox="0 0 62 90"><rect x="6" y="2" width="50" height="70" rx="12" fill="#c7d3dc"/><rect x="14" y="10" width="34" height="40" rx="8" fill="#dbe4ea"/></svg>`
+        : `<svg width="${w}" height="${hh}" viewBox="0 0 62 55"><rect x="2" y="4" width="58" height="14" rx="7" fill="#c7d3dc"/><path d="M12 18 L8 53 M50 18 L54 53" stroke="#c7d3dc" stroke-width="6" stroke-linecap="round"/></svg>`}</div>`;
     });
   });
-  html += `<div class="eingang" data-zelle="eingang" style="top:${M.eingangOben}px;height:${M.eingangH}px"><span class="lab">Eingang</span></div>`;
-  raum.innerHTML = html;
-  R = { M, key: `${r.tische}.${r.plaetze}.${raum.clientWidth}`, fig: new Map(), raum, ziehen: null, meinZiel: null };
+  h += `<div class="eingang"><span class="lab">Eingang</span></div>`;
+  $("#welt").innerHTML = h;
+  G = {
+    L, key: `${r.tische}.${r.plaetze}`, spiel: $("#spiel"), welt: $("#welt"), fig: new Map(),
+    ich: null, bewegt: false, richtung: 1, v: { x: 0, y: 0 }, tasten: new Set(), stick: null, cam: null,
+    zuletzt: performance.now(), gesendet: 0, sendet: false, nochmal: false, laeuftZuletzt: false,
+    meinZiel: undefined, posMap: {}, nah: null, html: {}, toastT: 0, beschaeftigt: false,
+  };
+  spielEingaben();
+  G.raf = requestAnimationFrame(schleife);
+  posHolen();
 }
 
-/* Wo steht eine Figur? */
-function ziel(p, eingangsListe) {
-  const M = R.M, istIch = p.fid === ich.fid;
-  const ort = istIch && R.meinZiel ? R.meinZiel : p;
-  if (ort.tisch && M.tische[ort.tisch - 1]?.plaetze[ort.platz]) {
-    const pl = M.tische[ort.tisch - 1].plaetze[ort.platz];
-    return { x: pl.x - M.f / 2, y: pl.fuss - M.f * H_FIG, s: M.f / 100, z: pl.hinten ? 2 : 4 };
-  }
-  if (istIch) { const g = 52; return { x: 34 - g / 2 + 14, y: M.eingangOben + M.eingangH - 8 - g * H_FIG, s: g / 100, z: 9 }; }
-  const andere = eingangsListe.filter((f) => f !== ich.fid);
-  const i = andere.indexOf(p.fid), n = andere.length, g = 30;
-  const links = 92, breite = M.W - links - 12;
-  const abstand = Math.min(34, breite / Math.max(1, n));
-  return { x: links + i * abstand, y: M.eingangOben + M.eingangH - 8 - g * H_FIG, s: g / 100, z: 4 };
+/* Sitzt jemand? Für mich zählt ein gerade abgeschickter Wunsch, bis der Server ihn bestätigt. */
+function sitzVon(p) {
+  if (p.fid === ich.fid && G?.meinZiel !== undefined) return G.meinZiel.tisch ? G.meinZiel : null;
+  return p.tisch && G.L.tische[p.tisch - 1]?.plaetze[p.platz] ? { tisch: p.tisch, platz: p.platz } : null;
 }
-function setzeFigur(e, z, gleiten) {
-  const t = `translate(${z.x.toFixed(1)}px, ${z.y.toFixed(1)}px) scale(${z.s.toFixed(4)})`;
-  const alt = e.ziel;
-  e.ziel = z;
-  if (!gleiten || !alt) { e.el.classList.remove("gleitet", "laeuft"); e.el.style.transform = t; return; }
-  if (Math.abs(alt.x - z.x) < 0.5 && Math.abs(alt.y - z.y) < 0.5 && Math.abs(alt.s - z.s) < 0.001) return;
-  const dauer = Math.min(1.8, Math.max(0.45, Math.hypot(alt.x - z.x, alt.y - z.y) / 260));
+const meinSitz = () => { const me = stand.leute.find((p) => p.fid === ich.fid); return me ? sitzVon(me) : null; };
+
+function ortVon(p, eingang) {
+  const L = G.L, sitz = sitzVon(p);
+  if (sitz) { const pl = L.tische[sitz.tisch - 1].plaetze[sitz.platz]; return { x: pl.x, fuss: pl.fuss, g: L.f, z: pl.hinten ? 2 : 4 }; }
+  const pos = G.posMap[p.fid];
+  if (pos) return { x: pos[0], fuss: pos[1], g: L.lauf, z: hinterTisch(L, pos[0], pos[1]) ? 2 : 5, live: true };
+  const e = eingangPlatz(Math.max(0, eingang.indexOf(p.fid)), eingang.length);
+  return { x: e.x, fuss: e.fuss, g: e.g, z: 4 };
+}
+function setzeFig(e, o, gleiten) {
+  const x = o.x - o.g / 2, y = o.fuss - o.g * H_FIG;
+  const t = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${(o.g / 100).toFixed(4)})`;
+  const alt = e.o;
+  e.o = o;
+  e.el.style.zIndex = o.z;
+  if (alt && Math.abs(alt.x - o.x) > 0.5) e.el.classList.toggle("links", o.x < alt.x);
+  if (!gleiten || !alt) { e.el.classList.remove("gleitet"); e.el.style.transform = t; return; }
+  const weg = Math.hypot(alt.x - o.x, alt.fuss - o.fuss);
+  if (weg < 0.5 && Math.abs(alt.g - o.g) < 0.5) return;
+  const dauer = Math.min(1.6, Math.max(0.25, weg / TEMPO));
   e.el.style.setProperty("--dauer", dauer + "s");
   e.el.classList.add("gleitet", "laeuft");
   e.el.style.transform = t;
   clearTimeout(e.t);
-  e.t = setTimeout(() => e.el.classList.remove("gleitet", "laeuft"), dauer * 1000 + 50);
+  e.t = setTimeout(() => e.el.classList.remove("gleitet", "laeuft"), dauer * 1000 + 40);
 }
-function raumAktualisieren() {
-  const r = stand.raum, M = R.M;
-  const sichtbar = stand.leute;
-  const eingang = sichtbar.filter((p) => {
-    const ort = p.fid === ich.fid && R.meinZiel ? R.meinZiel : p;
-    return !ort.tisch || !M.tische[ort.tisch - 1]?.plaetze[ort.platz];
-  }).map((p) => p.fid);
+function eigeneFigur(laeuft) {
+  const e = G?.fig.get(ich.fid);
+  if (!e || !G.ich || meinSitz()) return;
+  const L = G.L;
+  const o = { x: G.ich.x, fuss: G.ich.y, g: L.lauf, z: hinterTisch(L, G.ich.x, G.ich.y) ? 2 : 6 };
+  const x = o.x - o.g / 2, y = o.fuss - o.g * H_FIG;
+  e.el.classList.remove("gleitet");
+  e.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${(o.g / 100).toFixed(4)})`;
+  e.el.style.zIndex = o.z;
+  e.el.classList.toggle("laeuft", laeuft);
+  e.el.classList.toggle("links", G.richtung < 0);
+  e.o = o;
+}
+
+function figurenAktualisieren() {
+  if (!G) return;
+  const L = G.L, leute = stand.leute, sitzeIch = meinSitz();
+  const eingang = leute.filter((p) => !sitzVon(p) && !G.posMap[p.fid] && !(p.fid === ich.fid && G.bewegt)).map((p) => p.fid);
+  /* Startpunkt der eigenen Figur: gespeicherte Position (nach Neuladen) oder ihr Platz am Eingang */
+  if (!sitzeIch && !G.bewegt) {
+    const pos = G.posMap[ich.fid];
+    if (pos) G.ich = { x: pos[0], y: pos[1] };
+    else if (!G.ich) { const e = eingangPlatz(Math.max(0, eingang.indexOf(ich.fid)), eingang.length); G.ich = { x: e.x, y: e.fuss }; }
+  }
   const da = new Set();
-  for (const p of sichtbar) {
+  for (const p of leute) {
     da.add(p.fid);
-    let e = R.fig.get(p.fid), neu = false;
+    let e = G.fig.get(p.fid), neu = false;
     if (!e) {
       const el = document.createElement("div");
       el.className = "fig" + (p.fid === ich.fid ? " ich-fig" : "");
-      el.dataset.fid = p.fid;
       el.innerHTML = `<div class="innen"></div>${p.fid === ich.fid ? `<span class="du">du</span>` : ""}`;
-      R.raum.appendChild(el);
-      e = { el }; R.fig.set(p.fid, e); neu = true;
+      G.welt.appendChild(el);
+      e = { el }; G.fig.set(p.fid, e); neu = true;
     }
     const denkt = !p.profil;
     const k = JSON.stringify([p.aussehen, p.profil?.getraenk, denkt]);
     if (e.k !== k) { e.k = k; e.el.firstElementChild.innerHTML = figurSvg(p.aussehen, { getraenk: p.profil?.getraenk, denkt }); }
-    if (R.ziehen && p.fid === ich.fid) continue; // eigene Figur hängt gerade am Finger
-    const z = ziel(p, eingang);
-    e.el.style.zIndex = z.z;
-    setzeFigur(e, z, !neu);
-  }
-  for (const [fid, e] of R.fig) if (!da.has(fid)) { e.el.remove(); R.fig.delete(fid); }
-  /* Stühle, Zähler, Auswahl */
-  M.tische.forEach((T, i) => {
-    const leute = sichtbar.filter((p) => p.tisch === i + 1);
-    const belegt = new Set(leute.map((p) => p.platz));
-    if (R.meinZiel?.tisch === i + 1) belegt.add(R.meinZiel.platz);
-    T.plaetze.forEach((_, j) => R.raum.querySelector(`[data-stuhl="${i + 1}-${j}"]`)?.classList.toggle("besetzt", belegt.has(j)));
-    const tz = R.raum.querySelector(`[data-zelle="${i + 1}"] .tz`);
-    tz.textContent = `${leute.length}/${r.plaetze}`;
-    tz.classList.toggle("voll", leute.length >= r.plaetze);
-  });
-  R.raum.querySelectorAll("[data-zelle]").forEach((z) => z.classList.toggle("gewaehlt", String(auswahl) === z.dataset.zelle));
-  /* Kopf, Hinweis, Karte */
-  const t = meinTisch();
-  setHtml("#rKopf", ichLeiste(r.phase === "anmelden" ? "Das bist du" : t ? `Du sitzt an Tisch ${t}` : "Such dir einen Tisch aus"));
-  setHtml("#rHinweis", r.phase === "anmelden"
-    ? `<div class="hinweis"><b>⏳</b><span>Gleich öffnen die Tische. Dann ziehst du deine Figur an einen Tisch.</span></div>`
-    : meldung ? `<p class="fehler">${esc(meldung)}</p>`
-    : `<div class="hinweis"><b>👆</b><span>Zieh deine Figur an einen Tisch. Tipp auf einen Tisch, um die Profile zu sehen.</span></div>`);
-  let karte = "";
-  if (typeof auswahl === "number" && auswahl <= r.tische) karte = tischKarte(auswahl, r.phase === "wahl", false);
-  else if (auswahl === "eingang") {
-    const leute = sichtbar.filter((p) => !p.tisch && p.fid !== ich.fid);
-    karte = `<section class="tisch"><div class="tkopf"><h2>Am Eingang</h2><span class="frei">${leute.length} ohne Tisch</span></div><div class="leute">${leute.map((p) => person(p, "#12324a")).join("") || `<span class="leer">Niemand mehr. Alle sitzen.</span>`}</div>${r.phase === "wahl" && t ? `<button class="knopf hell" data-tisch="0">Zurück zum Eingang</button>` : ""}</section>`;
-  }
-  setHtml("#karte", karte);
-}
-const htmlCache = {};
-function setHtml(sel, html) { if (htmlCache[sel] !== html || !$(sel)?.innerHTML) { htmlCache[sel] = html; $(sel).innerHTML = html; } }
-
-/* Ziehen mit dem Finger */
-function trefferBei(x, y) {
-  const M = R.M;
-  for (let i = 0; i < M.tische.length; i++) {
-    const T = M.tische[i];
-    if (x >= T.x && x <= T.x + T.cw && y >= T.y && y <= T.y + T.ch) return i + 1;
-  }
-  if (y >= M.eingangOben && y <= M.eingangOben + M.eingangH) return 0;
-  return null;
-}
-function raumPunkt(ev) { const b = R.raum.getBoundingClientRect(); return { x: ev.clientX - b.left, y: ev.clientY - b.top }; }
-app.addEventListener("pointerdown", (ev) => {
-  const f = ev.target.closest(".ich-fig");
-  if (!f || !R || stand.raum.phase !== "wahl") return;
-  ev.preventDefault();
-  f.setPointerCapture(ev.pointerId);
-  const p = raumPunkt(ev);
-  R.ziehen = { start: p, zeit: Date.now(), bewegt: false, ueber: null };
-});
-app.addEventListener("pointermove", (ev) => {
-  if (!R?.ziehen) return;
-  const p = raumPunkt(ev), z = R.ziehen;
-  if (!z.bewegt && Math.hypot(p.x - z.start.x, p.y - z.start.y) < 8) return;
-  z.bewegt = true;
-  const e = R.fig.get(ich.fid), g = 54;
-  e.el.classList.add("zieht", "laeuft");
-  e.el.classList.remove("gleitet");
-  e.el.style.transform = `translate(${p.x - g / 2}px, ${p.y - 30 - g * H_FIG}px) scale(${g / 100})`; // über dem Finger, damit man sie sieht
-  e.ziel = { x: p.x - g / 2, y: p.y - 30 - g * H_FIG, s: g / 100 };
-  const t = trefferBei(p.x, p.y - 30);
-  if (t !== z.ueber) {
-    R.raum.querySelectorAll(".ziel, .ziel-voll").forEach((el) => el.classList.remove("ziel", "ziel-voll"));
-    if (t !== null) {
-      const voll = t > 0 && amTisch(t).filter((x) => x.fid !== ich.fid).length >= stand.raum.plaetze;
-      R.raum.querySelector(`[data-zelle="${t === 0 ? "eingang" : t}"]`)?.classList.add(voll ? "ziel-voll" : "ziel");
+    if (p.fid === ich.fid) {
+      if (sitzeIch) setzeFig(e, ortVon(p, eingang), !neu);
+      else if (!e.o || e.o.g !== L.lauf || neu) eigeneFigur(false);
+      continue;
     }
-    z.ueber = t;
+    setzeFig(e, ortVon(p, eingang), !neu);
   }
-});
-function ziehenEnde(ev) {
-  if (!R?.ziehen) return;
-  const z = R.ziehen; R.ziehen = null;
-  const e = R.fig.get(ich.fid);
-  e.el.classList.remove("zieht", "laeuft");
-  R.raum.querySelectorAll(".ziel, .ziel-voll").forEach((el) => el.classList.remove("ziel", "ziel-voll"));
-  if (!z.bewegt) { e.el.classList.remove("wackelt"); void e.el.offsetWidth; e.el.classList.add("wackelt"); raumAktualisieren(); return; }
-  if (z.ueber === null || ev.type === "pointercancel") return raumAktualisieren();
-  gehZu(z.ueber);
-}
-app.addEventListener("pointerup", ziehenEnde);
-app.addEventListener("pointercancel", ziehenEnde);
-
-let meldungT;
-function meldungZeigen(text) {
-  meldung = text;
-  clearTimeout(meldungT);
-  meldungT = setTimeout(() => { meldung = ""; if (R) raumAktualisieren(); }, 3500);
+  for (const [fid, e] of G.fig) if (!da.has(fid)) { e.el.remove(); G.fig.delete(fid); }
+  /* Stühle und Zähler */
+  L.tische.forEach((T, i) => {
+    const am = leute.map(sitzVon).filter((s) => s?.tisch === i + 1);
+    const belegt = new Set(am.map((s) => s.platz));
+    T.plaetze.forEach((_, j) => G.welt.querySelector(`[data-stuhl="${i + 1}-${j}"]`)?.classList.toggle("besetzt", belegt.has(j)));
+    const tz = G.welt.querySelector(`[data-zelle="${i + 1}"] .tz`);
+    tz.textContent = `${am.length}/${stand.raum.plaetze}`;
+    tz.classList.toggle("voll", am.length >= stand.raum.plaetze);
+  });
 }
 
-/* Hinsetzen: Figur läuft sofort los, der Server bestätigt */
+/* Anzeigen: Kopfzeile, Tischinfo, Aktionsknopf */
+function setzeHtml(id, html) {
+  if (G.html[id] === html) return;
+  G.html[id] = html;
+  $("#" + id).innerHTML = html;
+}
+function infoHtml(t) {
+  const r = stand.raum, leute = amTisch(t);
+  const voll = leute.length >= r.plaetze, profile = leute.map((p) => p.profil);
+  const spruch = tischSpruch(profile), gesucht = leute.length && !voll ? nochGesucht(profile) : [];
+  return `<h3>Tisch ${t}<span>${voll ? "voll" : `${r.plaetze - leute.length} ${r.plaetze - leute.length === 1 ? "Platz" : "Plätze"} frei`}</span></h3>
+    ${spruch ? `<div class="spruch">${esc(spruch)}</div>` : ""}
+    <div class="leute">${leute.map((p) => person(p, TISCHFARBEN[t - 1])).join("") || `<span class="leer">Noch niemand hier. Setz dich als Erste*r!</span>`}</div>
+    ${gesucht.length ? `<div class="gesucht">Noch gesucht: <b>${gesucht.map((g) => ANTWORT.rolle[g].e + " " + ANTWORT.rolle[g].kurz).join(" · ")}</b></div>` : ""}`;
+}
+function anzeigenAktualisieren() {
+  if (!G) return;
+  const r = stand.raum, sitz = meinSitz();
+  const t = sitz ? sitz.tisch : G.nah?.nr ?? null;
+  setzeHtml("hudFig", figurSvg(ich.aussehen, { getraenk: ich.profil?.getraenk }));
+  $("#hudStatus").textContent = r.phase === "anmelden" ? "Gleich öffnen die Tische" : sitz ? `Du sitzt an Tisch ${sitz.tisch}` : G.nah ? `Am Tisch ${G.nah.nr}` : "Lauf zu einem Tisch";
+  G.spiel.classList.toggle("sitzt", !!sitz);
+  G.welt.querySelectorAll(".zelle").forEach((z) => z.classList.toggle("nah", r.phase === "wahl" && Number(z.dataset.zelle) === t));
+  const info = $("#info");
+  if (r.phase === "wahl" && t) {
+    info.style.setProperty("--t", TISCHFARBEN[t - 1]);
+    setzeHtml("info", infoHtml(t));
+    info.classList.add("an");
+  } else info.classList.remove("an");
+  const k = $("#aktion");
+  let html = "", an = false, aus = false, farbe = "var(--tafel)", art = "";
+  if (r.phase === "wahl" && sitz) { an = true; art = "aufstehen"; html = `<span class="e">🚶</span>Aufstehen`; farbe = TISCHFARBEN[sitz.tisch - 1]; }
+  else if (r.phase === "wahl" && G.nah) {
+    an = true; farbe = TISCHFARBEN[G.nah.nr - 1];
+    const andere = amTisch(G.nah.nr).filter((p) => p.fid !== ich.fid).length;
+    if (andere >= r.plaetze) { aus = true; html = `<span class="e">🚫</span>Tisch voll`; }
+    else { art = "sitzen"; html = `<span class="e">🪑</span>Hinsetzen`; }
+  }
+  k.hidden = !an;
+  k.disabled = aus || G.beschaeftigt;
+  k.dataset.art = art;
+  k.style.setProperty("--t", farbe);
+  if (k.innerHTML !== html) k.innerHTML = html;
+}
+function toast(text) {
+  if (!G) return;
+  const t = $("#toast");
+  t.textContent = text;
+  t.classList.add("an");
+  clearTimeout(G.toastT);
+  G.toastT = setTimeout(() => t.classList.remove("an"), 2600);
+}
+
+/* Spielschleife: eigene Figur bewegen, Kamera nachführen */
+function schleife(jetzt) {
+  if (!G) return;
+  const dt = Math.min(0.05, (jetzt - G.zuletzt) / 1000);
+  G.zuletzt = jetzt;
+  const r = stand.raum;
+  let vx = G.v.x, vy = G.v.y;
+  if (G.tasten.size) {
+    vx = (G.tasten.has("r") ? 1 : 0) - (G.tasten.has("l") ? 1 : 0);
+    vy = (G.tasten.has("u") ? 1 : 0) - (G.tasten.has("o") ? 1 : 0);
+    const n = Math.hypot(vx, vy) || 1; vx /= n; vy /= n;
+  }
+  const darf = (r.phase === "anmelden" || r.phase === "wahl") && G.ich && !meinSitz() && !G.beschaeftigt;
+  const laeuft = darf && (Math.abs(vx) > 0.01 || Math.abs(vy) > 0.01);
+  if (laeuft) {
+    [G.ich.x, G.ich.y] = schritt(G.L, G.ich.x, G.ich.y, vx * TEMPO * dt, vy * TEMPO * dt);
+    if (Math.abs(vx) > 0.15) G.richtung = vx < 0 ? -1 : 1;
+    G.bewegt = true;
+    eigeneFigur(true);
+    if (jetzt - G.gesendet > 300) posSenden(jetzt);
+    const nah = r.phase === "wahl" ? tischInDerNaehe(G.L, G.ich.x, G.ich.y) : null;
+    if (nah !== G.nah) { G.nah = nah; anzeigenAktualisieren(); }
+  } else if (G.laeuftZuletzt) { eigeneFigur(false); posSenden(jetzt); }
+  G.laeuftZuletzt = laeuft;
+  kamera(dt);
+  G.raf = requestAnimationFrame(schleife);
+}
+function kamera(dt) {
+  const vw = innerWidth, vh = innerHeight;
+  const s = Math.max(0.55, Math.min(0.95, Math.min(vw, vh) / 520));
+  const sitz = meinSitz();
+  let tx, ty;
+  if (sitz) { const pl = G.L.tische[sitz.tisch - 1].plaetze[sitz.platz]; tx = pl.x; ty = pl.fuss - 40; }
+  else if (G.ich) { tx = G.ich.x; ty = G.ich.y - 40; }
+  else { tx = 625; ty = 495; }
+  const hw = vw / (2 * s), hh = vh / (2 * s);
+  tx = 1250 < 2 * hw ? 625 : Math.min(1250 - hw, Math.max(hw, tx));
+  ty = 810 < 2 * hh ? 495 : Math.min(900 - hh + 30, Math.max(90 + hh - 70, ty));
+  if (!G.cam) G.cam = { x: tx, y: ty };
+  const k = 1 - Math.pow(0.0008, dt);
+  G.cam.x += (tx - G.cam.x) * k;
+  G.cam.y += (ty - G.cam.y) * k;
+  G.welt.style.transform = `translate(${(vw / 2 - G.cam.x * s).toFixed(1)}px, ${(vh / 2 - G.cam.y * s).toFixed(1)}px) scale(${s.toFixed(4)})`;
+}
+
+/* Positionen senden und holen */
+function posSenden(jetzt) {
+  if (!G?.ich) return;
+  if (G.sendet) { G.nochmal = true; return; }
+  G.gesendet = jetzt; G.sendet = true;
+  api("pos", { pid, x: Math.round(G.ich.x), y: Math.round(G.ich.y) }).catch(() => {}).finally(() => {
+    if (!G) return;
+    G.sendet = false;
+    if (G.nochmal) { G.nochmal = false; posSenden(performance.now()); }
+  });
+}
+async function posHolen() {
+  if (!G) return;
+  clearTimeout(G.posT);
+  try {
+    const j = await api("pos");
+    if (G && JSON.stringify(j.pos) !== JSON.stringify(G.posMap)) { G.posMap = j.pos; figurenAktualisieren(); }
+  } catch {}
+  if (G) G.posT = setTimeout(posHolen, document.hidden ? 2000 : 450);
+}
+
+/* Eingaben: schwebender Joystick (linke Bildschirmseite), Tastatur am Rechner */
+function spielEingaben() {
+  const sp = G.spiel, stick = $("#stick"), knauf = stick.firstElementChild, R = 52;
+  sp.addEventListener("pointerdown", (ev) => {
+    if (!G || G.stick || ev.target.closest("button, .info, .hud")) return;
+    if (ev.clientX > innerWidth * 0.62) return;
+    ev.preventDefault();
+    try { sp.setPointerCapture(ev.pointerId); } catch {}
+    G.stick = { id: ev.pointerId, x: ev.clientX, y: ev.clientY };
+    stick.style.left = ev.clientX + "px"; stick.style.top = ev.clientY + "px";
+    knauf.style.transform = "";
+    stick.classList.add("an"); sp.classList.add("lenkt");
+    if (meinSitz() && stand.raum.phase === "wahl") toast("Du sitzt. Erst aufstehen – Knopf rechts unten.");
+  });
+  sp.addEventListener("pointermove", (ev) => {
+    if (!G?.stick || ev.pointerId !== G.stick.id) return;
+    let dx = ev.clientX - G.stick.x, dy = ev.clientY - G.stick.y;
+    const n = Math.hypot(dx, dy);
+    if (n > R) { dx = (dx / n) * R; dy = (dy / n) * R; }
+    knauf.style.transform = `translate(${dx}px, ${dy}px)`;
+    const staerke = n < 8 ? 0 : Math.min(1, n / R);
+    G.v = n ? { x: (dx / Math.min(n, R)) * staerke, y: (dy / Math.min(n, R)) * staerke } : { x: 0, y: 0 };
+  });
+  const los = (ev) => {
+    if (!G?.stick || ev.pointerId !== G.stick.id) return;
+    G.stick = null; G.v = { x: 0, y: 0 };
+    stick.classList.remove("an"); sp.classList.remove("lenkt");
+  };
+  sp.addEventListener("pointerup", los);
+  sp.addEventListener("pointercancel", los);
+}
+const TASTEN = { arrowleft: "l", a: "l", arrowright: "r", d: "r", arrowup: "o", w: "o", arrowdown: "u", s: "u" };
+addEventListener("keydown", (e) => { const t = TASTEN[e.key.toLowerCase()]; if (G && t) { G.tasten.add(t); e.preventDefault(); } });
+addEventListener("keyup", (e) => { const t = TASTEN[e.key.toLowerCase()]; if (G && t) G.tasten.delete(t); });
+addEventListener("blur", () => { if (G) { G.tasten.clear(); G.v = { x: 0, y: 0 }; } });
+
+/* Hinsetzen und Aufstehen: sofort zeigen, der Server bestätigt */
 async function gehZu(tisch) {
-  const vorher = meinTisch();
-  if (tisch === vorher || (tisch === 0 && !vorher)) return raumAktualisieren();
+  if (!G || G.beschaeftigt) return;
+  const L = G.L, vorher = meinSitz();
   if (tisch > 0) {
     const andere = amTisch(tisch).filter((p) => p.fid !== ich.fid);
-    if (andere.length >= stand.raum.plaetze) { meldungZeigen("Der Tisch ist schon voll."); return raumAktualisieren(); }
+    if (andere.length >= stand.raum.plaetze) return toast("Der Tisch ist schon voll.");
     const belegt = new Set(andere.map((p) => p.platz));
     let platz = 0; while (belegt.has(platz)) platz++;
-    R.meinZiel = { tisch, platz };
-    auswahl = tisch;
+    G.meinZiel = { tisch, platz };
   } else {
-    R.meinZiel = { tisch: null, platz: null };
-    auswahl = null;
+    if (!vorher) return;
+    const [x, y] = vorDemTisch(L, L.tische[vorher.tisch - 1]);
+    G.ich = { x, y }; G.bewegt = true;
+    G.meinZiel = { tisch: null };
+    posSenden(performance.now());
   }
-  meldung = "";
-  raumAktualisieren();
+  G.beschaeftigt = true;
+  if (tisch === 0) { const e = G.fig.get(ich.fid); if (e) setzeFig(e, { x: G.ich.x, fuss: G.ich.y, g: L.lauf, z: 6 }, true); } // vom Stuhl aufstehen
+  figurenAktualisieren();
+  anzeigenAktualisieren();
   try { await api("setzen", { pid, tisch }); }
-  catch (err) { meldungZeigen(err.message); }
+  catch (err) {
+    toast(err.message);
+    if (tisch > 0 && G) G.meinZiel = undefined;
+  }
   sig = "";
   await holen();
-  if (R) { R.meinZiel = null; raumAktualisieren(); }
+  if (G) { G.meinZiel = undefined; G.beschaeftigt = false; G.nah = meinSitz() ? null : tischInDerNaehe(L, G.ich?.x ?? 0, G.ich?.y ?? 0); figurenAktualisieren(); anzeigenAktualisieren(); }
 }
 
 /* ---------- Was wird gezeigt? ---------- */
@@ -531,28 +664,23 @@ function darstellen() {
   if (!ich.profil && offen) { ansicht = "fragen"; return zeigeHtml(frageHtml()); }
   if (!ich.profil) return zeigeHtml(`${ichLeiste("Du bist")}<h1>Die Gruppenwahl ist schon vorbei.</h1><p class="leise">Sag deiner Lehrkraft Bescheid.</p>`);
   if (ph === "aufloesen") return zeigeHtml(aufgeloestHtml());
-  /* anmelden (Profil fertig) oder wahl: der Raum */
-  const breite = R?.raum?.clientWidth ?? 0;
-  if (!R || R.key !== `${r.tische}.${r.plaetze}.${breite}` || !document.body.contains(R.raum)) raumAufbauen();
-  if (auswahl === null) { const t = meinTisch(); if (t) auswahl = t; }
-  raumAktualisieren();
+  /* anmelden (Profil fertig) oder wahl: das Spiel */
+  if (!G || G.key !== `${r.tische}.${r.plaetze}` || !document.body.contains(G.spiel)) spielAufbauen();
+  if (ph !== "wahl") G.nah = null;
+  else if (!meinSitz() && G.ich) G.nah = tischInDerNaehe(G.L, G.ich.x, G.ich.y);
+  figurenAktualisieren();
+  anzeigenAktualisieren();
 }
-let groesseT;
-addEventListener("resize", () => { clearTimeout(groesseT); groesseT = setTimeout(() => { if (R && !R.ziehen) { R = null; darstellen(); } }, 200); });
 
 /* ---------- Bedienung ---------- */
 app.addEventListener("click", async (e) => {
-  if (R && e.target.closest(".raum")) {
-    if (e.target.closest(".ich-fig")) return;
-    const andere = e.target.closest(".fig");
-    if (andere) { const p = stand.leute.find((x) => x.fid === andere.dataset.fid); auswahl = p?.tisch ?? "eingang"; }
-    else { const z = e.target.closest("[data-zelle]"); if (!z) return; auswahl = z.dataset.zelle === "eingang" ? "eingang" : Number(z.dataset.zelle); }
-    raumAktualisieren();
-    $("#karte").scrollIntoView({ behavior: "smooth", block: "nearest" });
-    return;
-  }
   const el = e.target.closest("button");
   if (!el || el.closest("form")) return;
+  if (el.id === "aktion") {
+    if (el.dataset.art === "sitzen" && G?.nah) gehZu(G.nah.nr);
+    else if (el.dataset.art === "aufstehen") gehZu(0);
+    return;
+  }
   const a = el.dataset.a;
   if (a === "weiter") { speicher.set("gruppen-gesehen-" + code, pid); ansicht = "fragen"; frageNr = 0; darstellen(); scrollTo(0, 0); return; }
   if (a === "zurueck") { frageNr = Math.max(0, frageNr - 1); meldung = ""; darstellen(); return; }
@@ -569,11 +697,6 @@ app.addEventListener("click", async (e) => {
       darstellen(); holen(); scrollTo(0, 0);
     } catch (err) { meldung = err.message; darstellen(); }
     return;
-  }
-  if (el.dataset.tisch !== undefined && R) {
-    el.disabled = true;
-    scrollTo({ top: 0, behavior: "smooth" });
-    gehZu(Number(el.dataset.tisch));
   }
 });
 

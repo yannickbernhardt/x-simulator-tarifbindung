@@ -73,6 +73,7 @@ body.ph-aufloesen .zelle { border-color: var(--t); box-shadow: 0 0 0 3px color-m
 .fig svg { width: 100%; height: 100%; display: block; overflow: visible; }
 .fig .innen { width: 100%; height: 100%; }
 .fig.wandert { transition: transform var(--dauer, 1.4s) cubic-bezier(.42,.08,.58,.96); z-index: 7 !important; }
+.fig.wandert.live { transition-timing-function: linear; z-index: var(--z, 5) !important; }
 .fig .glied { transform-box: view-box; }
 .fig .a1 { transform-origin: 25px 74px; } .fig .a2 { transform-origin: 75px 74px; }
 .fig .b1 { transform-origin: 40px 104px; } .fig .b2 { transform-origin: 60px 104px; }
@@ -179,6 +180,7 @@ body.ohne-leiste #zeigeLeiste { display: block; }
 <script type="module">
 import { FRAGEN, ANTWORT, AUSSEHEN, FARBEN, nochGesucht, tischSpruch, TISCHFARBEN } from "/gruppen/daten.js";
 import { figurSvg } from "/gruppen/figur.js";
+import { berechneLayout, eingangPlatz, hinterTisch, H_FIG } from "/gruppen/raum.js";
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -186,7 +188,6 @@ const teile = location.pathname.split("/").filter(Boolean);
 const code = /^[a-z0-9]{4}$/.test(teile[1] ?? "") ? teile[1] : null;
 const TOKEN_ROH = location.search.match(/[?&]lehrer=([^&]*)/)?.[1] ?? "";
 const LS = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
-const H_FIG = 1.2545; // Höhe : Breite der Figur
 
 async function api(pfad, body) {
   const trenner = pfad.includes("?") ? "&" : "?";
@@ -283,6 +284,21 @@ function start() {
     $("#neu").onclick = async () => { const j = await api("", {}); location.href = `/gruppen/${j.code}?lehrer=${TOKEN_ROH}`; };
     skalieren();
   }
+  /* Positionen der laufenden Figuren: schneller als der übrige Stand */
+  let posT;
+  async function posHolen() {
+    clearTimeout(posT);
+    const ph = stand?.raum.phase;
+    if (stand && !document.hidden && (ph === "anmelden" || ph === "wahl" || !Object.keys(posMap).length)) {
+      try {
+        const j = await api(`/${code}/pos`);
+        const alt = JSON.stringify(posMap), neu = JSON.stringify(j.pos);
+        if (alt !== neu) { posMap = j.pos; if (L) figurenAktualisieren(); }
+      } catch {}
+    }
+    posT = setTimeout(posHolen, ph === "aufloesen" ? 3000 : 400);
+  }
+
   async function steuer(b) {
     try {
       const j = await api(`/${code}/steuer`, b);
@@ -297,36 +313,6 @@ function start() {
 
   /* ---------- Aufteilung der Bühne ---------- */
   let L = null, layoutKey = "";
-  function berechneLayout(n, P) {
-    const X0 = 30, Y0 = 106, W = 1190, H = 606, gap = 14;
-    const cols = n <= 4 ? n : Math.ceil(n / 2), rows = n <= 4 ? 1 : 2;
-    const cw = (W - gap * (cols - 1)) / cols, ch = (H - gap * (rows - 1)) / rows;
-    const eng = rows === 2;
-    const kopf = eng ? 38 : 50, zh = eng ? 20 : 52, zf = eng ? 14.5 : 18, kf = eng ? 17 : 21, gesH = eng ? 24 : 36;
-    const S = ch - kopf - P * zh - gesH - 8;
-    const nb = Math.ceil(P / 2), nf = P - nb;
-    const f = Math.max(30, Math.min(S / 2.15, (cw / (Math.max(nb, nf * 1.3) + 0.5)) * 0.95, eng ? 82 : 116));
-    const tw = Math.min(cw * 0.86, Math.max(nb * f * 1.12 + f * 0.5, f * 2.2));
-    const th = Math.min(tw * 0.3, f * 0.62);
-    const tische = [];
-    for (let t = 0; t < n; t++) {
-      const c = t % cols, r = Math.floor(t / cols);
-      const x = X0 + c * (cw + gap), y = Y0 + r * (ch + gap);
-      const cx = x + cw / 2;
-      /* Hintere Reihe sitzt hinter der Platte, vordere Reihe davor, etwas tiefer und breiter verteilt,
-         damit die Gesichter hinten sichtbar bleiben */
-      const hoehe = 0.55 * th + 1.8 * f;
-      const szeneOben = y + kopf + Math.max(0, (S - hoehe) / 2);
-      const tischOben = szeneOben + H_FIG * f - 0.45 * th;
-      const sb = Math.min(f * 1.0, (tw * 0.9) / nb), sf = nf ? Math.min(f * 1.3, (cw * 0.94) / nf) : 0;
-      const plaetze = [];
-      for (let i = 0; i < nb; i++) plaetze.push({ x: cx + (i - (nb - 1) / 2) * sb, fuss: tischOben + th * 0.45, hinten: true });
-      for (let j = 0; j < nf; j++) plaetze.push({ x: cx + (j - (nf - 1) / 2) * sf, fuss: tischOben + th + 0.55 * f, hinten: false });
-      tische.push({ x, y, cw, ch, cx, tischOben, tw, th, plaetze });
-    }
-    return { n, P, f, kopf, zh, zf, kf, S, tische, eng };
-  }
-
   function baueTische() {
     const r = stand.raum;
     L = berechneLayout(r.tische, r.plaetze);
@@ -369,20 +355,19 @@ function start() {
     const ph = stand.raum.phase;
     return ph === "anmelden" || ph === "wahl" || !!p.profil; // ohne Profil (z. B. doppelt gescannt) ab „Festhalten“ ausblenden
   }
+  let posMap = {};
   function zielVon(p, eingangsListe) {
     if (p.tisch && L.tische[p.tisch - 1] && L.tische[p.tisch - 1].plaetze[p.platz]) {
       const pl = L.tische[p.tisch - 1].plaetze[p.platz];
       return { x: pl.x - L.f / 2, y: pl.fuss - L.f * H_FIG, s: L.f / 100, z: pl.hinten ? 2 : 4 };
     }
-    const i = eingangsListe.indexOf(p.fid), n = eingangsListe.length;
-    const fl = 46, links = 160, breite = 1040;
-    const proReihe = n <= 20 ? Math.max(1, n) : Math.ceil(n / 2); // ab 21 Figuren zwei Reihen
-    const reihe = Math.floor(i / proReihe), spalte = i % proReihe;
-    const inDieserReihe = Math.min(proReihe, n - reihe * proReihe);
-    const abstand = Math.min(52, breite / Math.max(1, proReihe));
-    const x0 = links + (breite - abstand * (inDieserReihe - 1)) / 2;
-    const fuss = n > proReihe ? (reihe === 0 ? 806 : 878) : 842;
-    return { x: x0 + spalte * abstand - fl / 2, y: fuss - fl * H_FIG, s: fl / 100, z: 4 };
+    const pos = posMap[p.fid];
+    if (pos) { // läuft gerade frei durch den Raum (Joystick auf dem Handy)
+      const g = L.lauf;
+      return { x: pos[0] - g / 2, y: pos[1] - g * H_FIG, s: g / 100, z: hinterTisch(L, pos[0], pos[1]) ? 2 : 5, live: true };
+    }
+    const e = eingangPlatz(eingangsListe.indexOf(p.fid), eingangsListe.length);
+    return { x: e.x - e.g / 2, y: e.fuss - e.g * H_FIG, s: e.g / 100, z: 4 };
   }
   function bewege(e, ziel, neu) {
     const t = `translate(${ziel.x.toFixed(1)}px, ${ziel.y.toFixed(1)}px) scale(${ziel.s.toFixed(4)})`;
@@ -397,9 +382,12 @@ function start() {
     const alt = e.ziel;
     if (alt && Math.abs(alt.x - ziel.x) < 0.5 && Math.abs(alt.y - ziel.y) < 0.5 && Math.abs(alt.s - ziel.s) < 0.001) { e.el.style.zIndex = ziel.z; return; }
     const weg = alt ? Math.hypot(alt.x - ziel.x, alt.y - ziel.y) : 0;
-    const dauer = Math.min(2.4, Math.max(0.6, weg / 520));
+    /* Live-Laufen: gleitet genau bis zur nächsten Abfrage, sonst Laufzeit nach Weg */
+    const dauer = ziel.live && alt?.live ? Math.min(0.9, Math.max(0.3, weg / 290)) : Math.min(2.4, Math.max(0.6, weg / 520));
     e.el.style.setProperty("--dauer", dauer + "s");
     e.el.classList.add("wandert");
+    e.el.classList.toggle("live", !!ziel.live);
+    e.el.style.setProperty("--z", ziel.z);
     e.el.style.transform = t;
     e.ziel = ziel;
     clearTimeout(e.t);
@@ -408,7 +396,8 @@ function start() {
   function figurenAktualisieren() {
     const r = stand.raum;
     const leute = stand.leute.filter(sichtbar);
-    const eingang = leute.filter((p) => !p.tisch || !L.tische[p.tisch - 1]?.plaetze[p.platz]).map((p) => p.fid);
+    const eingang = leute.filter((p) => (!p.tisch || !L.tische[p.tisch - 1]?.plaetze[p.platz]) && !posMap[p.fid]).map((p) => p.fid);
+    const ohneTisch = leute.filter((p) => !p.tisch || !L.tische[p.tisch - 1]?.plaetze[p.platz]).length;
     const da = new Set();
     for (const p of leute) {
       da.add(p.fid);
@@ -434,8 +423,8 @@ function start() {
       const belegt = new Set(leute.filter((p) => p.tisch === i + 1).map((p) => p.platz));
       T.stuehle.forEach((s, j) => s.classList.toggle("besetzt", belegt.has(j)));
     });
-    $("#eingangZahl").textContent = eingang.length;
-    $("#eingangLeer").textContent = eingang.length ? "" : r.phase === "anmelden" ? "Hier tauchen gleich die Figuren auf …" : "Alle sitzen ✓";
+    $("#eingangZahl").textContent = ohneTisch;
+    $("#eingangLeer").textContent = eingang.length ? "" : !ohneTisch ? "Alle sitzen ✓" : r.phase === "anmelden" && !leute.length ? "Hier tauchen gleich die Figuren auf …" : "";
     schilder(leute);
   }
 
@@ -445,7 +434,7 @@ function start() {
     const r = stand.raum, ebene = $("#schilder");
     if (r.phase !== "aufloesen") { if (schilderKey) { ebene.innerHTML = ""; schilderKey = ""; } return; }
     const mit = leute.filter((p) => p.vorname && figEl.get(p.fid)?.ziel);
-    const key = JSON.stringify(mit.map((p) => [p.fid, p.vorname, p.tisch, p.platz]));
+    const key = JSON.stringify(mit.map((p) => { const z = figEl.get(p.fid).ziel; return [p.fid, p.vorname, p.tisch, p.platz, Math.round(z.x), Math.round(z.y)]; }));
     if (key === schilderKey) return;
     const erstesMal = !schilderKey;
     schilderKey = key;
@@ -460,6 +449,7 @@ function start() {
       let y, art;
       if (pl?.hinten) { y = fuss - breite * 0.1; art = "hinten"; } // auf der Tischplatte vor der Figur
       else if (pl) { y = fuss - hoehe * 1.05; art = "vorn"; } // vordere Reihe: über den Beinen, damit nichts in die Liste ragt
+      else if (z.live) { y = fuss + 2; art = "laeuft"; } // läuft frei herum: direkt unter den Füßen
       else { y = i % 2 === 0 ? fuss + 2 : z.y + breite * 0.05 - hoehe; art = "eingang"; } // Eingang: abwechselnd unter und über der Figur
       return { p, i, x: z.x + breite / 2, y, gr, hoehe, w: breiteVon(p.vorname, gr), art, tisch: p.tisch };
     });
@@ -602,6 +592,7 @@ function start() {
   }
 
   holen();
+  posHolen();
 }
 </script>
 </body>

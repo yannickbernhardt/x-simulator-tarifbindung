@@ -67,7 +67,9 @@ const k = {
   zaehler: (c: string) => ["gruppen", c, "n"],
   sitze: (c: string) => ["gruppen", c, "s"],
   tn: (c: string, pid: string) => ["gruppen", c, "p", pid],
+  pos: (c: string, fid: string) => ["gruppen", c, "o", fid],
 };
+const POS_CACHE_MS = 300;
 const versionHoch = (code: string) => [k.version(code), Date.now(), { expireIn: ABLAUF }] as const;
 const warte = () => new Promise((ok) => setTimeout(ok, 5 + Math.random() * 40));
 
@@ -85,10 +87,12 @@ const raumCache = new Map<string, { zeit: number; raum: Raum | null }>();
 type Stamm = { vs: string | null; leute: Teilnehmer[]; sitze: Sitze; zeit: number };
 const stammCache = new Map<string, Stamm>();
 const fidVon = new Map<string, string>(); // `${code}:${pid}` -> fid
+const posCache = new Map<string, { zeit: number; pos: Record<string, [number, number]> }>();
 function aufraeumen() {
   const grenze = Date.now() - ABLAUF;
   for (const [c, s] of stammCache) if (s.zeit < grenze) stammCache.delete(c);
   for (const [c, r] of raumCache) if (r.zeit < grenze) raumCache.delete(c);
+  for (const [c, p] of posCache) if (p.zeit < grenze) posCache.delete(c);
   if (fidVon.size > 5000) fidVon.clear();
 }
 
@@ -197,6 +201,18 @@ export async function gruppenRoute(req: Request, url: URL, pfad: string, lehrer:
     });
   }
 
+  /* ---------- Wo laufen die Figuren gerade? (Fortnite-Steuerung auf dem Handy)
+     Ein Schlüssel pro Figur, damit sich niemand gegenseitig überschreibt. Die Liste wird pro Instanz
+     300 ms zwischengespeichert, so bleibt es bei wenigen KV-Lesezugriffen, egal wie viele Geräte fragen. ---------- */
+  if (aktion === "pos" && req.method === "GET") {
+    const c = posCache.get(code);
+    if (c && Date.now() - c.zeit < POS_CACHE_MS) return h.json({ pos: c.pos });
+    const pos: Record<string, [number, number]> = {};
+    for await (const e of kv.list<[number, number]>({ prefix: ["gruppen", code, "o"] })) pos[e.key[3] as string] = [e.value[0], e.value[1]];
+    posCache.set(code, { zeit: Date.now(), pos });
+    return h.json({ pos });
+  }
+
   /* ---------- Lehrkraft: Steuerung ---------- */
   if (aktion === "steuer" && req.method === "POST") {
     const b = await h.leseBody(req);
@@ -272,6 +288,21 @@ export async function gruppenRoute(req: Request, url: URL, pfad: string, lehrer:
     const t = (await kv.get<Teilnehmer>(k.tn(code, pid))).value;
     if (!t) return h.fehler("Du bist hier nicht angemeldet. Bitte die Seite neu laden.", 404);
     await kv.atomic().set(k.tn(code, pid), { ...t, profil }, { expireIn: ABLAUF }).set(...versionHoch(code)).commit();
+    return h.json({ ok: true });
+  }
+
+  if (aktion === "pos" && req.method === "POST") {
+    if (raum.phase !== "anmelden" && raum.phase !== "wahl") return h.json({ ok: false });
+    const x = Number(b.x), y = Number(b.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > 1250 || y < 90 || y > 900) return h.fehler("Ungültige Position.");
+    let fid = fidVon.get(`${code}:${pid}`);
+    if (!fid) {
+      const t = (await kv.get<Teilnehmer>(k.tn(code, pid))).value;
+      if (!t) return h.fehler("Du bist hier nicht angemeldet. Bitte die Seite neu laden.", 404);
+      fid = t.fid;
+      fidVon.set(`${code}:${pid}`, fid);
+    }
+    await kv.set(k.pos(code, fid), [Math.round(x), Math.round(y)], { expireIn: ABLAUF });
     return h.json({ ok: true });
   }
 

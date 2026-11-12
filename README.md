@@ -82,9 +82,12 @@ Server in `rolle.ts` (sparsam mit KV-Lesezugriffen: Raum-Cache, Versionsschlüss
 Jede Person gibt ihren Vornamen ein und bekommt einen zufälligen Decknamen („Melancholische Bratwurst“)
 mit einer zufälligen Figur (Farbe, Form, Augen, Mund, Hut, Brille, Extra). Danach ein Profil mit sechs Fragen:
 Rolle, Tempo, Präsentieren, Konflikte, dazu zwei Spaßfragen (Pizza Hawaii, Getränk – das hält die Figur in der Hand).
-Auf dem Handy sieht man den Raum mit allen Tischen und zieht die eigene Figur an einen Tisch (oder tippt einen
-Tisch an und dann „Hierhin laufen“). Am Beamer laufen die Figuren mit. Volle Tische sind gesperrt, „Noch gesucht“
-zeigt fehlende Rollen, ein Spruch pro Tisch bei auffälliger Mischung.
+Auf dem Handy steuert man die eigene Figur wie in Fortnite durch den Raum: links ein Joystick, der dort erscheint,
+wo der Daumen aufsetzt (am Rechner WASD oder Pfeiltasten), rechts unten der Knopf „Hinsetzen“ bzw. „Aufstehen“.
+Die Kamera folgt der Figur, Tische sind Hindernisse. Steht man an einem Tisch, zeigt das Handy die Profile dort.
+Am Beamer laufen alle Figuren live mit (Positionen über `/api/gruppen/<code>/pos`, ein KV-Schlüssel pro Figur,
+die Liste wird pro Instanz 300 ms zwischengespeichert). Volle Tische sind gesperrt, „Noch gesucht“ zeigt
+fehlende Rollen, ein Spruch pro Tisch bei auffälliger Mischung. Die Geometrie des Raums steht in `public/gruppen/raum.js`.
 Phasen am Beamer (Tasten 1–3): Anmelden · Tische öffnen · Auflösen (die Vornamen erscheinen unter den Figuren).
 Tische 2–8 und Plätze 2–6 stellt man in der Leiste ein. H blendet die Leiste aus.
 Vornamen verlassen den Server erst in der Phase „Auflösen“. Alles läuft nach 12 Stunden ab.
