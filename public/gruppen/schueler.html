@@ -164,6 +164,19 @@ body.im-spiel { overflow: hidden; overscroll-behavior: none; }
 .tisch .knopf.hell { background: #fff; color: var(--tafel); }
 .gross { text-align: center; display: grid; gap: 6px; padding: 4px 0; }
 .gross .zahl { font-size: 88px; line-height: 1; font-weight: 800; color: var(--t, var(--tafel)); }
+/* Rollenkarte (Rollen-Tische): wer das ist, was er will, dafür oder dagegen */
+.rolle { display: grid; grid-template-columns: 60px 1fr; gap: 10px; align-items: start; }
+.rolle .rbild { width: 60px; height: 60px; display: block; }
+.rolle .rtext { display: grid; gap: 4px; min-width: 0; }
+.rolle .rwer { font-size: 13px; color: var(--muted); font-weight: 600; line-height: 1.3; }
+.rolle .rziel { font-size: 15px; line-height: 1.32; }
+.rolle .rziel b { color: var(--t); }
+.rseite { justify-self: start; font-size: 13px; font-weight: 800; border-radius: 999px; padding: 1px 9px; background: var(--kreide); color: var(--tafel); }
+.rolle.gross { grid-template-columns: 1fr; text-align: center; justify-items: center; background: #fff; border: 2px solid var(--linie); border-radius: 18px; padding: 12px 14px; }
+.rolle.gross .rtext { justify-items: center; }
+.rolle.gross .rziel { font-size: 17px; }
+.rolle.gross .rwer { font-size: 15px; }
+.gross .rbild { width: 132px; height: 132px; justify-self: center; display: block; }
 #netz { position: fixed; left: 12px; right: 12px; bottom: 12px; background: #8c2a1c; color: #fff; padding: 10px 14px; border-radius: 12px; font-size: 15px; display: none; text-align: center; z-index: 20; }
 </style>
 </head>
@@ -172,7 +185,8 @@ body.im-spiel { overflow: hidden; overscroll-behavior: none; }
 <div id="netz">Keine Verbindung. Es wird weiter versucht …</div>
 
 <script type="module">
-import { FRAGEN, ANTWORT, nochGesucht, tischSpruch, TISCHFARBEN } from "/gruppen/daten.js";
+import { FRAGEN, ANTWORT, nochGesucht, tischSpruch, obergrenzen } from "/gruppen/daten.js";
+import { ROLLENSETS, rolleVon, tischName, tischFarbe, rollenBildUri, SEITE_TEXT } from "/gruppen/rollen.js";
 import { figurSvg } from "/gruppen/figur.js";
 import { berechneLayout, eingangPlatz, schritt, tischInDerNaehe, hinterTisch, vorDemTisch, H_FIG, TEMPO } from "/gruppen/raum.js";
 
@@ -282,10 +296,16 @@ async function holen() {
       const j = await api(`stand?sig=${encodeURIComponent(sig)}`);
       fehlZaehler = 0; $("#netz").style.display = "none";
       if (!j.gleich) {
+        const vorher = stand?.leute.find((p) => p.fid === ich.fid)?.tisch ?? null;
         stand = j; sig = j.sig;
         const meinStand = stand.leute.find((p) => p.fid === ich.fid);
         if (meinStand) ich.profil = meinStand.profil ?? ich.profil;
         darstellen();
+        /* Hat die Lehrkraft mich umgesetzt („Ausgleichen“)? Dann kurz Bescheid geben. */
+        const nachher = meinStand?.tisch ?? null;
+        if (G && nachher && nachher !== vorher && G.meinZiel === undefined && !G.beschaeftigt && stand.raum.phase === "wahl") {
+          toast(vorher ? `Die Lehrkraft hat dich umgesetzt: Tisch ${tischName(stand.raum, nachher)}` : `Die Lehrkraft hat dir einen Platz gegeben: Tisch ${tischName(stand.raum, nachher)}`);
+        }
       }
     } catch (e) {
       if (++fehlZaehler > 3) $("#netz").style.display = "block";
@@ -317,15 +337,53 @@ function ichLeiste(text) {
   return `<div class="ich"><span class="mini">${figurSvg(ich.aussehen, { getraenk: ich.profil?.getraenk })}</span>
     <div class="wer"><small>${esc(text)}</small><b>${esc(ich.name)}</b></div></div>`;
 }
+
+/* ---------- Rollen-Tische ---------- */
+const rollenAn = () => !!(stand?.raum.rollen && ROLLENSETS[stand.raum.rollen]);
+const farbeT = (t) => tischFarbe(stand.raum, t);
+const kopfName = (t) => rolleVon(stand.raum, t)?.name ?? `Tisch ${t}`; // Überschrift: „SPD“ oder „Tisch 3“
+/* Mit Rollen sieht man die Tische schon beim Anmelden: So kann man die Rollen lesen, bevor die Wahl losgeht. */
+const zeigtTische = () => stand.raum.phase === "wahl" || (stand.raum.phase === "anmelden" && rollenAn());
+function rollenKarte(t, gross) {
+  const rolle = rolleVon(stand.raum, t);
+  if (!rolle) return "";
+  return `<div class="rolle${gross ? " gross" : ""}">${gross ? "" : `<img class="rbild" alt="" src="${rollenBildUri(rolle)}">`}
+    <div class="rtext"><div class="rwer">${esc(rolle.wer)}</div><div class="rziel"><b>Ziel:</b> ${esc(rolle.ziel)}</div>
+    <div class="rseite">Position: ${esc(rolle.position ?? SEITE_TEXT[rolle.seite] ?? rolle.seite)}</div></div></div>`;
+}
+/* Personen je Tisch. Für mich zählt ein gerade abgeschickter Wunsch, solange das Spiel läuft. */
+function belegung(ohneMich) {
+  const b = new Array(stand.raum.tische).fill(0);
+  for (const p of stand.leute) {
+    if (ohneMich && p.fid === ich.fid) continue;
+    const s = G ? sitzVon(p) : p.tisch ? { tisch: p.tisch } : null;
+    if (s && s.tisch >= 1 && s.tisch <= b.length) b[s.tisch - 1]++;
+  }
+  return b;
+}
+/* Höchstzahl je Tisch: ohne Rollen die Stühle, mit Rollen füllen sich die Tische gleichmäßig (wie auf dem Server) */
+function grenzen(belegt) {
+  const r = stand.raum;
+  return rollenAn() ? obergrenzen(stand.leute.length, belegt, r.plaetze) : belegt.map(() => r.plaetze);
+}
+function kannSitzen(t) {
+  const b = belegung(true);
+  return b[t - 1] < grenzen(b)[t - 1];
+}
+function freiText(t) {
+  const b = belegung(false), frei = grenzen(b)[t - 1] - b[t - 1];
+  if (frei > 0) return `${frei} ${frei === 1 ? "Platz" : "Plätze"} frei`;
+  return b[t - 1] < stand.raum.plaetze ? "erst mal voll" : "voll";
+}
 function tischKarte(t, knoepfe, mitKlarnamen) {
-  const r = stand.raum, leute = amTisch(t), farbe = TISCHFARBEN[t - 1];
-  const meiner = meinTisch() === t, voll = leute.length >= r.plaetze;
+  const leute = amTisch(t), farbe = farbeT(t);
+  const meiner = meinTisch() === t, voll = !kannSitzen(t);
   const profile = leute.map((p) => p.profil);
   const spruch = tischSpruch(profile), gesucht = leute.length ? nochGesucht(profile) : [];
   let knopf = "";
   if (knoepfe) knopf = meiner ? `<button class="knopf hell" data-tisch="0">Hier sitzt du ✓ · aufstehen</button>` : voll ? "" : `<button class="knopf" data-tisch="${t}">Hierhin laufen</button>`;
   return `<section class="tisch${meiner ? " meiner" : ""}" style="--t:${farbe}">
-    <div class="tkopf"><h2>Tisch ${t}</h2><span class="frei">${voll ? "voll" : `${r.plaetze - leute.length} ${r.plaetze - leute.length === 1 ? "Platz" : "Plätze"} frei`}</span></div>
+    <div class="tkopf"><h2>${esc(kopfName(t))}</h2><span class="frei">${stand.raum.phase === "aufloesen" ? `${leute.length} ${leute.length === 1 ? "Person" : "Personen"}` : freiText(t)}</span></div>
     ${spruch ? `<div class="spruch">${esc(spruch)}</div>` : ""}
     <div class="leute">${leute.map((p) => person(p, farbe, mitKlarnamen)).join("") || `<span class="leer">Noch niemand. Sei die erste Figur!</span>`}</div>
     ${gesucht.length && !voll ? `<div class="gesucht">Noch gesucht: <b>${gesucht.map((g) => ANTWORT.rolle[g].e + " " + ANTWORT.rolle[g].kurz).join(" · ")}</b></div>` : ""}
@@ -352,8 +410,16 @@ function frageHtml() {
 function aufgeloestHtml() {
   const t = meinTisch();
   if (!t) return `<div class="kopfzeile">Aufgelöst!</div>${ichLeiste(`Das bist du, ${ich.vorname}`)}<p class="leise">Du sitzt an keinem Tisch. Sag deiner Lehrkraft Bescheid.</p>`;
+  const rolle = rolleVon(stand.raum, t);
+  if (rolle) {
+    return `<div class="kopfzeile">Aufgelöst! 🎉</div>
+      <div class="gross" style="--t:${rolle.farbe}"><p class="leise">Eure Rolle</p><img class="rbild" alt="" src="${rollenBildUri(rolle)}"><div class="zahl" style="font-size:64px">${esc(rolle.name)}</div></div>
+      <div style="--t:${rolle.farbe}">${rollenKarte(t, true)}</div>
+      ${tischKarte(t, false, true)}
+      <p class="leise" style="text-align:center">Ab an den Tisch mit dem Aufsteller „${esc(rolle.name)}“!</p>`;
+  }
   return `<div class="kopfzeile">Aufgelöst! 🎉</div>
-    <div class="gross" style="--t:${TISCHFARBEN[t - 1]}"><p class="leise">Deine Gruppe</p><div class="zahl">Tisch ${t}</div></div>
+    <div class="gross" style="--t:${farbeT(t)}"><p class="leise">Deine Gruppe</p><div class="zahl">Tisch ${t}</div></div>
     ${tischKarte(t, false, true)}
     <p class="leise" style="text-align:center">Ab an euren Tisch!</p>`;
 }
@@ -391,8 +457,8 @@ function spielAufbauen() {
   letztesHtml = "";
   let h = `<div class="boden"></div>`;
   if (!mitDrei) L.tische.forEach((T, i) => {
-    const farbe = TISCHFARBEN[i], kante = T.th * 0.2;
-    h += `<div class="zelle" data-zelle="${i + 1}" style="left:${T.x}px;top:${T.y}px;width:${T.cw}px;height:${T.ch}px;--t:${farbe}"><div class="zk"><span class="tnr">Tisch ${i + 1}</span><span class="tz"></span></div></div>`;
+    const farbe = farbeT(i + 1), kante = T.th * 0.2;
+    h += `<div class="zelle" data-zelle="${i + 1}" style="left:${T.x}px;top:${T.y}px;width:${T.cw}px;height:${T.ch}px;--t:${farbe}"><div class="zk"><span class="tnr">${esc(kopfName(i + 1))}</span><span class="tz"></span></div></div>`;
     h += `<div class="tischbild" style="left:${T.cx - T.tw / 2}px;top:${T.tischOben}px"><svg width="${T.tw}" height="${T.th + kante}" viewBox="0 0 ${T.tw} ${T.th + kante}"><ellipse cx="${T.tw / 2}" cy="${T.th / 2 + kante}" rx="${T.tw / 2 - 1}" ry="${T.th / 2}" fill="var(--holz-dunkel)"/><ellipse cx="${T.tw / 2}" cy="${T.th / 2}" rx="${T.tw / 2 - 1}" ry="${T.th / 2}" fill="var(--holz)"/><ellipse cx="${T.tw / 2}" cy="${T.th / 2}" rx="${T.tw / 2 - 12}" ry="${T.th / 2 - 6}" fill="none" stroke="${farbe}" stroke-opacity=".35" stroke-width="3"/></svg></div>`;
     T.plaetze.forEach((p, j) => {
       const w = L.f * 0.62, hh = p.hinten ? L.f * 0.9 : L.f * 0.55;
@@ -404,7 +470,7 @@ function spielAufbauen() {
   h += `<div class="eingang"><span class="lab">Eingang</span></div>`;
   if (!mitDrei) $("#welt").innerHTML = h;
   G = {
-    L, key: `${r.tische}.${r.plaetze}`, spiel: $("#spiel"), welt: $("#welt"), fig: new Map(),
+    L, key: `${r.tische}.${r.plaetze}.${r.rollen ?? ""}`, spiel: $("#spiel"), welt: $("#welt"), fig: new Map(),
     drei: null, steuer: null, erstesBild: true, pruefZeit: 0,
     ich: null, bewegt: false, richtung: 1, v: { x: 0, y: 0 }, tasten: new Set(), stick: null, cam: null,
     zuletzt: performance.now(), gesendet: 0, sendet: false, nochmal: false, laeuftZuletzt: false,
@@ -427,7 +493,12 @@ function spielAufbauen() {
 function dreiAufbauen() {
   const spiel = G.spiel, leinwand = $("#leinwand"), stick = $("#stick"), knauf = stick.firstElementChild;
   const stufe = Number(schalter.get("stufe"));
-  G.drei = DREI.erzeugePlatz(leinwand, { layout: G.L, festeStufe: schalter.has("stufe") && stufe >= 0 && stufe <= 3 ? Math.round(stufe) : undefined });
+  /* Name und Farbe je Tisch; mit Rollen steht an jedem Tisch eine Infotafel mit Bild */
+  const tische = G.L.tische.map((_, i) => {
+    const rolle = rolleVon(stand.raum, i + 1);
+    return { name: rolle?.name ?? String(i + 1), farbe: farbeT(i + 1), tafel: rolle ? { bild: rollenBildUri(rolle), name: rolle.name, seite: rolle.seite, farbe: rolle.farbe } : null };
+  });
+  G.drei = DREI.erzeugePlatz(leinwand, { layout: G.L, tische, festeStufe: schalter.has("stufe") && stufe >= 0 && stufe <= 3 ? Math.round(stufe) : undefined });
   G.steuer = DREI.erzeugeSteuerung({
     flaeche: spiel,
     ausnahme: (ziel) => !!ziel.closest("button, .info, .hud"),
@@ -532,13 +603,14 @@ function figurenAktualisieren() {
   }
   for (const [fid, e] of G.fig) if (!da.has(fid)) { e.el.remove(); G.fig.delete(fid); }
   /* Stühle und Zähler */
+  const grenze = grenzen(belegung(false));
   L.tische.forEach((T, i) => {
     const am = leute.map(sitzVon).filter((s) => s?.tisch === i + 1);
     const belegt = new Set(am.map((s) => s.platz));
     T.plaetze.forEach((_, j) => G.welt.querySelector(`[data-stuhl="${i + 1}-${j}"]`)?.classList.toggle("besetzt", belegt.has(j)));
     const tz = G.welt.querySelector(`[data-zelle="${i + 1}"] .tz`);
-    tz.textContent = `${am.length}/${stand.raum.plaetze}`;
-    tz.classList.toggle("voll", am.length >= stand.raum.plaetze);
+    tz.textContent = `${am.length}/${grenze[i]}`;
+    tz.classList.toggle("voll", am.length >= grenze[i]);
   });
 }
 
@@ -552,8 +624,8 @@ function figurenDrei(eingang) {
     return { fid: p.fid, name: p.name, aussehen: p.aussehen, getraenk: p.profil?.getraenk, denkt: !p.profil, ich: selbst, sitz: sitzVon(p), x: o.x, y: o.fuss, stufe: amEingang >= 0 ? amEingang % 3 : 0 };
   }), G.erstesBild);
   G.erstesBild = false;
-  const sitze = leute.map(sitzVon);
-  G.L.tische.forEach((_, i) => G.drei.zaehler(i + 1, sitze.filter((s) => s?.tisch === i + 1).length, stand.raum.plaetze));
+  const belegt = belegung(false), grenze = grenzen(belegt);
+  G.L.tische.forEach((_, i) => G.drei.zaehler(i + 1, belegt[i], grenze[i]));
 }
 
 /* Anzeigen: Kopfzeile, Tischinfo, Aktionsknopf */
@@ -564,11 +636,12 @@ function setzeHtml(id, html) {
 }
 function infoHtml(t) {
   const r = stand.raum, leute = amTisch(t);
-  const voll = leute.length >= r.plaetze, profile = leute.map((p) => p.profil);
+  const voll = !kannSitzen(t), profile = leute.map((p) => p.profil);
   const spruch = tischSpruch(profile), gesucht = leute.length && !voll ? nochGesucht(profile) : [];
-  return `<h3>Tisch ${t}<span>${voll ? "voll" : `${r.plaetze - leute.length} ${r.plaetze - leute.length === 1 ? "Platz" : "Plätze"} frei`}</span></h3>
+  return `<h3>${esc(kopfName(t))}<span>${r.phase === "anmelden" ? "öffnet gleich" : freiText(t)}</span></h3>
+    ${rollenKarte(t)}
     ${spruch ? `<div class="spruch">${esc(spruch)}</div>` : ""}
-    <div class="leute">${leute.map((p) => person(p, TISCHFARBEN[t - 1])).join("") || `<span class="leer">Noch niemand hier. Setz dich als Erste*r!</span>`}</div>
+    <div class="leute">${leute.map((p) => person(p, farbeT(t))).join("") || `<span class="leer">${r.phase === "anmelden" ? "Gleich öffnen die Tische. Schau dich schon mal um!" : "Noch niemand hier. Setz dich als Erste*r!"}</span>`}</div>
     ${gesucht.length ? `<div class="gesucht">Noch gesucht: <b>${gesucht.map((g) => ANTWORT.rolle[g].e + " " + ANTWORT.rolle[g].kurz).join(" · ")}</b></div>` : ""}`;
 }
 function anzeigenAktualisieren() {
@@ -576,23 +649,24 @@ function anzeigenAktualisieren() {
   const r = stand.raum, sitz = meinSitz();
   const t = sitz ? sitz.tisch : G.nah?.nr ?? null;
   setzeHtml("hudFig", figurSvg(ich.aussehen, { getraenk: ich.profil?.getraenk }));
-  $("#hudStatus").textContent = r.phase === "anmelden" ? "Gleich öffnen die Tische" : sitz ? `Du sitzt an Tisch ${sitz.tisch}` : G.nah ? `Am Tisch ${G.nah.nr}` : "Lauf zu einem Tisch";
+  $("#hudStatus").textContent = r.phase === "anmelden"
+    ? (G.nah ? `Am Tisch ${tischName(r, G.nah.nr)}` : rollenAn() ? "Schau dir die Rollen an" : "Gleich öffnen die Tische")
+    : sitz ? `Du sitzt am Tisch ${tischName(r, sitz.tisch)}` : G.nah ? `Am Tisch ${tischName(r, G.nah.nr)}` : rollenAn() ? "Lauf zu einer Rolle" : "Lauf zu einem Tisch";
   G.spiel.classList.toggle("sitzt", !!sitz);
-  if (G.drei) G.drei.nah(r.phase === "wahl" ? t : null);
-  else G.welt.querySelectorAll(".zelle").forEach((z) => z.classList.toggle("nah", r.phase === "wahl" && Number(z.dataset.zelle) === t));
+  if (G.drei) G.drei.nah(zeigtTische() ? t : null);
+  else G.welt.querySelectorAll(".zelle").forEach((z) => z.classList.toggle("nah", zeigtTische() && Number(z.dataset.zelle) === t));
   const info = $("#info");
-  if (r.phase === "wahl" && t) {
-    info.style.setProperty("--t", TISCHFARBEN[t - 1]);
+  if (zeigtTische() && t) {
+    info.style.setProperty("--t", farbeT(t));
     setzeHtml("info", infoHtml(t));
     info.classList.add("an");
   } else info.classList.remove("an");
   const k = $("#aktion");
   let html = "", an = false, aus = false, farbe = "var(--tafel)", art = "";
-  if (r.phase === "wahl" && sitz) { an = true; art = "aufstehen"; html = `<span class="e">🚶</span>Aufstehen`; farbe = TISCHFARBEN[sitz.tisch - 1]; }
+  if (r.phase === "wahl" && sitz) { an = true; art = "aufstehen"; html = `<span class="e">🚶</span>Aufstehen`; farbe = farbeT(sitz.tisch); }
   else if (r.phase === "wahl" && G.nah) {
-    an = true; farbe = TISCHFARBEN[G.nah.nr - 1];
-    const andere = amTisch(G.nah.nr).filter((p) => p.fid !== ich.fid).length;
-    if (andere >= r.plaetze) { aus = true; html = `<span class="e">🚫</span>Tisch voll`; }
+    an = true; farbe = farbeT(G.nah.nr);
+    if (!kannSitzen(G.nah.nr)) { aus = true; html = `<span class="e">🚫</span>${amTisch(G.nah.nr).filter((p) => p.fid !== ich.fid).length < r.plaetze ? "Erst mal voll" : "Tisch voll"}`; }
     else { art = "sitzen"; html = `<span class="e">🪑</span>Hinsetzen`; }
   }
   k.hidden = !an;
@@ -632,7 +706,7 @@ function schleife(jetzt) {
     G.bewegt = true;
     eigeneFigur(true);
     if (jetzt - G.gesendet > 300) posSenden(jetzt);
-    const nah = r.phase === "wahl" ? tischInDerNaehe(G.L, G.ich.x, G.ich.y) : null;
+    const nah = zeigtTische() ? tischInDerNaehe(G.L, G.ich.x, G.ich.y) : null;
     if (nah !== G.nah) { G.nah = nah; anzeigenAktualisieren(); }
   } else if (G.laeuftZuletzt) { eigeneFigur(false); posSenden(jetzt); }
   G.laeuftZuletzt = laeuft;
@@ -658,7 +732,7 @@ function schleifeDrei(jetzt, dt, dtBild) {
     [G.ich.x, G.ich.y] = schritt(G.L, G.ich.x, G.ich.y, vx * dt, vy * dt);
     G.bewegt = true;
     if (jetzt - G.gesendet > 300) posSenden(jetzt);
-    const nah = r.phase === "wahl" ? tischInDerNaehe(G.L, G.ich.x, G.ich.y) : null;
+    const nah = zeigtTische() ? tischInDerNaehe(G.L, G.ich.x, G.ich.y) : null;
     if (nah !== G.nah) { G.nah = nah; anzeigenAktualisieren(); }
   } else if (G.laeuftZuletzt) posSenden(jetzt);
   G.laeuftZuletzt = laeuft;
@@ -689,6 +763,13 @@ function kamera(dt) {
   G.welt.style.transform = `translate(${(vw / 2 - G.cam.x * s).toFixed(1)}px, ${(vh / 2 - G.cam.y * s).toFixed(1)}px) scale(${s.toFixed(4)})`;
 }
 
+/* Steht die eigene Figur schon an einem Tisch (zum Beispiel nach dem Neuladen)? Dann gleich die Karte zeigen. */
+function nahPruefen() {
+  if (!G?.ich || meinSitz()) return;
+  const nah = zeigtTische() ? tischInDerNaehe(G.L, G.ich.x, G.ich.y) : null;
+  if (nah !== G.nah) { G.nah = nah; anzeigenAktualisieren(); }
+}
+
 /* Positionen senden und holen */
 function posSenden(jetzt) {
   if (!G?.ich) return;
@@ -705,7 +786,7 @@ async function posHolen() {
   clearTimeout(G.posT);
   try {
     const j = await api("pos");
-    if (G && JSON.stringify(j.pos) !== JSON.stringify(G.posMap)) { G.posMap = j.pos; figurenAktualisieren(); }
+    if (G && JSON.stringify(j.pos) !== JSON.stringify(G.posMap)) { G.posMap = j.pos; figurenAktualisieren(); nahPruefen(); }
   } catch {}
   if (G) G.posT = setTimeout(posHolen, document.hidden ? 2000 : 450);
 }
@@ -752,7 +833,7 @@ async function gehZu(tisch) {
   const L = G.L, vorher = meinSitz();
   if (tisch > 0) {
     const andere = amTisch(tisch).filter((p) => p.fid !== ich.fid);
-    if (andere.length >= stand.raum.plaetze) return toast("Der Tisch ist schon voll.");
+    if (!kannSitzen(tisch)) return toast(andere.length >= stand.raum.plaetze ? "Der Tisch ist schon voll." : "Hier ist erst mal voll: Zuerst sollen alle Tische gleich viele Leute haben.");
     const belegt = new Set(andere.map((p) => p.platz));
     let platz = 0; while (belegt.has(platz)) platz++;
     G.meinZiel = { tisch, platz };
@@ -797,8 +878,8 @@ function darstellen() {
       return zeigeHtml(`${ichLeiste("Du bist")}<p class="leise">Die Welt wird aufgebaut …</p>`);
     }
   }
-  if (!G || G.key !== `${r.tische}.${r.plaetze}` || !document.body.contains(G.spiel)) spielAufbauen();
-  if (ph !== "wahl") G.nah = null;
+  if (!G || G.key !== `${r.tische}.${r.plaetze}.${r.rollen ?? ""}` || !document.body.contains(G.spiel)) spielAufbauen();
+  if (!zeigtTische()) G.nah = null;
   else if (!meinSitz() && G.ich) G.nah = tischInDerNaehe(G.L, G.ich.x, G.ich.y);
   figurenAktualisieren();
   anzeigenAktualisieren();

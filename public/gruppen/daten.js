@@ -136,3 +136,23 @@ export function aussehenOk(o) {
 
 /* Farben der Tische (Tisch 1 bis 8) */
 export const TISCHFARBEN = ["#e5412d", "#2c6fd6", "#2e9e5b", "#d99a00", "#7a5cff", "#138f89", "#d4508f", "#e8702a"];
+
+/*
+ * Gleich große Gruppen (mit Rollen): Wie viele Personen darf jeder Tisch gerade höchstens haben?
+ * Erst bekommt jeder Tisch die Grundzahl (bei 25 Personen an 6 Tischen: 4). Die übrigen Plätze (hier einer)
+ * gehen erst auf, wenn alle Tische die Grundzahl haben. So bleibt kein Tisch leer.
+ * anzahl: alle angemeldeten Figuren · belegt: Personen je Tisch (Index 0 = Tisch 1) · plaetze: Stühle je Tisch.
+ */
+export function obergrenzen(anzahl, belegt, plaetze) {
+  const n = belegt.length;
+  if (!n) return [];
+  const basis = Math.floor(anzahl / n), extra = anzahl % n;
+  const alleHabenBasis = belegt.every((b) => b >= basis);
+  const schonMehr = belegt.filter((b) => b > basis).length;
+  const offen = alleHabenBasis && schonMehr < extra ? basis + 1 : basis;
+  return belegt.map((b) => Math.min(plaetze, Math.max(b, offen)));
+}
+/* Grundzahl und Zahl der größeren Tische, für die Anzeige am Beamer */
+export function gruppenGroesse(anzahl, tische) {
+  return { basis: Math.floor(anzahl / tische), extra: anzahl % tische };
+}

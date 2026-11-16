@@ -78,6 +78,59 @@ function winkelDifferenz(a, b) {
   return d;
 }
 
+/* Infotafel einer Rolle: helle Karte mit Rand in der Rollenfarbe, Bild, Name, Position („dafür“, „dagegen“, „offen“).
+   Das Bild (SVG) lädt kurz nach; bis dahin stehen Name und Position schon da. */
+const SCHRIFT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+function infoTafel(info, hoehe) {
+  const leinwand = document.createElement("canvas");
+  leinwand.width = 400;
+  leinwand.height = 480;
+  const stift = leinwand.getContext("2d");
+  const rund = (x, y, b, h, r) => {
+    stift.beginPath();
+    stift.moveTo(x + r, y);
+    stift.arcTo(x + b, y, x + b, y + h, r);
+    stift.arcTo(x + b, y + h, x, y + h, r);
+    stift.arcTo(x, y + h, x, y, r);
+    stift.arcTo(x, y, x + b, y, r);
+    stift.closePath();
+  };
+  const zeichne = (bild) => {
+    stift.clearRect(0, 0, 400, 480);
+    rund(8, 8, 384, 464, 30);
+    stift.fillStyle = "#fbf8f1";
+    stift.fill();
+    stift.lineWidth = 12;
+    stift.strokeStyle = info.farbe;
+    stift.stroke();
+    if (bild) stift.drawImage(bild, 75, 28, 250, 250);
+    stift.fillStyle = "#12324a";
+    stift.textAlign = "center";
+    stift.textBaseline = "middle";
+    stift.font = `800 74px ${SCHRIFT}`;
+    stift.fillText(info.name, 200, 330, 360);
+    const text = info.seite === "offen" ? "offen" : info.seite;
+    stift.font = `700 38px ${SCHRIFT}`;
+    const breite = stift.measureText(text).width + 48;
+    rund(200 - breite / 2, 384, breite, 60, 30);
+    stift.fillStyle = info.farbe;
+    stift.fill();
+    stift.fillStyle = "#ffffff";
+    stift.fillText(text, 200, 416);
+  };
+  zeichne(null);
+  const textur = new THREE.CanvasTexture(leinwand);
+  textur.colorSpace = THREE.SRGBColorSpace;
+  const tafel = new THREE.Sprite(new THREE.SpriteMaterial({ map: textur, depthWrite: false, transparent: true, fog: false }));
+  tafel.scale.set((hoehe * 400) / 480, hoehe, 1);
+  if (info.bild) {
+    const bild = new Image();
+    bild.onload = () => { zeichne(bild); textur.needsUpdate = true; };
+    bild.src = info.bild;
+  }
+  return tafel;
+}
+
 function haus(x, z, hw, hd, winkel, hoehe, dachHoehe, wand, dach) {
   return { x, z, hw, hd, winkel, cos: Math.cos(winkel), sin: Math.sin(winkel), hoehe, dachHoehe, wand, dach };
 }
@@ -89,10 +142,13 @@ function haus(x, z, hw, hd, winkel, hoehe, dachHoehe, wand, dach) {
  *   sicht       "verfolger" (Handy: Kamera folgt der eigenen Figur) oder "fest" (Beamer: schräg von oben,
  *               alle Tische und der Eingang sind im Bild; aufBild rechnet Orte für Anzeigen über der Szene um)
  *   festeStufe  feste Bildqualität 0 bis 3 (sonst schaltet die Bühne bei schwacher Bildrate selbst herunter)
+ *   tische      je Tisch { name, farbe, tafel? }: Name auf dem Schild (sonst die Nummer), Farbe (sonst TISCHFARBEN).
+ *               tafel = { bild, name, seite, farbe } stellt eine Infotafel neben den Tisch (Rollen-Tische, nur Handy).
  *   abstand, folgen   Abstand der Kamera und wie stark sie von selbst hinter die Figur dreht
  */
 export function erzeugePlatz(leinwand, optionen) {
   const L = optionen.layout;
+  const tischInfo = (i) => ({ name: String(i + 1), farbe: TISCHFARBEN[i], tafel: null, ...(optionen.tische?.[i] ?? {}) });
   const sicht = optionen.sicht ?? "verfolger";
   const fest = sicht === "fest";
   const zufall = wuerfel(20261112);
@@ -115,6 +171,8 @@ export function erzeugePlatz(leinwand, optionen) {
   // Mast am Tischende mit Fähnchen und Nummernschild. Am Beamer niedriger: Über den hinteren Tischen stehen dort die Listen.
   const MAST_HOEHE = fest ? 1.85 : 2.45;
   const SCHILD_HOEHE = fest ? 0.8 : 0.95;
+  const TAFEL_UNTEN = 1.15; // Infotafel (Rollen): Unterkante und Höhe in Metern
+  const TAFEL_HOEHE = 1.2;
 
   const buehne = erzeugeBuehne(leinwand, {
     festeStufe: optionen.festeStufe,
@@ -180,7 +238,7 @@ export function erzeugePlatz(leinwand, optionen) {
       const [fx, fz] = zuWelt(T.x + T.cw / 2, T.y + T.ch / 2);
       const hw = (T.cw * SX) / 2 - 0.06;
       const hd = (T.ch * SZ) / 2 - 0.06;
-      const farbe = new THREE.Color(TISCHFARBEN[i]);
+      const farbe = new THREE.Color(tischInfo(i).farbe);
       b.rechteck(fx, fz, hw, hd, 0, 0.03, new THREE.Color(FARBEN.feld));
       b.rechteck(fx, fz - hd, hw, 0.05, 0, 0.04, farbe);
       b.rechteck(fx, fz + hd, hw, 0.05, 0, 0.04, farbe);
@@ -211,8 +269,11 @@ export function erzeugePlatz(leinwand, optionen) {
   // ------------------------------------------------------------------
   const tische = L.tische.map((T, i) => {
     const [x, z] = zuWelt(T.cx, T.cy);
-    const t = { nr: i + 1, x, z, a: (T.tw * SX) / 2, c: (T.th * SZ) / 2, farbe: TISCHFARBEN[i], T, belegt: -1, nah: false, leuchtet: 0, dauerlicht: 0 };
+    const info = tischInfo(i);
+    const t = { nr: i + 1, name: info.name, x, z, a: (T.tw * SX) / 2, c: (T.th * SZ) / 2, farbe: info.farbe, T, belegt: -1, grenze: -1, nah: false, leuchtet: 0, dauerlicht: 0 };
     t.mastX = x - t.a - 0.32;
+    t.tafel = fest ? null : info.tafel; // Infotafel (Rollen): rechts am Tischende, gegenüber dem Mast
+    t.tafelX = x + t.a + 0.5;
     // Sitzplätze: hintere Reihe schaut zum Eingang, vordere zu ihr hin. Die Platte ist oval,
     // deshalb stehen die Stühle am Rand etwas näher zur Mitte.
     let hinten = 0;
@@ -264,6 +325,13 @@ export function erzeugePlatz(leinwand, optionen) {
         teil(new THREE.BoxGeometry(0.62, 0.34, 0.03), t.farbe, { x: t.mastX + 0.34, y: MAST_HOEHE - 0.42, z: t.z }),
         teil(new THREE.CylinderGeometry(0.2, 0.26, 0.07, 8), FARBEN.holzDunkel, { x: t.mastX, y: 0.035, z: t.z }),
       );
+      // Ständer der Infotafel
+      if (t.tafel) {
+        teile.push(
+          teil(new THREE.CylinderGeometry(0.03, 0.04, TAFEL_UNTEN + 0.1, 6), FARBEN.mast, { x: t.tafelX, y: (TAFEL_UNTEN + 0.1) / 2, z: t.z }),
+          teil(new THREE.CylinderGeometry(0.18, 0.23, 0.06, 8), FARBEN.holzDunkel, { x: t.tafelX, y: 0.03, z: t.z }),
+        );
+      }
     }
     // Eingang: zwei Masten an den Ecken, obendrauf steht „Eingang“
     for (const ex of eingangMasten) {
@@ -277,10 +345,10 @@ export function erzeugePlatz(leinwand, optionen) {
     szene.add(moebel);
   }
 
-  // Schild über jedem Tisch: große Nummer in der Tischfarbe, darunter „2/4“. Von Weitem lesbar.
+  // Schild über jedem Tisch: große Nummer (oder der Name der Rolle) in der Tischfarbe, darunter „2/4“. Von Weitem lesbar.
   const schildOptionen = (t) => ({ hoehe: SCHILD_HOEHE, groessen: [1.5, 0.62], grund: t.farbe, schrift: "#ffffff" });
   for (const t of tische) {
-    t.schild = textSchild([String(t.nr), `0/${L.P}`], schildOptionen(t));
+    t.schild = textSchild([t.name, `0/${L.P}`], schildOptionen(t));
     t.schild.position.set(t.mastX, MAST_HOEHE + SCHILD_HOEHE / 2, t.z);
     szene.add(t.schild);
     // Leuchtfeld: zeigt „hier stehst du“ und leuchtet beim Auflösen auf
@@ -293,6 +361,12 @@ export function erzeugePlatz(leinwand, optionen) {
     t.feld.renderOrder = 1;
     t.feld.visible = false;
     szene.add(t.feld);
+    // Infotafel: Bild, Name und Position der Rolle, schaut immer zur Kamera
+    if (t.tafel) {
+      t.tafelSchild = infoTafel(t.tafel, TAFEL_HOEHE);
+      t.tafelSchild.position.set(t.tafelX, TAFEL_UNTEN + TAFEL_HOEHE / 2, t.z);
+      szene.add(t.tafelSchild);
+    }
   }
   for (const ex of eingangMasten) {
     const eingangSchild = textSchild("Eingang", { hoehe: 0.46, grund: FARBEN.tafel, schrift: "#ffffff" });
@@ -801,6 +875,14 @@ export function erzeugePlatz(leinwand, optionen) {
       duSchild.position.set(ich.x, ich.schild.position.y + ich.schild.scale.y / 2 + 0.26, ich.z);
     }
 
+    // Infotafeln: dicht vor der Kamera blenden sie aus, damit sie nicht den Blick verstellen
+    for (const t of tische) {
+      if (!t.tafelSchild) continue;
+      const ferne = t.tafelSchild.position.distanceTo(kamera.position);
+      t.tafelSchild.material.opacity = Math.max(0, Math.min(1, (ferne - 1.6) / 1.4));
+      t.tafelSchild.visible = t.tafelSchild.material.opacity > 0.02;
+    }
+
     // Leuchtfelder der Tische
     for (const t of tische) {
       const ziel = Math.max(t.nah ? 0.2 + Math.sin(zeit * 5) * 0.06 : 0, t.leuchtet > 0 ? 0.6 * Math.min(1, t.leuchtet) : 0, t.dauerlicht);
@@ -842,9 +924,10 @@ export function erzeugePlatz(leinwand, optionen) {
     /** Zähler auf dem Schild eines Tisches, zum Beispiel 2/4. */
     zaehler(nr, belegt, plaetze) {
       const t = tische[nr - 1];
-      if (!t || t.belegt === belegt) return;
+      if (!t || (t.belegt === belegt && t.grenze === plaetze)) return;
       t.belegt = belegt;
-      schreibeSchild(t.schild, [String(t.nr), `${belegt}/${plaetze}`], schildOptionen(t));
+      t.grenze = plaetze;
+      schreibeSchild(t.schild, [t.name, `${belegt}/${plaetze}`], schildOptionen(t));
     },
     setzeFenster,
     /** Tisch aufleuchten lassen (beim Auflösen). „bleibt“: Danach leuchtet das Feld schwach weiter. */

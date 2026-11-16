@@ -182,6 +182,13 @@ body.drei .eingang .lab small { font-size: 15px; }
 body.drei .eingang .lab b { font-size: 38px; margin-top: 2px; }
 body.drei .eingang .leer { left: 0; top: 0; right: auto; bottom: auto; display: block; transform: translate(-50%, -50%); background: rgba(255,255,255,.92); border-radius: 12px; padding: 6px 16px; white-space: nowrap; }
 body.drei .eingang .leer:empty { display: none; }
+#hinweis { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); background: var(--blitz); color: var(--tafel); padding: 9px 18px; border-radius: 12px; font-size: 18px; font-weight: 800; display: none; z-index: 30; box-shadow: 0 4px 14px rgba(18,50,74,.25); }
+.frage { background: #18405e; border-radius: 12px; padding: 10px 12px; font-size: 18px; font-weight: 800; line-height: 1.25; }
+.rollenliste { margin-top: auto; display: grid; gap: 6px; border-top: 1px solid #2d4c63; padding-top: 12px; }
+.rollenliste b { color: var(--kreide-muted); font-weight: 600; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+.rollenliste div { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 16px; }
+.rollenliste .rn { border-radius: 8px; padding: 1px 9px; font-weight: 800; color: #fff; }
+.zelle .rziel { display: none; }
 .pruef { position: fixed; left: 10px; bottom: calc(var(--leiste) + 8px); z-index: 31; pointer-events: none; background: rgba(18,50,74,.82); color: #fff; border-radius: 8px; padding: 3px 8px; font: 600 12px/1.3 ui-monospace, monospace; }
 </style>
 </head>
@@ -214,15 +221,20 @@ body.drei .eingang .leer:empty { display: none; }
 <nav id="leiste" aria-label="Steuerung"></nav>
 <button id="zeigeLeiste" title="Steuerung einblenden (H)" aria-label="Steuerung einblenden"></button>
 <div id="netz">Keine Verbindung zum Server. Es wird weiter versucht …</div>
+<div id="hinweis" role="status"></div>
 
 <script type="module">
-import { FRAGEN, ANTWORT, AUSSEHEN, FARBEN, nochGesucht, tischSpruch, TISCHFARBEN } from "/gruppen/daten.js";
+import { FRAGEN, ANTWORT, AUSSEHEN, FARBEN, nochGesucht, tischSpruch, obergrenzen, gruppenGroesse } from "/gruppen/daten.js";
+import { ROLLENSETS, ROLLEN_IDS, rolleVon, tischFarbe } from "/gruppen/rollen.js";
 import { figurSvg } from "/gruppen/figur.js";
 import { berechneLayout, eingangPlatz, hinterTisch, H_FIG } from "/gruppen/raum.js";
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const teile = location.pathname.split("/").filter(Boolean);
+let raumJetzt = null; // für die Helfer unten: der zuletzt geholte Raum
+const farbeT = (t) => tischFarbe(raumJetzt, t);
+const kopfName = (t) => rolleVon(raumJetzt, t)?.name ?? `Tisch ${t}`;
 const code = /^[a-z0-9]{4}$/.test(teile[1] ?? "") ? teile[1] : null;
 const TOKEN_ROH = location.search.match(/[?&]lehrer=([^&]*)/)?.[1] ?? "";
 const LS = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
@@ -395,12 +407,12 @@ function start() {
       }
     }
     L.tische.forEach((T, i) => {
-      const farbe = TISCHFARBEN[i];
+      const farbe = farbeT(i + 1);
       const z = document.createElement("section");
       z.className = "zelle" + (L.eng ? "" : " weit");
       z.dataset.tisch = i + 1;
       z.style.cssText = `left:${T.x}px;top:${T.y}px;width:${T.cw}px;height:${T.ch}px;--t:${farbe};--kopf:${L.kopf}px;--zh:${L.zh}px;--zf:${L.zf}px;--kf:${L.kf}px;--szene:${L.S}px`;
-      z.innerHTML = `<div class="zkopf"><span class="tnr">Tisch ${i + 1}</span><span class="tzahl"></span><span class="tspruch" hidden></span></div><div class="szene"></div><div class="liste"></div><div class="tgesucht"></div>`;
+      z.innerHTML = `<div class="zkopf"><span class="tnr">${esc(kopfName(i + 1))}</span><span class="tzahl"></span><span class="tspruch" hidden></span></div><div class="szene"></div><div class="liste"></div><div class="tgesucht"></div>`;
       zellen.appendChild(z);
       /* Tisch: Holzplatte mit Kante */
       const kante = T.th * 0.2;
@@ -450,7 +462,8 @@ function start() {
     alt.replaceWith(lw);
     document.body.classList.add("drei");
     skalieren();
-    platz = DREI.erzeugePlatz(lw, { layout: L, sicht: "fest" });
+    const tische = L.tische.map((_, i) => ({ name: rolleVon(stand.raum, i + 1)?.name ?? String(i + 1), farbe: farbeT(i + 1) }));
+    platz = DREI.erzeugePlatz(lw, { layout: L, sicht: "fest", tische });
     erstesBild = true;
     if (schalter.has("fps")) {
       window.herzblattPruef = platz; // nur zum Prüfen
@@ -496,8 +509,8 @@ function start() {
         oben = o1;
         fenster.push([links / 1250, oben / 900, (links + breite * k) / 1250, (oben + hoeheKarte * k) / 900]);
       }
-      z.style.cssText = `left:${links.toFixed(1)}px;top:${oben.toFixed(1)}px;width:${breite}px;${hinten ? "" : `height:${hoeheKarte}px;`}transform:scale(${k.toFixed(4)});--t:${TISCHFARBEN[i]};--kopf:${L.kopf}px;--zh:${L.zh}px;--zf:${L.zf}px;--kf:${L.kf}px;--szene:0px`;
-      z.innerHTML = `<div class="zkopf"><span class="tnr">Tisch ${i + 1}</span><span class="tzahl"></span><span class="tspruch" hidden></span></div><div class="szene"></div><div class="liste"></div><div class="tgesucht"></div>`;
+      z.style.cssText = `left:${links.toFixed(1)}px;top:${oben.toFixed(1)}px;width:${breite}px;${hinten ? "" : `height:${hoeheKarte}px;`}transform:scale(${k.toFixed(4)});--t:${farbeT(i + 1)};--kopf:${L.kopf}px;--zh:${L.zh}px;--zf:${L.zf}px;--kf:${L.kf}px;--szene:0px`;
+      z.innerHTML = `<div class="zkopf"><span class="tnr">${esc(kopfName(i + 1))}</span><span class="tzahl"></span><span class="tspruch" hidden></span></div><div class="szene"></div><div class="liste"></div><div class="tgesucht"></div>`;
       (hinten ? ueber : zellen).appendChild(z);
       T.stuehle = [];
     });
@@ -542,7 +555,8 @@ function start() {
     /* Nach einem Neuaufbau während des Auflösens leuchten die Tische der schon Aufgedeckten gleich wieder */
     if (erstesBild) for (const t of new Set(leute.filter((p) => p.tisch && aufgedeckt.has(p.fid)).map((p) => p.tisch))) platz.leuchte(t, true);
     erstesBild = false;
-    L.tische.forEach((_, i) => platz.zaehler(i + 1, leute.filter((p) => p.tisch === i + 1).length, r.plaetze));
+    const belegt = belegung(leute), grenze = grenzen(belegt);
+    L.tische.forEach((_, i) => platz.zaehler(i + 1, belegt[i], grenze[i]));
     aufdecken(leute);
   }
   /* Auflösen: Die Namensschilder erscheinen kurz nacheinander, Tisch für Tisch. Jeder Tisch leuchtet auf,
@@ -689,38 +703,50 @@ function start() {
       }
     }
     ebene.innerHTML = schilderListe.map((q) => {
-      const farbeT = q.tisch ? TISCHFARBEN[q.tisch - 1] : "var(--tafel)";
-      return `<div class="schild" style="left:${q.x.toFixed(1)}px;top:${q.y.toFixed(1)}px;font-size:${q.gr.toFixed(1)}px;--t:${farbeT};--v:${erstesMal ? (0.25 + q.i * 0.07).toFixed(2) : 0}s">${esc(q.p.vorname)}</div>`;
+      const farbeQ = q.tisch ? farbeT(q.tisch) : "var(--tafel)";
+      return `<div class="schild" style="left:${q.x.toFixed(1)}px;top:${q.y.toFixed(1)}px;font-size:${q.gr.toFixed(1)}px;--t:${farbeQ};--v:${erstesMal ? (0.25 + q.i * 0.07).toFixed(2) : 0}s">${esc(q.p.vorname)}</div>`;
     }).join("");
   }
 
   /* ---------- Listen in den Zellen ---------- */
   const icons = (p) => ["rolle", "tempo", "buehne", "krach"].map((f) => ANTWORT[f][p[f]]?.e ?? "").join("");
+  /* Personen je Tisch und die Höchstzahl: ohne Rollen die Stühle, mit Rollen füllen sich die Tische gleichmäßig */
+  function belegung(leute) {
+    const b = new Array(stand.raum.tische).fill(0);
+    for (const p of leute) if (p.tisch >= 1 && p.tisch <= b.length) b[p.tisch - 1]++;
+    return b;
+  }
+  function grenzen(belegt) {
+    const r = stand.raum;
+    return r.rollen && ROLLENSETS[r.rollen] ? obergrenzen(stand.leute.length, belegt, r.plaetze) : belegt.map(() => r.plaetze);
+  }
   function zellenAktualisieren() {
     const r = stand.raum;
     const zellen = $$(".zelle");
+    const grenze = grenzen(belegung(stand.leute));
     zellen.forEach((z, nr) => {
       const t = Number(z.dataset.tisch ?? nr + 1), i = t - 1; // in 3D liegen die Karten in zwei Lagen, also nicht in der Reihenfolge der Tische
       const leute = stand.leute.filter((p) => p.tisch === t && sichtbar(p)).sort((a, b) => a.platz - b.platz);
       const profile = leute.map((p) => p.profil);
       const spruch = tischSpruch(profile);
-      const gesucht = leute.length && leute.length < r.plaetze ? nochGesucht(profile) : [];
+      const g = grenze[i] ?? r.plaetze;
+      const gesucht = leute.length && leute.length < g ? nochGesucht(profile) : [];
       const zeilen = leute.map((p) => `<div class="zeile"><i style="background:${esc(farbe(p))}"></i><span class="zn">${p.vorname ? `${esc(p.vorname)}<small>${esc(p.name)}</small>` : esc(p.name)}</span>${p.profil ? `<span class="zr"><span class="zi">${icons(p.profil)}</span><span class="zs">${ANTWORT.pizza[p.profil.pizza]?.e ?? ""}${ANTWORT.getraenk[p.profil.getraenk]?.e ?? ""}</span></span>` : ""}</div>`);
       /* 3D: Die Matte am Boden hat eine feste Höhe. Der Spruch steht dort als Zeile statt eines freien Platzes. */
       const matte = !!platz && z.parentElement.id === "zellen";
-      const spruchZeile = matte && spruch && leute.length < r.plaetze;
+      const spruchZeile = matte && spruch && leute.length < g;
       if (spruchZeile) zeilen.push(`<div class="zeile spruch"><span>${esc(spruch)}</span></div>`);
-      for (let k = leute.length + (spruchZeile ? 1 : 0); k < r.plaetze; k++) zeilen.push(`<div class="zeile frei"><i style="background:#dbe4ea"></i><span class="zn">freier Platz</span></div>`);
-      const html = JSON.stringify([leute.length, spruch, zeilen, gesucht]);
+      for (let k = leute.length + (spruchZeile ? 1 : 0); k < g; k++) zeilen.push(`<div class="zeile frei"><i style="background:#dbe4ea"></i><span class="zn">freier Platz</span></div>`);
+      const html = JSON.stringify([leute.length, spruch, zeilen, gesucht, g]);
       if (zellCache.get(i) === html) return;
       zellCache.set(i, html);
       const zahl = z.querySelector(".tzahl");
-      zahl.textContent = `${leute.length}/${r.plaetze}`;
-      zahl.classList.toggle("voll", leute.length >= r.plaetze);
+      zahl.textContent = `${leute.length}/${g}`;
+      zahl.classList.toggle("voll", leute.length >= g);
       const sp = z.querySelector(".tspruch");
       sp.hidden = !spruch || matte; sp.textContent = spruch ?? "";
       z.querySelector(".liste").innerHTML = zeilen.join("");
-      const voll = leute.length >= r.plaetze;
+      const voll = leute.length >= g;
       z.querySelector(".tgesucht").innerHTML = gesucht.length ? `Noch gesucht: <b>${gesucht.map((g) => ANTWORT.rolle[g].e + " " + ANTWORT.rolle[g].kurz).join(" · ")}</b>` : (voll ? (matte && spruch ? `Tisch voll ✓ · <b>${esc(spruch)}</b>` : "Tisch voll ✓") : "");
     });
   }
@@ -732,19 +758,39 @@ function start() {
   function legende() {
     return `<div class="legende">${["rolle", "tempo", "buehne", "krach"].map((f) => `<div><b>${esc(FRAGEN.find((x) => x.id === f).frage)}</b>${FRAGEN.find((x) => x.id === f).antworten.map((a) => `${a.e}&nbsp;${esc(a.kurz)}`).join(" · ")}</div>`).join("")}</div>`;
   }
+  /* Tafel mit Rollen: wer ist dafür, wer dagegen, wer offen */
+  function rollenListe(r) {
+    const rollen = ROLLENSETS[r.rollen].rollen.slice(0, r.tische);
+    const zeile = (titel, seite) => {
+      const liste = rollen.filter((x) => x.seite === seite);
+      return liste.length ? `<b>${titel}</b><div>${liste.map((x) => `<span class="rn" style="background:${x.farbe}">${esc(x.name)}</span>`).join("")}</div>` : "";
+    };
+    return `<div class="rollenliste">${zeile("Dafür", "dafür")}${zeile("Dagegen", "dagegen")}${zeile("Offen: Die Gruppe entscheidet", "offen")}</div>`;
+  }
   function tafel() {
     const r = stand.raum, ph = r.phase;
     const leute = stand.leute;
     const fertig = leute.filter((p) => p.profil).length;
     const sitzen = leute.filter((p) => p.tisch).length;
     const plaetze = r.tische * r.plaetze;
+    const set = r.rollen ? ROLLENSETS[r.rollen] : null;
     let h = "";
     if (ph === "anmelden") {
       h = `<div class="kicker">Schritt 1 · Anmelden</div><h2>Scannt den Code!</h2>
         <div class="qr" style="width:250px;height:250px">${QR}</div>
         <div class="adresse">${esc(HOST)}/gruppen<b>${code.toUpperCase()}</b></div>
         <div class="zaehler"><div><b>${leute.length}</b>Figuren da</div><div><b>${fertig}</b>Profile fertig</div></div>
-        <p class="leise">Ihr bekommt eine geheime Identität. Zeigt sie niemandem!</p>`;
+        <p class="leise">Ihr bekommt eine geheime Identität. Zeigt sie niemandem!${set ? ` Danach wählt ihr eine Rolle: Lauft zu den Tischen und lest die Infotafeln.` : ""}</p>`;
+    } else if (ph === "wahl" && set) {
+      const { basis, extra } = gruppenGroesse(leute.length, r.tische);
+      const zahlwort = ["", "eine", "zwei", "drei", "vier", "fünf", "sechs", "sieben"][extra] ?? String(extra);
+      h = `<div class="kicker">Schritt 2 · Rollen wählen</div><h2>Sucht euch eine Rolle!</h2>
+        <p class="text">Lest die Infotafeln an den Tischen. Jede Rolle bekommt ${basis} Leute${extra ? `, ${zahlwort} auch ${basis + 1}` : ""}.</p>
+        <div class="zaehler"><div><b>${sitzen}</b>sitzen</div><div><b>${fertig - sitzen > 0 ? fertig - sitzen : 0}</b>suchen noch</div></div>
+        ${fertig > plaetze ? `<div class="warnung">Zu wenige Plätze: ${fertig} Figuren, ${plaetze} Plätze. Unten mehr Plätze einstellen.</div>` : ""}
+        ${leute.length - fertig > 0 ? `<p class="leise">${leute.length - fertig} ${leute.length - fertig === 1 ? "Figur füllt" : "Figuren füllen"} noch das Profil aus.</p>` : ""}
+        <div class="frage">${esc(set.frage)}</div>
+        ${rollenListe(r)}`;
     } else if (ph === "wahl") {
       h = `<div class="kicker">Schritt 2 · Platz nehmen</div><h2>Sucht euch einen Tisch!</h2>
         <p class="text">Wählt nur nach den Profilen. Niemand weiß, wer hinter den Figuren steckt.</p>
@@ -754,11 +800,11 @@ function start() {
         ${legende()}`;
     } else {
       const ohne = leute.filter((p) => p.profil && !p.tisch);
-      h = `<div class="kicker">Schritt 3 · Aufgelöst</div><h2>Das sind eure Gruppen! 🎉</h2>
-        <p class="text">Unter jeder Figur steht jetzt, wer dahintersteckt. Ab an eure Tische!</p>
+      h = `<div class="kicker">Schritt 3 · Aufgelöst</div><h2>${set ? "Das sind eure Rollen! 🎉" : "Das sind eure Gruppen! 🎉"}</h2>
+        <p class="text">Unter jeder Figur steht jetzt, wer dahintersteckt. ${set ? "Ab an den Tisch mit eurem Aufsteller!" : "Ab an eure Tische!"}</p>
         <div class="zaehler"><div><b>${sitzen}</b>sitzen</div>${ohne.length ? `<div><b>${ohne.length}</b>ohne Tisch</div>` : ""}</div>
-        ${ohne.length ? `<div class="warnung">Noch ohne Tisch: ${ohne.map((p) => esc(p.vorname || p.name)).join(", ")}</div>` : ""}
-        ${legende()}`;
+        ${ohne.length ? `<div class="warnung">Noch ohne Tisch: ${ohne.map((p) => esc(p.vorname || p.name)).join(", ")}. Unten „Ausgleichen“ gibt ihnen einen Platz.</div>` : ""}
+        ${set ? rollenListe(r) : legende()}`;
     }
     h = `<div class="marke">Herz<span>blatt</span></div>` + h; // in 3D steht der Name hier statt über dem Raum
     if (h !== tafelHtml) { tafelHtml = h; $("#tafel").innerHTML = h; }
@@ -774,11 +820,22 @@ function start() {
     let h = `<span class="raum">${code.toUpperCase()}</span>
       ${pb("anmelden", 1, "Anmelden")}${pb("wahl", 2, "Tische öffnen")}${pb("aufloesen", 3, "Auflösen")}
       <span class="trenn"></span>`;
+    const set = r.rollen ? ROLLENSETS[r.rollen] : null;
     if (offen) {
-      h += `<span class="lab">Tische</span><button data-tische="-1" ${r.tische <= 2 ? "disabled" : ""}>−</button><span class="zahl">${r.tische}</span><button data-tische="1" ${r.tische >= 8 ? "disabled" : ""}>+</button>
-        <span class="lab" style="margin-left:8px">Plätze</span><button data-plaetze="-1" ${r.plaetze <= 2 ? "disabled" : ""}>−</button><span class="zahl">${r.plaetze}</span><button data-plaetze="1" ${r.plaetze >= 6 ? "disabled" : ""}>+</button>`;
+      const maxT = set ? Math.min(8, set.rollen.length) : 8;
+      h += `<span class="lab">Tische</span><button data-tische="-1" ${r.tische <= 2 ? "disabled" : ""}>−</button><span class="zahl">${r.tische}</span><button data-tische="1" ${r.tische >= maxT ? "disabled" : ""}>+</button>
+        <span class="lab" style="margin-left:8px">Plätze</span><button data-plaetze="-1" ${r.plaetze <= 2 ? "disabled" : ""}>−</button><span class="zahl">${r.plaetze}</span><button data-plaetze="1" ${r.plaetze >= 6 ? "disabled" : ""}>+</button>
+        <span class="trenn"></span><button data-a="rollen" class="${set ? "an" : ""}" title="${set ? `Rollen-Tische: ${esc(set.titel)}` : "Tische als Rollen (an/aus)"}">🎭 Rollen ${set ? "an" : "aus"}</button>`;
     }
-    h += `<span class="rechts"><button data-a="neu">Neue Gruppenwahl</button><button data-a="leiste" title="Taste H">Leiste ausblenden</button></span>`;
+    if (ph === "wahl" || ph === "aufloesen") {
+      /* Ausgleichen: leuchtet gelb, wenn Tische mehr als eine Person auseinander sind oder jemand ohne Tisch ist */
+      const sichtbare = stand.leute.filter((p) => p.profil);
+      const b = belegung(sichtbare);
+      const ohneTisch = sichtbare.filter((p) => !p.tisch).length;
+      const noetig = b.length && (Math.max(...b) - Math.min(...b) > 1 || (ohneTisch && Math.min(...b) < r.plaetze));
+      h += `${offen ? `<span class="trenn"></span>` : ""}<button data-a="ausgleichen" class="${noetig ? "gelb" : ""}" title="Überschuss auf Tische mit zu wenigen Leuten verteilen. Wechseln muss, wer sich zuletzt gesetzt hat. Wer noch steht, bekommt einen Platz.">⚖️ Ausgleichen</button>`;
+    }
+    h += `<span class="rechts"><button data-a="neu">Neue Gruppenwahl</button><button data-a="leiste" title="Taste H">Leiste weg</button></span>`;
     if (h !== leisteHtml) { leisteHtml = h; $("#leiste").innerHTML = h; }
   }
   $("#leiste").addEventListener("click", (e) => {
@@ -788,10 +845,34 @@ function start() {
     if (b.dataset.tische) return steuer({ tische: stand.raum.tische + Number(b.dataset.tische) });
     if (b.dataset.plaetze) return steuer({ plaetze: stand.raum.plaetze + Number(b.dataset.plaetze) });
     const a = b.dataset.a;
+    if (a === "rollen") {
+      const ids = ["", ...ROLLEN_IDS];
+      return steuer({ rollen: ids[(ids.indexOf(stand.raum.rollen ?? "") + 1) % ids.length] });
+    }
+    if (a === "ausgleichen") return ausgleichen();
     if (a === "neu") return (location.href = `/gruppen?lehrer=${TOKEN_ROH}`);
     if (a === "leiste") return leisteUmschalten();
   });
   function phaseWechseln(p) { if (stand.raum.phase !== p) steuer({ phase: p }); }
+  let hinweisT = 0;
+  function hinweis(text) {
+    const el = $("#hinweis");
+    el.textContent = text;
+    el.style.display = "block";
+    clearTimeout(hinweisT);
+    hinweisT = setTimeout(() => (el.style.display = "none"), 3500);
+  }
+  async function ausgleichen() {
+    try {
+      const j = await api(`/${code}/steuer`, { ausgleichen: true });
+      hinweis(j.umgesetzt ? `⚖️ ${j.umgesetzt} ${j.umgesetzt === 1 ? "Figur hat" : "Figuren haben"} einen neuen Platz` : "⚖️ Die Gruppen sind schon gleich groß");
+      sig = ""; holen();
+    } catch (e) {
+      $("#netz").textContent = e.status === 403 ? "Der Lehrer-Link stimmt nicht." : e.message;
+      $("#netz").style.display = "block";
+      setTimeout(() => ($("#netz").style.display = "none"), 3000);
+    }
+  }
   function leisteUmschalten() {
     document.body.classList.toggle("ohne-leiste");
     LS.set("gruppen-leiste", document.body.classList.contains("ohne-leiste") ? "aus" : "an");
@@ -809,10 +890,11 @@ function start() {
   let letztePhase = null;
   function aktualisieren() {
     const r = stand.raum;
+    raumJetzt = r;
     document.body.classList.remove("ph-anmelden", "ph-wahl", "ph-aufloesen");
     document.body.classList.add("ph-" + r.phase);
     if (DREI === null) { tafel(); leiste(); return; } // die 3D-Welt lädt noch: Tafel und Leiste schon zeigen
-    const key = `${r.tische}.${r.plaetze}`;
+    const key = `${r.tische}.${r.plaetze}.${r.rollen ?? ""}`;
     if (key !== layoutKey) { layoutKey = key; baueTische(); }
     figurenAktualisieren();
     zellenAktualisieren();

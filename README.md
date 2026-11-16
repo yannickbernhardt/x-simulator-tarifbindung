@@ -127,6 +127,22 @@ Schild an den Figuren, die Figur jubelt, der Tisch leuchtet in seiner Farbe.
   Bildrate drei Sekunden unter 25, schaltet die Seite eine Qualitätsstufe herunter. Wer steht oder sitzt, wird
   als eine Geometrie gezeichnet. Prüfanzeige: `?fps=1` (am Beamer `&fps=1`), feste Stufe: `?stufe=0` bis `3`.
 
+### Rollen-Tische und Ausgleichen
+
+- **Rollen** (Leiste: „🎭 Rollen an/aus“): Die Tische heißen dann wie Rollen, für die KFZ-Reihe zum
+  Spritpreisdeckel Leon, SPD, CDU, en2x, SoVD und Petra (`public/gruppen/rollen.js`, eigene Bilder ohne Logos).
+  Wer an einem Tisch steht, sieht auf dem Handy die Rollenkarte (wer, Ziel, Position). In der 3D-Welt steht neben
+  jedem Tisch eine Infotafel mit Bild. Mit Rollen sind die Karten schon beim Anmelden zu sehen. Stellt man
+  weniger Tische ein, fallen die letzten Rollen weg (bei fünf Tischen Petra).
+- **Gleich große Gruppen** (nur mit Rollen): Jeder Tisch nimmt erst die Grundzahl auf (25 Personen an 6 Tischen:
+  4). Die übrigen Plätze gehen erst auf, wenn alle Tische die Grundzahl haben. Es zählen alle Angemeldeten.
+  Server und Handy rechnen mit derselben Funktion (`obergrenzen` in `daten.js`). So bleibt keine Rolle leer.
+- **Ausgleichen** (Leiste, ab „Tische öffnen“, auch nach dem Auflösen): Wer ein Profil hat und noch steht, kommt
+  an den kleinsten Tisch, bei Gleichstand an den, vor dem er steht. Danach gibt der größte Tisch an den kleinsten
+  ab, bis alle Tische höchstens eine Person auseinander sind. Wechseln muss, wer sich zuletzt gesetzt hat (der
+  Sitzplan speichert dafür die Zeit). Das Handy meldet „Die Lehrkraft hat dich umgesetzt“. Der Knopf leuchtet
+  gelb, wenn es etwas auszugleichen gibt. Geht auch ohne Rollen.
+
 ## Deno Deploy
 KV-Datenbank muss angehängt sein, `LEHRER_TOKEN` als Secret. Update = auf `main` pushen.
 Notschalter für die ganze Seite: `DEAKTIVIERT = true` in `main.ts`.

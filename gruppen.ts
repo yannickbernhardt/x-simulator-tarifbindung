@@ -14,7 +14,9 @@
  * nie denselben letzten Platz bekommen.
  */
 
-import { ADJEKTIVE, ANZAHL_NAMEN, AUSSEHEN, deckname, FRAGEN, NOMEN, profilOk } from "./public/gruppen/daten.js";
+import { ADJEKTIVE, ANZAHL_NAMEN, AUSSEHEN, deckname, FRAGEN, NOMEN, obergrenzen, profilOk } from "./public/gruppen/daten.js";
+import { ROLLENSETS } from "./public/gruppen/rollen.js";
+import { berechneLayout } from "./public/gruppen/raum.js";
 
 const ABLAUF = 12 * 60 * 60 * 1000;
 const RAUM_CACHE_MS = 700;
@@ -35,9 +37,68 @@ type Raum = {
   namenStart: number;
   namenSchritt: number;
   farbStart: number;
+  rollen?: string | null; // Rollen-Tische (Schlüssel aus ROLLENSETS), sonst Tischnummern
 };
 type Teilnehmer = { pid: string; fid: string; nr: number; name: string; vorname: string; aussehen: Aussehen; profil: Profil | null; beigetreten: number };
-type Sitze = Record<string, [number, number]>; // fid -> [Tisch, Platz]
+type Sitze = Record<string, [number, number, number?]>; // fid -> [Tisch, Platz, seit wann]
+type RollenSet = { rollen: unknown[] };
+const rollenSet = (id: unknown): RollenSet | null =>
+  typeof id === "string" && Object.hasOwn(ROLLENSETS, id) ? (ROLLENSETS as Record<string, RollenSet>)[id] : null;
+const maxTische = (r: Raum) => Math.min(TISCHE.max, rollenSet(r.rollen)?.rollen.length ?? TISCHE.max);
+
+/* Personen je Tisch (Index 0 = Tisch 1), ohne eine bestimmte Figur */
+function belegung(s: Sitze, tische: number, ohne?: string): number[] {
+  const b = new Array(tische).fill(0);
+  for (const [fid, [t]] of Object.entries(s)) if (fid !== ohne && t >= 1 && t <= tische) b[t - 1]++;
+  return b;
+}
+
+/*
+ * Gruppen ausgleichen (Knopf der Lehrkraft): Wer ein Profil hat und noch steht, kommt an den kleinsten Tisch,
+ * bei mehreren gleich kleinen an den, vor dem die Figur gerade steht (orte: Füße in Bühnen-Pixeln, mitte: Tische).
+ * Danach gibt der größte Tisch an den kleinsten ab, bis alle Tische höchstens eine Person auseinander sind.
+ * Wechseln muss immer, wer sich zuletzt gesetzt hat. Ergebnis: Zahl der umgesetzten Figuren.
+ */
+function ausgleichen(s: Sitze, leute: Teilnehmer[], tische: number, plaetze: number,
+  orte: Record<string, [number, number]> = {}, mitte: [number, number][] = []): number {
+  const gruppen: string[][] = Array.from({ length: tische }, () => []);
+  const seit = (fid: string) => s[fid]?.[2] ?? 0;
+  for (const [fid, [t]] of Object.entries(s)) if (t >= 1 && t <= tische) gruppen[t - 1].push(fid);
+  for (const g of gruppen) g.sort((a, b) => seit(a) - seit(b));
+  const jetzt = Date.now();
+  let gesetzt = 0;
+  const setze = (fid: string, t: number) => {
+    const belegt = new Set(gruppen[t].map((f) => s[f][1]));
+    let platz = 0;
+    while (belegt.has(platz)) platz++;
+    s[fid] = [t + 1, platz, jetzt + gesetzt]; // in dieser Reihenfolge gelten sie als zuletzt gesetzt
+    gruppen[t].push(fid);
+    gesetzt++;
+  };
+  const kleinster = (fid?: string) => {
+    const min = Math.min(...gruppen.map((g) => g.length));
+    const frei = gruppen.map((_, t) => t).filter((t) => gruppen[t].length === min);
+    const ort = fid ? orte[fid] : undefined;
+    if (!ort || frei.length < 2 || !mitte.length) return frei[0];
+    const weg = (t: number) => Math.hypot(ort[0] - mitte[t][0], ort[1] - mitte[t][1]);
+    return frei.reduce((k, t) => (weg(t) < weg(k) ? t : k));
+  };
+  const groesster = () => gruppen.reduce((k, g, t) => (g.length > gruppen[k].length ? t : k), 0);
+  const sitzt = new Set(gruppen.flat());
+  for (const p of leute) {
+    if (!p.profil || sitzt.has(p.fid)) continue;
+    const t = kleinster(p.fid);
+    if (gruppen[t].length >= plaetze) break;
+    delete s[p.fid];
+    setze(p.fid, t);
+  }
+  for (let runde = 0; runde < 400; runde++) {
+    const gross = groesster(), klein = kleinster();
+    if (gruppen[gross].length - gruppen[klein].length <= 1 || gruppen[klein].length >= plaetze) break;
+    setze(gruppen[gross].pop()!, klein);
+  }
+  return gesetzt;
+}
 
 type Helfer = {
   statisch: (rel: string) => Promise<Response>;
@@ -142,7 +203,7 @@ async function aendereSitze(kv: Deno.Kv, code: string, aendern: (m: Sitze) => st
 }
 
 function raumOeffentlich(r: Raum) {
-  return { code: r.code, phase: r.phase, tische: r.tische, plaetze: r.plaetze, rev: r.rev };
+  return { code: r.code, phase: r.phase, tische: r.tische, plaetze: r.plaetze, rev: r.rev, rollen: rollenSet(r.rollen) ? r.rollen : null };
 }
 
 export async function gruppenRoute(req: Request, url: URL, pfad: string, lehrer: boolean, kv: Deno.Kv | null, h: Helfer): Promise<Response | null> {
@@ -220,13 +281,36 @@ export async function gruppenRoute(req: Request, url: URL, pfad: string, lehrer:
     const neu: Raum = { ...raum, rev: (raum.rev ?? 1) + 1 };
     if (typeof b.phase === "string" && PHASEN.includes(b.phase)) neu.phase = b.phase;
     let groesse = false;
+    /* Rollen-Tische an („sprit“) oder aus („“). Beim Einschalten gibt es so viele Tische wie Rollen. */
+    if (typeof b.rollen === "string" && (b.rollen === "" || rollenSet(b.rollen))) {
+      neu.rollen = b.rollen || null;
+      if (neu.rollen && !Number.isInteger(b.tische)) {
+        neu.tische = maxTische(neu);
+        groesse = true;
+      }
+    }
     if (Number.isInteger(b.tische)) {
-      neu.tische = Math.min(TISCHE.max, Math.max(TISCHE.min, b.tische as number));
+      neu.tische = Math.min(maxTische(neu), Math.max(TISCHE.min, b.tische as number));
       groesse = true;
     }
     if (Number.isInteger(b.plaetze)) {
       neu.plaetze = Math.min(PLAETZE.max, Math.max(PLAETZE.min, b.plaetze as number));
       groesse = true;
+    }
+    /* Gruppen ausgleichen: nur, solange gewählt wird oder nach dem Auflösen */
+    if (b.ausgleichen === true) {
+      if (neu.phase !== "wahl" && neu.phase !== "aufloesen") return h.fehler("Ausgleichen geht, sobald die Tische offen sind.", 409);
+      const stamm = await stammdaten(kv, code);
+      const orte: Record<string, [number, number]> = {};
+      for await (const e of kv.list<[number, number]>({ prefix: ["gruppen", code, "o"] })) orte[e.key[3] as string] = e.value;
+      const mitte = berechneLayout(neu.tische, neu.plaetze).tische.map((T: { cx: number; cy: number }) => [T.cx, T.cy] as [number, number]);
+      let umgesetzt = 0;
+      const problem = await aendereSitze(kv, code, (s) => {
+        umgesetzt = ausgleichen(s, stamm.leute, neu.tische, neu.plaetze, orte, mitte);
+        return umgesetzt ? null : "gleich";
+      });
+      if (problem) return h.fehler(problem, 503);
+      return h.json({ raum: raumOeffentlich(raum), umgesetzt });
     }
     await speichereRaum(kv, neu);
     /* Wer an einem weggefallenen Tisch oder Platz saß, steht wieder am Eingang */
@@ -319,6 +403,9 @@ export async function gruppenRoute(req: Request, url: URL, pfad: string, lehrer:
       fidVon.set(`${code}:${pid}`, fid);
     }
     const ich = fid;
+    /* Mit Rollen füllen sich die Tische gleichmäßig. Dafür zählen alle Angemeldeten, auch wer noch das Profil ausfüllt. */
+    const anzahl = rollenSet(raum.rollen) && tisch > 0 ? (await stammdaten(kv, code)).leute.length : 0;
+    let grundzahl = 0;
     const problem = await aendereSitze(kv, code, (s) => {
       if (tisch === 0) {
         if (!(ich in s)) return "gleich";
@@ -326,14 +413,26 @@ export async function gruppenRoute(req: Request, url: URL, pfad: string, lehrer:
         return null;
       }
       if (s[ich]?.[0] === tisch && s[ich][1] < raum.plaetze) return "gleich";
+      if (anzahl) {
+        const belegt = belegung(s, raum.tische, ich);
+        if (belegt[tisch - 1] >= obergrenzen(anzahl, belegt, raum.plaetze)[tisch - 1]) {
+          grundzahl = Math.floor(anzahl / raum.tische);
+          return belegt[tisch - 1] >= raum.plaetze ? "voll" : "gleichmaessig";
+        }
+      }
       const belegt = new Set(Object.entries(s).filter(([f, [t]]) => t === tisch && f !== ich).map(([, [, p]]) => p));
       let platz = -1;
       for (let p = 0; p < raum.plaetze; p++) if (!belegt.has(p)) { platz = p; break; }
       if (platz < 0) return "voll";
-      s[ich] = [tisch, platz];
+      s[ich] = [tisch, platz, Date.now()];
       return null;
     });
     if (problem === "voll") return h.fehler("Der Tisch ist schon voll.", 409);
+    if (problem === "gleichmaessig") {
+      return h.fehler(grundzahl > 1
+        ? `Hier ist erst mal voll: Zuerst bekommt jeder Tisch ${grundzahl} Leute, damit keine Rolle leer bleibt.`
+        : "Hier ist erst mal voll: Zuerst kommt an jeden Tisch jemand, damit keine Rolle leer bleibt.", 409);
+    }
     if (problem) return h.fehler(problem, 503);
     return h.json({ ok: true });
   }
