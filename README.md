@@ -73,6 +73,18 @@ Quiz (6 Fälle, ←/→, L = Ergebnis) · Beispiele (anonym, „Abstimmen lassen
 Keine Namen, alles läuft nach 12 Stunden ab. Inhalte stehen in `public/rolle/szenario.js`,
 Server in `rolle.ts` (sparsam mit KV-Lesezugriffen: Raum-Cache, Versionsschlüssel, ein Zug-Schlüssel pro Gruppe).
 
+## Live-Schätzspiel „Wohin gehen 2,11 Euro?“ (Spritpreis)
+| Wer | Adresse |
+|---|---|
+| Lehrkraft (Beamer) | `/preis?lehrer=<LEHRER_TOKEN>` → „Neue Schätzrunde starten“ |
+| Klasse (QR-Code am Beamer) | `/preis/<code>`, ohne QR: `/preis` → Code eingeben |
+
+Jedes Handy verteilt 211 Cent auf Staat, Einkauf und Rest (zwei Regler, der Rest ergibt sich). Der Beamer zählt
+die Schätzungen. „Auflösen“ zeigt jede Schätzung als Punkt, den Klassenschnitt und den echten Wert, dazu den
+Merksatz; jedes Handy sieht die eigene Abweichung („Cent im falschen Topf“). „Neue Runde“ löscht alle Schätzungen.
+Keine Namen, alles läuft nach 12 Stunden ab. Zahlen in `preis.ts` (en2x, Realitätscheck Kraftstoffmarkt,
+Stand 26.10.2026, S. 9: Staat 101, Einkauf 80, Rest 30 Cent), Seiten in `public/preis/`.
+
 ## Anonyme Gruppenwahl „Herzblatt“
 | Wer | Adresse |
 |---|---|

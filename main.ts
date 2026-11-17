@@ -10,6 +10,7 @@
 import { analysiere } from "./public/zaehlen.js";
 import { rolleRoute } from "./rolle.ts";
 import { gruppenRoute } from "./gruppen.ts";
+import { preisRoute } from "./preis.ts";
 
 const LEHRER_TOKEN = Deno.env.get("LEHRER_TOKEN") ?? "";
 
@@ -987,6 +988,10 @@ Deno.serve({ port: PORT }, async (req: Request) => {
   const gruppen = await gruppenRoute(req, url, pfad, lehrer, kv, { statisch, json, fehler, leseBody, kvFehlt: kvFehltAntwort });
   if (gruppen) return gruppen;
 
+  /* ================= Live-Schätzspiel „Wohin gehen 2,11 Euro?“ (/preis) ================= */
+  const preis = await preisRoute(req, url, pfad, lehrer, kv, { statisch, json, fehler, leseBody, kvFehlt: kvFehltAntwort });
+  if (preis) return preis;
+
   /* ================= Verwaltung der Räume (nur Lehrkraft) ================= */
   if (pfad === "/api/rooms" || pfad.startsWith("/api/rooms/")) {
     if (!kv) return kvFehltAntwort();
@@ -1483,7 +1488,7 @@ Deno.serve({ port: PORT }, async (req: Request) => {
 
   /* Lehrer-Link mit falschem oder fehlendem Token: sagen, woran es liegt,
      statt stillschweigend die Schülerseite zu zeigen */
-  if (url.searchParams.has("lehrer") && !lehrer && (pfad === "/" || pfad.startsWith("/r/") || /^\/(rolle|gruppen)(\/[A-Za-z0-9]{4})?\/?$/.test(pfad))) {
+  if (url.searchParams.has("lehrer") && !lehrer && (pfad === "/" || pfad.startsWith("/r/") || /^\/(rolle|gruppen|preis)(\/[A-Za-z0-9]{4})?\/?$/.test(pfad))) {
     const grund = !LEHRER_TOKEN
       ? "Auf dem Server ist <b>kein LEHRER_TOKEN</b> eingetragen. In der Deno-Console unter <i>Settings → Environment Variables</i> anlegen – für <b>Production</b> – und danach neu deployen."
       : diagnose(url);

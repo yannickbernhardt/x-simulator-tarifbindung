@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Wohin gehen 2,11 Euro?</title>
+<link rel="icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+/* Handy: drei Töpfe für 211 Cent. Staat und Einkauf stellt man ein, der Rest ergibt sich. */
+:root {
+  --kreide: #edf2f5; --tafel: #12324a; --muted: #5c6f7e; --linie: #d3dde4; --karte: #ffffff; --blitz: #ffc531;
+  --staat: #12324a; --einkauf: #c97a00; --rest: #13897b; --gut: #13897b; --schlecht: #b2402c;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--kreide); color: var(--tafel); font-family: "Bricolage Grotesque", system-ui, sans-serif; }
+main { max-width: 460px; margin: 0 auto; padding: 18px 16px 40px; display: grid; gap: 14px; }
+h1 { font-size: 30px; line-height: 1.05; margin: 0; font-weight: 800; letter-spacing: -.01em; }
+h2 { font-size: 22px; margin: 0; font-weight: 800; }
+p { margin: 0; font-size: 17px; line-height: 1.4; }
+.leise { color: var(--muted); }
+button { font: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--blitz); outline-offset: 2px; }
+
+.saeule { display: flex; align-items: center; gap: 14px; background: #10202b; color: #fff; border-radius: 16px; padding: 12px 16px; border: 4px solid #2c4a60; }
+.saeule .sorte { font-size: 15px; color: #cfe6f5; }
+.saeule .preis { font-size: 40px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .02em; line-height: 1; }
+.saeule .preis small { font-size: 16px; font-weight: 600; margin-left: 4px; }
+.saeule .stand { font-size: 12px; color: #9fb4c4; margin-top: 3px; }
+.saeule svg { flex-shrink: 0; }
+
+.balken { display: flex; height: 46px; border-radius: 12px; overflow: hidden; background: var(--linie); }
+.balken div { display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 15px; transition: flex-grow .15s; min-width: 0; overflow: hidden; white-space: nowrap; }
+.b-staat { background: var(--staat); } .b-einkauf { background: var(--einkauf); } .b-rest { background: var(--rest); }
+
+.topf { background: var(--karte); border: 2px solid var(--linie); border-left: 8px solid var(--f); border-radius: 16px; padding: 12px 14px; display: grid; gap: 8px; }
+.tkopf { display: grid; grid-template-columns: 40px 1fr auto; gap: 10px; align-items: center; }
+.tkopf svg { width: 40px; height: 40px; }
+.tname { font-size: 21px; font-weight: 800; line-height: 1.05; }
+.tsub { font-size: 14px; color: var(--muted); line-height: 1.25; }
+.twert { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--f); white-space: nowrap; }
+.twert small { font-size: 16px; }
+.regler { display: grid; grid-template-columns: 44px 1fr 44px; gap: 8px; align-items: center; }
+.regler button { height: 44px; border-radius: 12px; border: 2px solid var(--linie); background: var(--kreide); color: var(--tafel); font-size: 24px; font-weight: 800; line-height: 1; }
+input[type=range] { width: 100%; height: 34px; margin: 0; accent-color: var(--f); }
+.auto { font-size: 14px; color: var(--muted); }
+
+.haupt { font-size: 21px; font-weight: 800; border: none; border-radius: 16px; padding: 17px; background: var(--tafel); color: #fff; }
+.haupt:disabled { opacity: .5; }
+.zweit { font-size: 17px; font-weight: 600; border: 2px solid var(--tafel); border-radius: 14px; padding: 12px; background: transparent; color: var(--tafel); }
+.meldung { font-size: 15px; color: var(--schlecht); min-height: 1em; }
+
+.karte { background: var(--karte); border: 2px solid var(--linie); border-radius: 16px; padding: 16px; display: grid; gap: 10px; }
+.haken { width: 54px; height: 54px; border-radius: 50%; background: var(--gut); color: #fff; display: grid; place-items: center; font-size: 30px; font-weight: 800; }
+.zeile { display: grid; grid-template-columns: 1fr auto; gap: 8px; font-size: 18px; }
+.zeile b { font-variant-numeric: tabular-nums; }
+
+.vergleich { display: grid; gap: 12px; }
+.vz { display: grid; gap: 4px; }
+.vz .vk { display: flex; justify-content: space-between; align-items: baseline; font-size: 17px; }
+.vz .vk b { font-size: 19px; }
+.mzeile { display: grid; grid-template-columns: 62px 1fr 58px; gap: 8px; align-items: center; font-size: 14px; color: var(--muted); }
+.mzeile b { text-align: right; color: var(--tafel); font-variant-numeric: tabular-nums; }
+.mbalken { height: 14px; border-radius: 7px; background: var(--f); min-width: 3px; }
+.mbalken.ihr { opacity: .35; }
+.gross { font-size: 26px; font-weight: 800; line-height: 1.15; }
+.merke { background: var(--tafel); color: #fff; border-radius: 16px; padding: 14px 16px; font-size: 17px; line-height: 1.4; }
+.merke b { color: var(--blitz); display: block; font-size: 14px; letter-spacing: .02em; margin-bottom: 4px; }
+.liste { margin: 0; padding-left: 20px; font-size: 16px; line-height: 1.45; }
+.quelle { font-size: 12px; color: var(--muted); }
+.verbindung { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); background: var(--schlecht); color: #fff; padding: 8px 14px; border-radius: 999px; font-size: 14px; }
+</style>
+</head>
+<body>
+<main id="app">
+  <p class="leise">Lädt …</p>
+</main>
+<div class="verbindung" id="verbindung" hidden>Keine Verbindung, versuche es weiter …</div>
+<script>
+(function () {
+  'use strict';
+  var GESAMT = 211;
+  var code = (location.pathname.split('/')[2] || '').toLowerCase();
+  var app = document.getElementById('app');
+  var LS = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+  function neuePid() {
+    var z = 'abcdefghijklmnopqrstuvwxyz0123456789', b = new Uint8Array(12), s = '';
+    crypto.getRandomValues(b);
+    for (var i = 0; i < 12; i++) s += z[b[i] % z.length];
+    return s;
+  }
+  var pid = LS.get('preis-pid');
+  if (!/^[a-z0-9]{12}$/.test(pid || '')) { pid = neuePid(); LS.set('preis-pid', pid); }
+  function gespeichert() { try { return JSON.parse(LS.get('preis-' + code) || 'null'); } catch (e) { return null; } }
+  function speichern(x) { LS.set('preis-' + code, JSON.stringify(x)); }
+
+  var ICON = {
+    staat: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M5 17 24 6l19 11z" fill="#dfe8ee" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M10 21v14M19 21v14M29 21v14M38 21v14" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/><path d="M7 19h34M6 39h36" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>',
+    einkauf: '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="11" y="9" width="26" height="32" rx="5" fill="#f6e6c8" stroke="currentColor" stroke-width="2.2"/><path d="M11 18h26M11 32h26" stroke="currentColor" stroke-width="2.2"/><path d="M24 20.5c2.6 3.4 4 5.5 4 7.2a4 4 0 0 1-8 0c0-1.7 1.4-3.8 4-7.2z" fill="currentColor"/></svg>',
+    rest: '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="3" y="15" width="25" height="16" rx="7" fill="#d6efeb" stroke="currentColor" stroke-width="2.2"/><path d="M28 19h8l6 7v5H28z" fill="#d6efeb" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M3 31h39" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="34" r="3.6" fill="#fff" stroke="currentColor" stroke-width="2.2"/><circle cx="35" cy="34" r="3.6" fill="#fff" stroke="currentColor" stroke-width="2.2"/></svg>',
+    saeule: '<svg width="38" height="50" viewBox="0 0 38 50" aria-hidden="true"><rect x="3" y="3" width="22" height="44" rx="3" fill="#2c4a60"/><rect x="7" y="8" width="14" height="10" rx="1.5" fill="#9fe0d6"/><path d="M25 14h5a3 3 0 0 1 3 3v19a3 3 0 0 1-6 0v-8" fill="none" stroke="#cfe6f5" stroke-width="2.4" stroke-linecap="round"/></svg>'
+  };
+  var TOPF = {
+    staat: { name: 'Staat', sub: 'Steuern', farbe: 'var(--staat)' },
+    einkauf: { name: 'Einkauf', sub: 'das Benzin selbst', farbe: 'var(--einkauf)' },
+    rest: { name: 'Rest', sub: 'Transport, Tankstelle, Gewinn', farbe: 'var(--rest)' }
+  };
+  var SAEULE = '<div class="saeule">' + ICON.saeule + '<div><div class="sorte">Super E10</div><div class="preis">2,11<small>€/l</small></div><div class="stand">Stand: 26.10.2026</div></div></div>';
+
+  var stand = { phase: null, runde: null };
+  var wert = { staat: 70, einkauf: 70 };
+  var bewegt = false; // Abgeben erst, wenn jemand die Regler bewegt hat
+  var ansicht = '';
+
+  function rest() { return GESAMT - wert.staat - wert.einkauf; }
+  function euro(ct) { return (ct / 100).toFixed(2).replace('.', ',') + ' €'; }
+
+  /* ---------- Schätzen ---------- */
+  function zeigeSchaetzen() {
+    ansicht = 'schaetzen';
+    var alt = gespeichert();
+    if (alt && alt.runde === stand.runde) { wert.staat = alt.staat; wert.einkauf = alt.einkauf; bewegt = true; }
+    function topf(id) {
+      var t = TOPF[id];
+      var regler = id === 'rest'
+        ? '<p class="auto">Ergibt sich von selbst: Was übrig bleibt, landet hier.</p>'
+        : '<div class="regler"><button type="button" data-schritt="-1" data-topf="' + id + '" aria-label="' + t.name + ' einen Cent weniger">−</button>' +
+          '<input type="range" min="0" max="' + GESAMT + '" step="1" id="r-' + id + '" aria-label="' + t.name + ' in Cent">' +
+          '<button type="button" data-schritt="1" data-topf="' + id + '" aria-label="' + t.name + ' einen Cent mehr">+</button></div>';
+      return '<section class="topf" style="--f:' + t.farbe + '"><div class="tkopf" style="color:' + t.farbe + '">' + ICON[id] +
+        '<div><div class="tname" style="color:var(--tafel)">' + t.name + '</div><div class="tsub">' + t.sub + '</div></div>' +
+        '<div class="twert"><span id="w-' + id + '"></span><small> ct</small></div></div>' + regler + '</section>';
+    }
+    app.innerHTML = SAEULE +
+      '<h1>Wohin gehen 2,11 Euro?</h1>' +
+      '<p>Verteilen Sie die <b>211 Cent</b> auf die drei Töpfe. Schätzen Sie einfach.</p>' +
+      '<div class="balken" aria-hidden="true"><div class="b-staat" id="b-staat"></div><div class="b-einkauf" id="b-einkauf"></div><div class="b-rest" id="b-rest"></div></div>' +
+      topf('staat') + topf('einkauf') + topf('rest') +
+      '<button class="haupt" id="abgeben" type="button">Abgeben</button><p class="leise" id="tipp">Bewegen Sie zuerst die Regler.</p><p class="meldung" id="meldung" role="alert"></p>';
+    ['staat', 'einkauf'].forEach(function (id) {
+      var r = document.getElementById('r-' + id);
+      r.addEventListener('input', function () { setze(id, Number(r.value)); });
+    });
+    app.querySelectorAll('[data-schritt]').forEach(function (b) {
+      b.addEventListener('click', function () { setze(b.dataset.topf, wert[b.dataset.topf] + Number(b.dataset.schritt)); });
+    });
+    document.getElementById('abgeben').addEventListener('click', abgeben);
+    zeichneSchaetzen();
+  }
+  /* Staat und Einkauf nehmen sich erst den Rest. Ist der leer, geht es vom anderen Topf ab. */
+  function setze(id, v) {
+    var anderer = id === 'staat' ? 'einkauf' : 'staat';
+    v = Math.max(0, Math.min(GESAMT, Math.round(v)));
+    wert[id] = v;
+    if (wert[id] + wert[anderer] > GESAMT) wert[anderer] = GESAMT - wert[id];
+    bewegt = true;
+    zeichneSchaetzen();
+  }
+  function zeichneSchaetzen() {
+    var w = { staat: wert.staat, einkauf: wert.einkauf, rest: rest() };
+    ['staat', 'einkauf', 'rest'].forEach(function (id) {
+      document.getElementById('w-' + id).textContent = w[id];
+      var b = document.getElementById('b-' + id);
+      b.style.flexGrow = w[id];
+      b.style.flexBasis = '0';
+      b.textContent = w[id] >= 22 ? w[id] + ' ct' : '';
+      var r = document.getElementById('r-' + id);
+      if (r) r.value = w[id];
+    });
+    document.getElementById('abgeben').disabled = !bewegt;
+    document.getElementById('tipp').hidden = bewegt;
+  }
+  function abgeben() {
+    var knopf = document.getElementById('abgeben'), meldung = document.getElementById('meldung');
+    knopf.disabled = true; meldung.textContent = '';
+    fetch('/api/preis/' + code + '/abgabe', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pid: pid, staat: wert.staat, einkauf: wert.einkauf, runde: stand.runde })
+    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        if (!x.ok) { meldung.textContent = x.j.error || 'Das hat nicht geklappt. Bitte noch einmal tippen.'; knopf.disabled = false; return; }
+        speichern({ runde: stand.runde, staat: wert.staat, einkauf: wert.einkauf });
+        zeigeAbgegeben();
+      })
+      .catch(function () { meldung.textContent = 'Keine Verbindung. Bitte noch einmal tippen.'; knopf.disabled = false; });
+  }
+
+  /* ---------- Abgegeben ---------- */
+  function zeigeAbgegeben() {
+    ansicht = 'abgegeben';
+    var a = gespeichert();
+    var r = GESAMT - a.staat - a.einkauf;
+    app.innerHTML = SAEULE + '<div class="karte"><div class="haken" aria-hidden="true">✓</div><h2>Abgegeben!</h2>' +
+      '<div class="zeile"><span>Staat</span><b>' + a.staat + ' ct</b></div>' +
+      '<div class="zeile"><span>Einkauf</span><b>' + a.einkauf + ' ct</b></div>' +
+      '<div class="zeile"><span>Rest</span><b>' + r + ' ct</b></div>' +
+      '<p class="leise">Schauen Sie gleich zum Beamer. Dort kommt die Auflösung.</p></div>' +
+      '<button class="zweit" id="aendern" type="button">Schätzung ändern</button>';
+    document.getElementById('aendern').addEventListener('click', zeigeSchaetzen);
+  }
+
+  /* ---------- Auflösung ---------- */
+  function zeigeAufloesung(z) {
+    ansicht = 'auf';
+    var w = z.wahr, a = gespeichert(), aus = z.auswertung || { n: 0, fehler: [] };
+    var meine = a && a.runde === stand.runde ? { staat: a.staat, einkauf: a.einkauf, rest: GESAMT - a.staat - a.einkauf } : null;
+    var html = '<h1>Die Auflösung</h1>';
+    if (meine) {
+      var falsch = (Math.abs(meine.staat - w.staat) + Math.abs(meine.einkauf - w.einkauf) + Math.abs(meine.rest - w.rest)) / 2;
+      var besser = aus.fehler.filter(function (f) { return f > falsch; }).length;
+      var andere = Math.max(0, aus.n - 1);
+      var urteil = falsch <= 10 ? 'Volltreffer!' : falsch <= 25 ? 'Sehr nah dran!' : falsch <= 50 ? 'Gar nicht schlecht.' : 'Überraschend, oder?';
+      html += '<div class="karte"><div class="gross">' + urteil + '</div>' +
+        '<p>Sie haben <b>' + String(falsch).replace('.', ',') + ' Cent</b> in den falschen Topf gelegt.</p>' +
+        (andere > 0 ? '<p class="leise">Damit lagen Sie näher dran als ' + besser + ' von ' + andere + ' anderen.</p>' : '') + '</div>';
+    } else {
+      html += '<p class="leise">Sie haben diesmal nicht geschätzt. So ist es wirklich:</p>';
+    }
+    html += '<div class="vergleich">';
+    ['staat', 'einkauf', 'rest'].forEach(function (id) {
+      var t = TOPF[id];
+      var breite = function (ct) { return (ct / GESAMT * 100).toFixed(1) + '%'; };
+      html += '<div class="vz" style="--f:' + t.farbe + '"><div class="vk"><span>' + t.name + '</span></div>' +
+        (meine ? '<div class="mzeile"><span>Sie</span><div><div class="mbalken ihr" style="width:' + breite(meine[id]) + '"></div></div><b>' + meine[id] + ' ct</b></div>' : '') +
+        '<div class="mzeile"><span>Wirklich</span><div><div class="mbalken" style="width:' + breite(w[id]) + '"></div></div><b>' + w[id] + ' ct</b></div></div>';
+    });
+    html += '</div>' +
+      '<div class="merke"><b>MERKSATZ</b>Fast die Hälfte geht an den Staat. Energiesteuer und CO₂-Preis bleiben pro Liter gleich, egal wie teuer der Sprit ist.</div>' +
+      '<div class="karte"><h2>Was der Staat bekommt</h2><ul class="liste">' +
+      '<li>Energiesteuer: 51&nbsp;ct (mit Tankrabatt bis 31.12., sonst 65&nbsp;ct)</li><li>CO₂-Preis: 16&nbsp;ct</li><li>Mehrwertsteuer: 34&nbsp;ct</li></ul>' +
+      '<p class="leise">Rest: Transport, Lager, Tankstelle, Gewinn, Klimaquote.</p></div>' +
+      '<p class="quelle">Quellen: en2x, Realitätscheck Kraftstoffmarkt, Stand 26.10.2026, S. 9; Tankrabatt: Deutscher Bundestag, hib 730/2026.</p>';
+    app.innerHTML = html;
+  }
+
+  /* ---------- Abfrage ---------- */
+  var fehlerZahl = 0;
+  function abfragen() {
+    fetch('/api/preis/' + code + '/zustand', { cache: 'no-store' })
+      .then(function (r) {
+        if (r.status === 404) { app.innerHTML = '<h1>Diesen Raum gibt es nicht (mehr).</h1><p class="leise">Bitte den QR-Code am Beamer noch einmal scannen.</p><a class="zweit" href="/preis" style="text-align:center;text-decoration:none">Code eingeben</a>'; stand.phase = 'weg'; return null; }
+        return r.json();
+      })
+      .then(function (z) {
+        fehlerZahl = 0; document.getElementById('verbindung').hidden = true;
+        if (!z) return;
+        var neueRunde = stand.runde !== null && z.runde !== stand.runde;
+        var wechsel = z.phase !== stand.phase || neueRunde;
+        stand.phase = z.phase; stand.runde = z.runde;
+        if (neueRunde) { wert = { staat: 70, einkauf: 70 }; bewegt = false; }
+        if (z.phase === 'aufloesen') { if (wechsel || ansicht !== 'auf') zeigeAufloesung(z); }
+        else if (wechsel || ansicht === '' || ansicht === 'auf') {
+          var a = gespeichert();
+          if (a && a.runde === z.runde) zeigeAbgegeben(); else zeigeSchaetzen();
+        }
+      })
+      .catch(function () { if (++fehlerZahl >= 2) document.getElementById('verbindung').hidden = false; })
+      .then(function () { if (stand.phase !== 'weg') setTimeout(abfragen, 2500); });
+  }
+  if (!/^[a-z0-9]{4}$/.test(code)) location.href = '/preis';
+  else abfragen();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Wohin gehen 2,11 Euro? – Beamer</title>
+<link rel="icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+/* Beamer: feste Bühne 1600×900, skaliert auf das Fenster. Unten die Leiste der Lehrkraft. */
+:root {
+  --kreide: #edf2f5; --tafel: #12324a; --tafel-tief: #0b2233; --muted: #5c6f7e; --kreide-muted: #9fb4c4; --linie: #cfdae2;
+  --blitz: #ffc531; --staat: #12324a; --einkauf: #c97a00; --rest: #13897b; --leiste: 64px;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--kreide); color: var(--tafel); font-family: "Bricolage Grotesque", system-ui, sans-serif; }
+p, h1, h2 { margin: 0; }
+button { font: inherit; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--blitz); outline-offset: 2px; }
+#buehne { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0; overflow: hidden; background: var(--kreide); }
+
+/* ---------- Startseite ---------- */
+#start { position: absolute; inset: 0; display: grid; place-items: center; }
+#start .box { width: 820px; display: grid; gap: 22px; }
+#start h1 { font-size: 64px; line-height: 1.02; font-weight: 800; letter-spacing: -.015em; }
+#start p { font-size: 26px; line-height: 1.4; color: var(--muted); }
+.gross { font-size: 28px; font-weight: 800; border: none; border-radius: 18px; padding: 22px 28px; background: var(--tafel); color: #fff; text-align: left; }
+.gross small { display: block; font-size: 18px; font-weight: 400; opacity: .8; margin-top: 4px; }
+.gross.zwei { background: #fff; color: var(--tafel); border: 3px solid var(--tafel); }
+.meldung { color: #8c2a1c; font-size: 20px; }
+
+/* ---------- Schätzen ---------- */
+#schaetzen { position: absolute; inset: 0; }
+#schaetzen .links { position: absolute; left: 70px; top: 70px; width: 880px; display: grid; gap: 28px; }
+#schaetzen h1 { font-size: 78px; line-height: 1; font-weight: 800; letter-spacing: -.02em; }
+#schaetzen .auftrag { font-size: 30px; line-height: 1.35; }
+#schaetzen .auftrag b { font-weight: 800; }
+.saeule { display: flex; align-items: center; gap: 26px; background: #10202b; color: #fff; border-radius: 24px; padding: 22px 30px; border: 8px solid #2c4a60; width: fit-content; }
+.saeule .sorte { font-size: 26px; color: #cfe6f5; }
+.saeule .preis { font-size: 96px; font-weight: 800; line-height: .95; font-variant-numeric: tabular-nums; }
+.saeule .preis small { font-size: 34px; font-weight: 600; margin-left: 8px; }
+.saeule .stand { font-size: 20px; color: #9fb4c4; margin-top: 6px; }
+.zaehler { display: flex; align-items: baseline; gap: 16px; }
+.zaehler b { font-size: 92px; line-height: 1; font-variant-numeric: tabular-nums; }
+.zaehler span { font-size: 30px; color: var(--muted); }
+#schaetzen .rechts { position: absolute; right: 70px; top: 70px; width: 470px; display: grid; gap: 18px; justify-items: center; }
+.qr { background: #fff; border-radius: 22px; padding: 24px; width: 420px; height: 420px; }
+.qr svg { width: 100%; height: 100%; display: block; }
+.code { font-size: 30px; text-align: center; line-height: 1.3; }
+.code b { font-size: 46px; letter-spacing: .14em; }
+.code small { display: block; font-size: 21px; color: var(--muted); }
+
+/* ---------- Auflösung ---------- */
+#auf { position: absolute; inset: 0; }
+#auf h1 { position: absolute; left: 60px; top: 30px; font-size: 46px; font-weight: 800; letter-spacing: -.01em; }
+#auf .unter { position: absolute; left: 60px; top: 92px; font-size: 24px; color: var(--muted); }
+#auf svg.reihen { position: absolute; left: 0; top: 128px; width: 1600px; height: 480px; }
+.realbalken { position: absolute; left: 60px; top: 614px; width: 1480px; height: 70px; display: flex; border-radius: 14px; overflow: hidden; }
+.realbalken div { color: #fff; padding: 8px 16px; display: flex; flex-direction: column; justify-content: center; line-height: 1.1; }
+.realbalken b { font-size: 26px; }
+.realbalken span { font-size: 21px; opacity: .92; }
+.legende { position: absolute; left: 60px; top: 692px; width: 1480px; display: flex; gap: 0; font-size: 18px; line-height: 1.3; color: var(--tafel); }
+.legende div { padding-right: 18px; }
+.merke { position: absolute; left: 60px; top: 770px; width: 1480px; background: var(--tafel); color: #fff; border-radius: 16px; padding: 12px 22px; font-size: 23px; line-height: 1.3; }
+.merke b { color: var(--blitz); }
+.merke span { display: block; font-size: 19px; color: var(--kreide-muted); margin-top: 2px; }
+.quelle { position: absolute; left: 60px; top: 862px; font-size: 13px; color: var(--muted); }
+.wahr-linie { opacity: 0; transition: opacity .5s .35s; }
+.wahr-linie.zeigen { opacity: 1; }
+
+/* ---------- Leiste der Lehrkraft ---------- */
+#leiste { position: fixed; left: 0; right: 0; bottom: 0; height: var(--leiste); background: var(--tafel-tief); color: #fff; display: flex; align-items: center; gap: 10px; padding: 0 14px; font-size: 16px; }
+#leiste button { border: 2px solid #3d5a70; background: transparent; color: #fff; border-radius: 10px; padding: 8px 14px; font-size: 16px; font-weight: 600; }
+#leiste button.haupt { background: var(--blitz); border-color: var(--blitz); color: var(--tafel); font-weight: 800; }
+#leiste button.warn { border-color: #e5412d; color: #ffb4a6; }
+#leiste .info { margin-left: auto; color: var(--kreide-muted); font-size: 15px; }
+body.ohne-leiste { --leiste: 0px; }
+body.ohne-leiste #leiste { display: none; }
+#zeigeLeiste { position: fixed; right: 10px; bottom: 10px; width: 34px; height: 34px; border-radius: 50%; border: none; background: rgba(18,50,74,.18); color: var(--tafel); font-size: 18px; display: none; }
+body.ohne-leiste #zeigeLeiste { display: block; }
+</style>
+</head>
+<body class="startseite">
+<div id="buehne">
+  <section id="start" hidden>
+    <div class="box">
+      <h1>Wohin gehen 2,11 Euro?</h1>
+      <p>Die Klasse verteilt am Handy 211 Cent auf drei Töpfe: Staat, Einkauf und Rest. Am Beamer sehen alle, wie viele schon geschätzt haben. Danach lösen Sie auf: Jede Schätzung erscheint als Punkt, daneben der echte Wert.</p>
+      <div id="startknoepfe" style="display:grid;gap:14px">
+        <button class="gross" id="neu" type="button">Neue Schätzrunde starten<small>Neuer Code, neuer QR-Code. Keine Namen, alles läuft nach 12 Stunden ab.</small></button>
+      </div>
+    </div>
+  </section>
+
+  <section id="schaetzen" hidden>
+    <div class="links">
+      <h1>Wohin gehen<br>2,11 Euro?</h1>
+      <div class="saeule"><svg width="70" height="92" viewBox="0 0 38 50" aria-hidden="true"><rect x="3" y="3" width="22" height="44" rx="3" fill="#2c4a60"/><rect x="7" y="8" width="14" height="10" rx="1.5" fill="#9fe0d6"/><path d="M25 14h5a3 3 0 0 1 3 3v19a3 3 0 0 1-6 0v-8" fill="none" stroke="#cfe6f5" stroke-width="2.4" stroke-linecap="round"/></svg>
+        <div><div class="sorte">Super E10</div><div class="preis">2,11<small>€/l</small></div><div class="stand">Stand: 26.10.2026</div></div></div>
+      <p class="auftrag">Verteilen Sie am Handy die <b>211 Cent</b>: Wie viel bekommt der <b>Staat</b>? Was kostet das Benzin im <b>Einkauf</b>? Was bleibt für <b>Transport, Tankstelle und Gewinn</b>?</p>
+      <div class="zaehler"><b id="anzahl">0</b><span id="anzahlText">Schätzungen</span></div>
+    </div>
+    <div class="rechts">
+      <div class="qr" id="qr"></div>
+      <p class="code">Code <b id="codeText"></b><small id="hostText"></small></p>
+    </div>
+  </section>
+
+  <section id="auf" hidden>
+    <h1>So setzt sich ein Liter Super E10 zusammen</h1>
+    <p class="unter" id="aufUnter"></p>
+    <svg class="reihen" id="reihen" viewBox="0 0 1600 480" aria-label="Schätzungen der Klasse und echte Werte"></svg>
+    <div class="realbalken" id="realbalken"></div>
+    <div class="legende" id="legende"></div>
+    <div class="merke"><b>Merksatz:</b> Fast die Hälfte geht an den Staat. Energiesteuer und CO₂-Preis bleiben pro Liter gleich, egal wie teuer der Sprit ist.
+      <span>Beispiel: Am 9.11. kostete E10 2,01 €. Der Einkauf war fast 10 Cent billiger, an den Staat gingen trotzdem 99 Cent.</span></div>
+    <p class="quelle">Quellen: en2x, Realitätscheck Kraftstoffmarkt, Stand 26.10.2026, S. 9 (Beispiel: Stand 12.11.2026, S. 9, Preise vom 9.11.); Tankrabatt: Deutscher Bundestag, hib 730/2026</p>
+  </section>
+</div>
+
+<nav id="leiste" hidden>
+  <button class="haupt" id="bAuf" type="button">Auflösen</button>
+  <button id="bZurueck" type="button" hidden>Zurück zum Schätzen</button>
+  <button class="warn" id="bNeu" type="button">Neue Runde</button>
+  <button id="bVoll" type="button">Vollbild</button>
+  <button id="bWeg" type="button">Leiste ausblenden</button>
+  <span class="info" id="info"></span>
+</nav>
+<button id="zeigeLeiste" type="button" aria-label="Leiste einblenden">⌃</button>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  var teile = location.pathname.split('/').filter(Boolean);
+  var code = /^[a-z0-9]{4}$/.test(teile[1] || '') ? teile[1] : null;
+  var TOKEN_ROH = (location.search.match(/[?&]lehrer=([^&]*)/) || [])[1] || '';
+  var LS = { get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+  var FARBE = { staat: '#12324a', einkauf: '#c97a00', rest: '#13897b' };
+  var NAME = { staat: 'Staat', einkauf: 'Einkauf', rest: 'Rest' };
+  var SUB = { staat: 'Steuern', einkauf: 'das Benzin selbst', rest: 'Transport, Tankstelle, Gewinn' };
+
+  function api(pfad, body) {
+    var trenner = pfad.indexOf('?') >= 0 ? '&' : '?';
+    return fetch('/api/preis' + pfad + trenner + 'lehrer=' + TOKEN_ROH, body
+      ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }
+      : { cache: 'no-store' })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok) { var e = new Error(j.error || 'Fehler ' + r.status); e.status = r.status; throw e; }
+        return j;
+      }); });
+  }
+  function qrSvg(text) {
+    if (typeof qrcode !== 'function') return '<p style="font-size:22px">QR-Code lädt nicht. Adresse: ' + text + '</p>';
+    var qr = qrcode(0, 'M'); qr.addData(text); qr.make();
+    return qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+  }
+
+  /* ---------- Skalierung der Bühne ---------- */
+  var buehne = $('#buehne');
+  function skalieren() {
+    var leiste = document.body.classList.contains('ohne-leiste') || document.body.classList.contains('startseite') ? 0 : 64;
+    var W = innerWidth, H = innerHeight - leiste;
+    var s = Math.min(W / 1600, H / 900);
+    buehne.style.transform = 'translate(' + (W - 1600 * s) / 2 + 'px,' + (H - 900 * s) / 2 + 'px) scale(' + s + ')';
+  }
+  addEventListener('resize', skalieren);
+  if (LS.get('preis-leiste') === 'aus') document.body.classList.add('ohne-leiste');
+
+  /* ---------- Startseite ohne Code ---------- */
+  if (!code) {
+    $('#start').hidden = false;
+    skalieren();
+    var letzter = LS.get('preis-letzter');
+    if (letzter && /^[a-z0-9]{4}$/.test(letzter)) {
+      api('/' + letzter + '/lehrer').then(function (j) {
+        var b = document.createElement('button');
+        b.className = 'gross zwei'; b.type = 'button';
+        b.innerHTML = 'Letzte Runde fortsetzen<small>Code ' + letzter.toUpperCase() + ', ' + j.n + ' Schätzungen</small>';
+        b.onclick = function () { location.href = '/preis/' + letzter + '?lehrer=' + TOKEN_ROH; };
+        $('#startknoepfe').appendChild(b);
+      }).catch(function () {});
+    }
+    $('#neu').onclick = function () {
+      $('#neu').disabled = true;
+      api('', {}).then(function (j) { location.href = '/preis/' + j.code + '?lehrer=' + TOKEN_ROH; })
+        .catch(function (e) {
+          $('#neu').disabled = false;
+          var p = document.createElement('p'); p.className = 'meldung';
+          p.textContent = e.status === 403 ? 'Der Lehrer-Link stimmt nicht. Bitte den Link mit Token öffnen.' : e.message;
+          $('#startknoepfe').appendChild(p);
+        });
+    };
+    return;
+  }
+
+  /* ---------- Spiel ---------- */
+  document.body.classList.remove('startseite');
+  $('#leiste').hidden = false;
+  LS.set('preis-letzter', code);
+  skalieren();
+  var JOIN = location.origin + '/preis/' + code;
+  $('#qr').innerHTML = qrSvg(JOIN);
+  $('#codeText').textContent = code.toUpperCase();
+  $('#hostText').textContent = location.host.replace(/^www\./, '') + '/preis';
+
+  var stand = null, zuletzt = '';
+
+  function zeichneSchaetzen(j) {
+    $('#schaetzen').hidden = false; $('#auf').hidden = true;
+    $('#anzahl').textContent = j.n;
+    $('#anzahlText').textContent = j.n === 1 ? 'Schätzung' : 'Schätzungen';
+    $('#bAuf').hidden = false; $('#bZurueck').hidden = true;
+  }
+
+  function zeichneAuf(j) {
+    $('#schaetzen').hidden = true; $('#auf').hidden = false;
+    $('#bAuf').hidden = true; $('#bZurueck').hidden = false;
+    var w = j.wahr, G = j.gesamt, liste = j.schaetzungen, n = liste.length;
+    var schnitt = {};
+    ['staat', 'einkauf', 'rest'].forEach(function (id) {
+      schnitt[id] = n ? Math.round(liste.reduce(function (s, a) { return s + a[id]; }, 0) / n) : null;
+    });
+    var nah = liste.filter(function (a) { return (Math.abs(a.staat - w.staat) + Math.abs(a.einkauf - w.einkauf) + Math.abs(a.rest - w.rest)) / 2 <= 10; }).length;
+    $('#aufUnter').textContent = n
+      ? n + (n === 1 ? ' Schätzung' : ' Schätzungen') + ' aus Ihrer Klasse. Jeder Punkt ist eine Schätzung.' + (nah ? ' ' + nah + (nah === 1 ? ' Person lag' : ' Personen lagen') + ' fast richtig (höchstens 10 Cent daneben).' : '')
+      : 'Noch keine Schätzungen. So ist es wirklich:';
+
+    /* Drei Reihen: Punkte der Klasse, Schnitt gestrichelt, echter Wert als dicke Linie */
+    /* Eine Reihe pro Topf, gleiche Skala 0 bis 211 Cent; Beschriftung der Skala nur in der letzten Reihe.
+       Oben in der Reihe der echte Wert als Schild, der Klassenschnitt seitlich an seiner gestrichelten Linie. */
+    var X0 = 350, X1 = 1530, skala = (X1 - X0) / G, R = 9;
+    var HALO = ' stroke="#edf2f5" stroke-width="6" paint-order="stroke" stroke-linejoin="round"';
+    var svg = '';
+    ['staat', 'einkauf', 'rest'].forEach(function (id, i) {
+      var y0 = 24 + i * 152, achse = y0 + 112, f = FARBE[id];
+      svg += '<text x="60" y="' + (y0 + 62) + '" font-size="40" font-weight="800" fill="#12324a">' + NAME[id] + '</text>';
+      svg += '<text x="60" y="' + (y0 + 92) + '" font-size="19" fill="#5c6f7e">' + SUB[id] + '</text>';
+      svg += '<line x1="' + X0 + '" y1="' + achse + '" x2="' + X1 + '" y2="' + achse + '" stroke="#9fb4c4" stroke-width="2"/>';
+      for (var t = 0; t <= 200; t += 50) {
+        var tx = X0 + t * skala;
+        svg += '<line x1="' + tx + '" y1="' + achse + '" x2="' + tx + '" y2="' + (achse + 8) + '" stroke="#9fb4c4" stroke-width="2"/>';
+        if (i === 2) svg += '<text x="' + tx + '" y="' + (achse + 30) + '" font-size="18" fill="#5c6f7e" text-anchor="middle">' + t + ' ct</text>';
+      }
+      /* Punkte stapeln, damit gleiche Schätzungen sichtbar bleiben (höchstens fünf übereinander) */
+      var werte = liste.map(function (a) { return a[id]; }).sort(function (a, b) { return a - b; });
+      var ebenen = [];
+      werte.forEach(function (v) {
+        var x = X0 + v * skala, e = 0;
+        while (ebenen[e] !== undefined && x - ebenen[e] < 2 * R + 1 && e < 4) e++;
+        ebenen[e] = x;
+        svg += '<circle cx="' + x.toFixed(1) + '" cy="' + (achse - R - 2 - e * (2 * R + 1)) + '" r="' + R + '" fill="' + f + '" fill-opacity=".5" stroke="' + f + '" stroke-width="1.5"/>';
+      });
+      if (schnitt[id] !== null) {
+        var sx = X0 + schnitt[id] * skala, links = schnitt[id] <= w[id];
+        svg += '<line x1="' + sx + '" y1="' + (y0 + 20) + '" x2="' + sx + '" y2="' + achse + '" stroke="#12324a" stroke-width="3" stroke-dasharray="7 6"/>' +
+          '<text x="' + (sx + (links ? -10 : 10)) + '" y="' + (y0 + 46) + '" font-size="22" font-weight="600" fill="#12324a" text-anchor="' + (links ? 'end' : 'start') + '"' + HALO + '>Klasse: ' + schnitt[id] + ' ct</text>';
+      }
+      var wx = X0 + w[id] * skala;
+      svg += '<g class="wahr-linie"><line x1="' + wx + '" y1="' + (y0 + 16) + '" x2="' + wx + '" y2="' + (achse + 10) + '" stroke="' + f + '" stroke-width="8" stroke-linecap="round"/>' +
+        '<rect x="' + (wx - 118) + '" y="' + (y0 - 20) + '" width="236" height="38" rx="19" fill="' + f + '"/>' +
+        '<text x="' + wx + '" y="' + (y0 + 8) + '" font-size="23" font-weight="800" fill="#fff" text-anchor="middle">Wirklich: ' + w[id] + ' ct</text></g>';
+    });
+    $('#reihen').innerHTML = svg;
+    requestAnimationFrame(function () { requestAnimationFrame(function () {
+      document.querySelectorAll('.wahr-linie').forEach(function (g) { g.classList.add('zeigen'); });
+    }); });
+
+    function pct(x) { return Math.round(x / G * 100); }
+    function euro(ct) { return (ct / 100).toFixed(2).replace('.', ',') + ' €'; }
+    $('#realbalken').innerHTML = ['staat', 'einkauf', 'rest'].map(function (id) {
+      return '<div style="flex:' + w[id] + ' 0 0;background:' + FARBE[id] + '"><b>' + NAME[id] + '</b><span>' + euro(w[id]) + ', ' + pct(w[id]) + ' %</span></div>';
+    }).join('');
+    $('#legende').innerHTML =
+      '<div style="flex:' + w.staat + ' 0 0"><b>Staat:</b> Energiesteuer 51&nbsp;ct (mit Tankrabatt bis 31.12., sonst 65&nbsp;ct), CO₂-Preis 16&nbsp;ct, Mehrwertsteuer 34&nbsp;ct</div>' +
+      '<div style="flex:' + w.einkauf + ' 0 0"><b>Einkauf:</b> das Benzin selbst, vom Weltmarkt und aus der Raffinerie</div>' +
+      '<div style="flex:' + w.rest + ' 0 0"><b>Rest:</b> Transport, Lager, Tankstelle, Gewinn, Klimaquote</div>';
+  }
+
+  function abfragen() {
+    api('/' + code + '/lehrer').then(function (j) {
+      stand = j;
+      $('#info').textContent = 'Code ' + code.toUpperCase() + ', Runde ' + j.raum.runde;
+      var schluessel = j.raum.phase + ':' + j.raum.runde + ':' + (j.raum.phase === 'aufloesen' ? j.n : '');
+      if (j.raum.phase === 'aufloesen') { if (schluessel !== zuletzt) zeichneAuf(j); }
+      else zeichneSchaetzen(j);
+      zuletzt = schluessel;
+    }).catch(function (e) {
+      $('#info').textContent = e.status === 404 ? 'Diesen Raum gibt es nicht mehr. Bitte neu starten.' : 'Keine Verbindung …';
+    }).then(function () { setTimeout(abfragen, 1500); });
+  }
+
+  function steuer(body) {
+    return api('/' + code + '/steuer', body).then(function () { zuletzt = ''; return api('/' + code + '/lehrer'); })
+      .then(function (j) { stand = j; if (j.raum.phase === 'aufloesen') zeichneAuf(j); else zeichneSchaetzen(j); zuletzt = j.raum.phase + ':' + j.raum.runde + ':' + (j.raum.phase === 'aufloesen' ? j.n : ''); })
+      .catch(function (e) { $('#info').textContent = e.message; });
+  }
+  $('#bAuf').onclick = function () { steuer({ phase: 'aufloesen' }); };
+  $('#bZurueck').onclick = function () { steuer({ phase: 'schaetzen' }); };
+  var neuBereit = false, neuTimer = null;
+  $('#bNeu').onclick = function () {
+    if (!neuBereit) {
+      neuBereit = true; $('#bNeu').textContent = 'Wirklich alle Schätzungen löschen?';
+      neuTimer = setTimeout(function () { neuBereit = false; $('#bNeu').textContent = 'Neue Runde'; }, 4000);
+      return;
+    }
+    clearTimeout(neuTimer); neuBereit = false; $('#bNeu').textContent = 'Neue Runde';
+    steuer({ neueRunde: true });
+  };
+  $('#bVoll').onclick = function () {
+    if (document.fullscreenElement) document.exitFullscreen(); else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+  };
+  $('#bWeg').onclick = function () { document.body.classList.add('ohne-leiste'); LS.set('preis-leiste', 'aus'); skalieren(); };
+  $('#zeigeLeiste').onclick = function () { document.body.classList.remove('ohne-leiste'); LS.set('preis-leiste', 'an'); skalieren(); };
+  abfragen();
+})();
+</script>
+</body>
+</html>
