@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Rollen zum Spritpreisdeckel</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+/* Layout: eine schmale Handy-Spalte. Der QR-Code am Tisch öffnet ?rolle=<id>: dann steht nur diese Rolle da,
+   darunter die Wahl der anderen Rollen. Ohne Rolle steht die Wahl oben. */
+:root {
+  --paper: #fdfcf9;
+  --surface: #ffffff;
+  --ink: #1f2a33;
+  --muted: #54616b;
+  --navy: #003c60;
+  --accent: #005490;
+  --sky: #48a8d8;
+  --pale: #eaf2f8;
+  --line: #c9d7e1;
+  --on-accent: #ffffff;
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-text: Georgia, "Times New Roman", serif;
+  --font-ar: "Geeza Pro", "Noto Naskh Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f181f; --surface: #16242e; --ink: #e3ecf2; --muted: #9eb1bf;
+    --navy: #d2e7f5; --accent: #6db9e6; --sky: #48a8d8; --pale: #1d3343; --line: #2b4456;
+    --on-accent: #0f181f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f181f; --surface: #16242e; --ink: #e3ecf2; --muted: #9eb1bf;
+  --navy: #d2e7f5; --accent: #6db9e6; --sky: #48a8d8; --pale: #1d3343; --line: #2b4456;
+  --on-accent: #0f181f; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-ui); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 560px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 36px; display: grid; gap: 16px; }
+.kontext { font-size: 13px; color: var(--muted); margin: 0 0 4px; }
+h1 { font-size: 25px; line-height: 1.2; color: var(--navy); margin: 0; text-wrap: balance; }
+.intro { font-family: var(--font-text); margin: 6px 0 0; }
+.intro-ar { font-family: var(--font-ar); font-size: 17px; line-height: 1.7; margin: 4px 0 0; color: var(--muted); }
+.hinweis { display: flex; gap: 10px; align-items: center; background: var(--pale); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+.hinweis svg { flex-shrink: 0; }
+
+.rolle { background: var(--surface); border: 1px solid var(--line); border-top: 7px solid var(--f); border-radius: 12px; padding: 16px; display: grid; gap: 12px; }
+.rkopf { display: grid; grid-template-columns: 84px 1fr; gap: 14px; align-items: center; }
+.rbild { width: 84px; height: 84px; display: block; }
+h2 { font-size: 27px; line-height: 1.15; margin: 0; }
+.wer { margin: 4px 0 0; color: var(--muted); font-size: 15px; }
+.ziel { margin: 0; font-family: var(--font-text); font-size: 18px; line-height: 1.45; }
+.ziel b { font-family: var(--font-ui); }
+.pos { justify-self: start; margin: 0; font-weight: 700; font-size: 14.5px; border: 2px solid var(--f); border-radius: 999px; padding: 4px 12px;
+  background: var(--pale); background: color-mix(in srgb, var(--f) 14%, var(--surface)); }
+.erfunden { margin: -4px 0 0; font-size: 13px; color: var(--muted); }
+
+.sprache { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.lang { font: inherit; font-size: 16px; font-weight: 600; padding: 10px 8px; border: none; background: var(--surface); color: var(--ink); cursor: pointer; }
+.lang + .lang { border-left: 1px solid var(--line); }
+.lang[lang="ar"] { font-family: var(--font-ar); font-size: 18px; line-height: 1.2; }
+.lang[aria-pressed="true"] { background: var(--navy); color: var(--paper); }
+
+.player { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+.play { width: 60px; height: 60px; border-radius: 50%; border: none; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; cursor: pointer; }
+.play svg { width: 26px; height: 26px; }
+.play:focus-visible, .chip:focus-visible, .zurueck:focus-visible, .lang:focus-visible, .wk:focus-visible, .mehr:focus-visible, summary:focus-visible, input[type=range]:focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
+.leiste { display: grid; gap: 4px; min-width: 0; }
+input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; height: 28px; }
+.zeit { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.steuer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.zurueck, .chip { font: inherit; font-size: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.tempo { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+.tempo span { font-size: 13px; color: var(--muted); }
+.chip[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: var(--paper); }
+.status { font-size: 14px; color: var(--accent); margin: 0; }
+.meta { font-size: 13px; color: var(--muted); margin: -4px 0 0; }
+
+.mitlesen { border-top: 1px solid var(--line); padding-top: 10px; }
+.mitlesen summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 4px 0; }
+.skript { padding-top: 6px; }
+.skript p { margin: 0 0 10px; font-family: var(--font-text); font-size: 16.5px; line-height: 1.55; }
+.skript p b { font-family: var(--font-ui); font-size: 14px; color: var(--muted); }
+.skript[lang="ar"] p { font-family: var(--font-ar); font-size: 19px; line-height: 1.85; }
+.skript[lang="ar"] p b { font-family: var(--font-ar); font-size: 16px; }
+.skript p[dir="ltr"] { font-family: var(--font-ui); font-size: 15px; line-height: 1.5; background: var(--pale); border-radius: 8px; padding: 8px 10px; }
+.skript p[dir="ltr"] b { font-family: var(--font-ui); font-size: 14px; }
+
+.mehr { display: grid; gap: 3px; text-decoration: none; color: var(--ink); background: var(--pale); border-radius: 10px; padding: 12px 14px; }
+.mk { font-size: 13px; font-weight: 700; color: var(--accent); }
+.mk::after { content: " ↗"; }
+.mt { font-weight: 700; font-size: 16.5px; line-height: 1.3; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.mq { font-size: 13.5px; color: var(--muted); }
+.tipp { font-size: 14px; font-family: var(--font-text); margin-top: 3px; }
+
+.wahlbox { display: grid; gap: 10px; }
+.wahlbox h2 { font-size: 19px; }
+.wahl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.wk { display: grid; justify-items: center; gap: 4px; text-decoration: none; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-bottom: 5px solid var(--f); border-radius: 10px; padding: 10px 6px 8px; font-weight: 700; font-size: 15px; }
+.wk .mini { width: 46px; height: 46px; display: block; }
+.wk[aria-current="page"] { background: var(--pale); border-color: var(--f); }
+body.ohne-rolle .hinweis { display: none; }
+
+footer { font-size: 13px; color: var(--muted); display: grid; gap: 6px; }
+footer p { margin: 0; }
+@media (max-width: 400px) { .tempo { margin-left: 0; } h1 { font-size: 23px; } .rkopf { grid-template-columns: 72px 1fr; } .rbild { width: 72px; height: 72px; } h2 { font-size: 24px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <p class="kontext">Politik, Klasse KFZ: Soll Deutschland einen Spritpreisdeckel einführen?</p>
+    <h1>Ihre Rolle zum Anhören</h1>
+    <p class="intro">Hören Sie, wer Ihre Rolle ist und was ihr wichtig ist. Auf Deutsch oder auf Arabisch. Darunter stehen der Text zum Mitlesen und ein Link zum Weiterlesen.</p>
+    <p class="intro-ar" lang="ar" dir="rtl">للاستماع بالعربية: اضغطوا على «العربية» ثم على زر التشغيل.</p>
+  </header>
+
+  <div class="hinweis">
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/><rect x="3" y="14" width="5" height="7" rx="2" fill="var(--accent)"/><rect x="16" y="14" width="5" height="7" rx="2" fill="var(--accent)"/></svg>
+    <span>Bitte mit Kopfhörern hören. Tippen Sie auf den Play-Knopf.</span>
+  </div>
+
+  <article class="rolle" id="leon" data-rolle="leon" style="--f:#d99a00">
+    <div class="rkopf">
+      <svg class="rbild" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="59" fill="#f9efd6"/>
+    <rect x="6" y="88" width="108" height="14" rx="3" fill="#8a9aa6"/>
+    <path d="M14 95 H28 M42 95 H56 M70 95 H84 M98 95 H108" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M97 48 V88" stroke="#5c6f7e" stroke-width="3.2" stroke-linecap="round"/>
+    <rect x="80" y="26" width="34" height="22" rx="4" fill="#2e7d4f" stroke="#12324a" stroke-width="2.4"/>
+    <text x="97" y="41.5" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="11.5" fill="#fff">35 km</text>
+    <path d="M10 84 V70 Q10 63 17 62 L28 60 L39 47 Q42 44 47 44 H62 Q67 44 70 48 L79 60 Q86 61.5 87 68 V84 Z" fill="#d99a00" stroke="#12324a" stroke-width="3.2" stroke-linejoin="round"/>
+    <path d="M42 49 H53 V60 H32 Z" fill="#cfe8f7" stroke="#12324a" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M57 49 H64 Q66 49 67 51 L73 60 H57 Z" fill="#cfe8f7" stroke="#12324a" stroke-width="2" stroke-linejoin="round"/>
+    <rect x="80" y="66" width="7" height="5" rx="1.5" fill="#ffe08a"/>
+    <circle cx="27" cy="84" r="9" fill="#12324a"/><circle cx="27" cy="84" r="3.8" fill="#d3dde4"/>
+    <circle cx="70" cy="84" r="9" fill="#12324a"/><circle cx="70" cy="84" r="3.8" fill="#d3dde4"/></svg>
+      <div>
+        <h2>Leon</h2>
+        <p class="wer">19, Azubi zum Kfz-Mechatroniker, pendelt jeden Tag 35 km</p>
+      </div>
+    </div>
+    <p class="ziel"><b>Ziel:</b> Vorher wissen, was Tanken kostet. Und an der Tankstelle soll es immer Sprit geben.</p>
+    <p class="pos">Position: offen, Ihre Gruppe entscheidet</p>
+    <p class="erfunden">Leon ist eine erfundene Person.</p>
+    <div class="sprache" role="group" aria-label="Sprache der Hörfassung">
+      <button class="lang" type="button" data-lang="de" aria-pressed="true">Deutsch</button>
+      <button class="lang" type="button" data-lang="ar" aria-pressed="false" lang="ar">العربية</button>
+    </div>
+    <div class="player">
+      <button class="play" type="button" aria-label="Leon abspielen"></button>
+      <div class="leiste">
+        <input type="range" min="0" max="100" step="0.1" value="0" aria-label="Position in der Hörfassung Leon">
+        <div class="zeit"><span class="jetzt">0:00</span><span class="gesamt">–</span></div>
+      </div>
+    </div>
+    <div class="steuer">
+      <button class="zurueck" type="button">10 Sekunden zurück</button>
+      <div class="tempo" role="group" aria-label="Tempo"><span>Tempo</span>
+        <button class="chip" type="button" data-rate="0.85" aria-pressed="false">langsamer</button>
+        <button class="chip" type="button" data-rate="1" aria-pressed="true">normal</button>
+      </div>
+    </div>
+    <p class="status" hidden></p>
+    <p class="meta">KI-Stimmen: Herr Bernhardt und Leon (elevenlabs.io)</p>
+    <details class="mitlesen">
+      <summary>Text zum Mitlesen</summary>
+      <div class="skript" data-lang="de" lang="de">
+          <p><b>Herr Bernhardt:</b> Heute bei mir: Leon. Leon, wer bist du?</p>
+          <p><b>Leon:</b> Ich bin 19 und im ersten Lehrjahr als Kfz-Mechatroniker. Jeden Morgen fahre ich 35 Kilometer mit meinem alten Kleinwagen zum Betrieb.</p>
+          <p><b>Herr Bernhardt:</b> Warum nicht mit dem Bus?</p>
+          <p><b>Leon:</b> Um 6 Uhr fährt noch kein Bus. Ich brauche das Auto.</p>
+          <p><b>Herr Bernhardt:</b> Was ist dir beim Tanken wichtig?</p>
+          <p><b>Leon:</b> Drei Dinge. Ich muss mit meiner Ausbildungsvergütung auskommen. Ich will vorher wissen, was Tanken kostet. Und ich brauche eine Tankstelle, an der es auch Sprit gibt.</p>
+          <p><b>Herr Bernhardt:</b> Bist du also für einen Spritpreisdeckel?</p>
+          <p><b>Leon:</b> Ehrlich gesagt weiß ich das noch nicht. Ein fester Höchstpreis klingt gut für mein Geld. Aber was nützt mir ein günstiger Preis, wenn die Zapfsäule leer ist?</p>
+          <p><b>Herr Bernhardt:</b> Das entscheiden jetzt Sie in Ihrer Gruppe: Ist Leon dafür oder dagegen? Begründen Sie es mit dem, was Leon wichtig ist.</p>
+      </div>
+      <div class="skript" data-lang="ar" lang="ar" dir="rtl" hidden>
+          <p><b>السيد برنهارت:</b> معي اليوم ليون. ليون، من أنت؟</p>
+          <p><b>ليون:</b> عمري تسعة عشر عامًا، وأنا في السنة الأولى من التدريب المهني لأصبح ميكانيكي سيارات. كل صباح أقود سيارتي الصغيرة القديمة خمسة وثلاثين كيلومترًا إلى الشركة.</p>
+          <p><b>السيد برنهارت:</b> لماذا لا تركب الحافلة؟</p>
+          <p><b>ليون:</b> في الساعة السادسة صباحًا لا توجد حافلة بعد. أنا أحتاج إلى السيارة.</p>
+          <p><b>السيد برنهارت:</b> ما المهم بالنسبة لك عند تعبئة الوقود؟</p>
+          <p><b>ليون:</b> ثلاثة أشياء. يجب أن يكفيني راتب التدريب. أريد أن أعرف مسبقًا كم تكلف تعبئة الوقود. وأحتاج إلى محطة وقود فيها وقود فعلًا.</p>
+          <p><b>السيد برنهارت:</b> إذن أنت مع وضع سقف لسعر الوقود؟</p>
+          <p><b>ليون:</b> بصراحة، لا أعرف بعد. سعر أقصى ثابت يبدو جيدًا لميزانيتي. لكن ما فائدة السعر الرخيص إذا كانت مضخة الوقود فارغة؟</p>
+          <p><b>السيد برنهارت:</b> الآن تقررون أنتم في مجموعتكم: هل ليون مع السقف أم ضده؟ علّلوا قراركم بما هو مهم بالنسبة لليون.</p>
+          <p dir="ltr" lang="de"><b>السيد برنهارت:</b> Wichtige Wörter auf Deutsch: Spritpreisdeckel, Höchstpreis, Ausbildungsvergütung, dafür, dagegen.</p>
+      </div>
+    </details>
+    <a class="mehr" href="https://www.adac.de/verkehr/tanken-kraftstoff-antrieb/benzin-und-diesel/spritpreisdeckel/" target="_blank" rel="noopener">
+      <span class="mk">Mehr dazu lesen</span>
+      <span class="mt">Spritpreisdeckel ab 2027: Das müssen Autofahrende jetzt wissen</span>
+      <span class="mq">ADAC, 2. November 2026, etwa 7 Minuten</span>
+      <span class="tipp">Der ADAC ist ein Verein für Autofahrerinnen und Autofahrer. Lesen Sie den Abschnitt „Macht der Preisdeckel Benzin und Diesel billiger?“.</span>
+    </a>
+  </article>
+  <article class="rolle" id="spd" data-rolle="spd" style="--f:#e5412d">
+    <div class="rkopf">
+      <svg class="rbild" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="59" fill="#fbe1dd"/>
+    <path d="M73 14 H104 Q109 14 109 19 V33 Q109 38 104 38 H86 L78 45 V38 H73 Q68 38 68 33 V19 Q68 14 73 14 Z" fill="#fff" stroke="#12324a" stroke-width="2.6" stroke-linejoin="round"/>
+    <path d="M75 22.5 H101 M75 29.5 H93" stroke="#e5412d" stroke-width="3.4" stroke-linecap="round"/>
+    <path d="M60 52 V36 Q60 30 54 28" stroke="#12324a" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <rect x="45" y="19" width="11" height="15" rx="5.5" fill="#12324a" transform="rotate(-24 50 26)"/>
+    <path d="M33 60 H87 L80 106 H40 Z" fill="#e5412d" stroke="#12324a" stroke-width="3.2" stroke-linejoin="round"/>
+    <rect x="27" y="50" width="66" height="11" rx="3" fill="#fff" stroke="#12324a" stroke-width="3"/>
+    <text x="60" y="90" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="17" fill="#fff">SPD</text>
+    <path d="M30 108 H90" stroke="#12324a" stroke-width="3.2" stroke-linecap="round"/></svg>
+      <div>
+        <h2>SPD</h2>
+        <p class="wer">Partei in der Bundesregierung</p>
+      </div>
+    </div>
+    <p class="ziel"><b>Ziel:</b> Pendler entlasten. Die Ölkonzerne sollen an hohen Preisen nicht zu viel verdienen.</p>
+    <p class="pos">Position: dafür</p>
+    
+    <div class="sprache" role="group" aria-label="Sprache der Hörfassung">
+      <button class="lang" type="button" data-lang="de" aria-pressed="true">Deutsch</button>
+      <button class="lang" type="button" data-lang="ar" aria-pressed="false" lang="ar">العربية</button>
+    </div>
+    <div class="player">
+      <button class="play" type="button" aria-label="SPD abspielen"></button>
+      <div class="leiste">
+        <input type="range" min="0" max="100" step="0.1" value="0" aria-label="Position in der Hörfassung SPD">
+        <div class="zeit"><span class="jetzt">0:00</span><span class="gesamt">–</span></div>
+      </div>
+    </div>
+    <div class="steuer">
+      <button class="zurueck" type="button">10 Sekunden zurück</button>
+      <div class="tempo" role="group" aria-label="Tempo"><span>Tempo</span>
+        <button class="chip" type="button" data-rate="0.85" aria-pressed="false">langsamer</button>
+        <button class="chip" type="button" data-rate="1" aria-pressed="true">normal</button>
+      </div>
+    </div>
+    <p class="status" hidden></p>
+    <p class="meta">KI-Stimmen: Laura und Herr Bernhardt (elevenlabs.io)</p>
+    <details class="mitlesen">
+      <summary>Text zum Mitlesen</summary>
+      <div class="skript" data-lang="de" lang="de">
+          <p><b>Laura:</b> Wer ist eigentlich die SPD?</p>
+          <p><b>Herr Bernhardt:</b> Die SPD regiert im Bund zusammen mit CDU und CSU. Die Partei hat zwei Vorsitzende: Bärbel Bas und Lars Klingbeil. Klingbeil ist auch Finanzminister.</p>
+          <p><b>Laura:</b> Und was ist der SPD beim Spritpreis wichtig?</p>
+          <p><b>Herr Bernhardt:</b> Wer zur Arbeit pendelt, soll entlastet werden. Und die Ölkonzerne sollen an hohen Preisen nicht zu viel verdienen.</p>
+          <p><b>Laura:</b> Also ist die SPD für den Deckel?</p>
+          <p><b>Herr Bernhardt:</b> Ja. Sie will den Spritpreisdeckel, auf den sich die Koalition im September geeinigt hat. Fraktionsvize Armand Zorn sagt: „Entscheidend ist, was letztendlich für Verbraucherinnen und Verbraucher rauskommt.“</p>
+          <p><b>Laura:</b> Das Wirtschaftsministerium hat doch schon einen Entwurf geschrieben.</p>
+          <p><b>Herr Bernhardt:</b> Der reicht der SPD nicht. Das Finanzministerium will schärfere Regeln, damit Preissprünge nicht zu „Abzocke“ führen.</p>
+          <p><b>Laura:</b> Sie sprechen am HU-Tag für die SPD. Markieren Sie auf der Karte, was der SPD wichtig ist.</p>
+      </div>
+      <div class="skript" data-lang="ar" lang="ar" dir="rtl" hidden>
+          <p><b>لورا:</b> من هو الحزب الاشتراكي الديمقراطي، إس بي دي؟</p>
+          <p><b>السيد برنهارت:</b> يحكم الحزب الاشتراكي الديمقراطي على المستوى الاتحادي مع الحزب المسيحي الديمقراطي والحزب الاجتماعي المسيحي. للحزب رئيسان: بيربل باس ولارس كلينغبايل. كلينغبايل هو أيضًا وزير المالية.</p>
+          <p><b>لورا:</b> وما المهم بالنسبة للحزب في موضوع سعر الوقود؟</p>
+          <p><b>السيد برنهارت:</b> من يتنقل يوميًا إلى العمل يجب أن يُخفَّف عنه. ويجب ألا تربح شركات النفط كثيرًا من الأسعار المرتفعة.</p>
+          <p><b>لورا:</b> إذن الحزب مع السقف؟</p>
+          <p><b>السيد برنهارت:</b> نعم. يريد الحزب سقف سعر الوقود الذي اتفق عليه الائتلاف الحاكم في سبتمبر. يقول أرماند تسورن، نائب رئيس الكتلة البرلمانية: الحاسم هو ما يعود في النهاية على المستهلكين والمستهلكات.</p>
+          <p><b>لورا:</b> لكن وزارة الاقتصاد كتبت مشروعًا بالفعل.</p>
+          <p><b>السيد برنهارت:</b> هذا المشروع لا يكفي الحزب. وزارة المالية تريد قواعد أشد، حتى لا تتحول قفزات الأسعار إلى استغلال.</p>
+          <p><b>لورا:</b> في يوم الفحص الفني تتحدثون باسم الحزب الاشتراكي الديمقراطي. ضعوا علامة على البطاقة عند ما هو مهم بالنسبة له.</p>
+          <p dir="ltr" lang="de"><b>السيد برنهارت:</b> Wichtige Wörter auf Deutsch: pendeln, entlasten, Koalition, Entwurf, dafür.</p>
+      </div>
+    </details>
+    <a class="mehr" href="https://www.zdfheute.de/wirtschaft/spritpreisdeckel-tanken-klingbeil-100.html" target="_blank" rel="noopener">
+      <span class="mk">Mehr dazu lesen</span>
+      <span class="mt">Finanzministerium will schärferen Spritpreisdeckel</span>
+      <span class="mq">ZDFheute, 5. November 2026, etwa 2 Minuten</span>
+      <span class="tipp">Das Finanzministerium leitet Lars Klingbeil von der SPD.</span>
+    </a>
+  </article>
+  <article class="rolle" id="cdu" data-rolle="cdu" style="--f:#3d4650">
+    <div class="rkopf">
+      <svg class="rbild" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="59" fill="#e0e1e3"/>
+    <path d="M73 14 H104 Q109 14 109 19 V33 Q109 38 104 38 H86 L78 45 V38 H73 Q68 38 68 33 V19 Q68 14 73 14 Z" fill="#fff" stroke="#12324a" stroke-width="2.6" stroke-linejoin="round"/>
+    <path d="M75 22.5 H101 M75 29.5 H93" stroke="#3d4650" stroke-width="3.4" stroke-linecap="round"/>
+    <path d="M60 52 V36 Q60 30 54 28" stroke="#12324a" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <rect x="45" y="19" width="11" height="15" rx="5.5" fill="#12324a" transform="rotate(-24 50 26)"/>
+    <path d="M33 60 H87 L80 106 H40 Z" fill="#3d4650" stroke="#12324a" stroke-width="3.2" stroke-linejoin="round"/>
+    <rect x="27" y="50" width="66" height="11" rx="3" fill="#fff" stroke="#12324a" stroke-width="3"/>
+    <text x="60" y="90" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="17" fill="#fff">CDU</text>
+    <path d="M30 108 H90" stroke="#12324a" stroke-width="3.2" stroke-linecap="round"/></svg>
+      <div>
+        <h2>CDU</h2>
+        <p class="wer">Partei, stellt den Bundeskanzler</p>
+      </div>
+    </div>
+    <p class="ziel"><b>Ziel:</b> Immer genug Benzin und Diesel an den Tankstellen. Der Staat greift nur im Notfall ein.</p>
+    <p class="pos">Position: dagegen, höchstens im Notfall</p>
+    
+    <div class="sprache" role="group" aria-label="Sprache der Hörfassung">
+      <button class="lang" type="button" data-lang="de" aria-pressed="true">Deutsch</button>
+      <button class="lang" type="button" data-lang="ar" aria-pressed="false" lang="ar">العربية</button>
+    </div>
+    <div class="player">
+      <button class="play" type="button" aria-label="CDU abspielen"></button>
+      <div class="leiste">
+        <input type="range" min="0" max="100" step="0.1" value="0" aria-label="Position in der Hörfassung CDU">
+        <div class="zeit"><span class="jetzt">0:00</span><span class="gesamt">–</span></div>
+      </div>
+    </div>
+    <div class="steuer">
+      <button class="zurueck" type="button">10 Sekunden zurück</button>
+      <div class="tempo" role="group" aria-label="Tempo"><span>Tempo</span>
+        <button class="chip" type="button" data-rate="0.85" aria-pressed="false">langsamer</button>
+        <button class="chip" type="button" data-rate="1" aria-pressed="true">normal</button>
+      </div>
+    </div>
+    <p class="status" hidden></p>
+    <p class="meta">KI-Stimmen: Laura und Herr Bernhardt (elevenlabs.io)</p>
+    <details class="mitlesen">
+      <summary>Text zum Mitlesen</summary>
+      <div class="skript" data-lang="de" lang="de">
+          <p><b>Laura:</b> Wer ist die CDU?</p>
+          <p><b>Herr Bernhardt:</b> Die CDU regiert im Bund zusammen mit CSU und SPD und stellt den Bundeskanzler. Katherina Reiche von der CDU ist Bundeswirtschaftsministerin.</p>
+          <p><b>Laura:</b> Was ist der CDU beim Spritpreis wichtig?</p>
+          <p><b>Herr Bernhardt:</b> An den Tankstellen soll es immer genug Benzin und Diesel geben. Und der Staat soll nur im Notfall in die Preise eingreifen.</p>
+          <p><b>Laura:</b> Und was sagt die Ministerin zum Deckel?</p>
+          <p><b>Herr Bernhardt:</b> Reiche hielt einen Preisdeckel für den falschen Weg. Weil die Koalition ihn vereinbart hat, hat ihr Ministerium trotzdem einen Entwurf geschrieben. Danach soll der Deckel nur „im äußersten Notfall“ gelten.</p>
+          <p><b>Laura:</b> Warum so vorsichtig?</p>
+          <p><b>Herr Bernhardt:</b> Reiche warnt: „Jeder Deckel führt dazu, dass die Ware ins Ausland geht und wir möglicherweise vor Ort Versorgungsengpässe haben.“ Versorgungsengpass heißt: An den Tankstellen gibt es zu wenig Sprit.</p>
+          <p><b>Laura:</b> Sie sprechen am HU-Tag für die CDU. Markieren Sie auf der Karte, was der CDU wichtig ist.</p>
+      </div>
+      <div class="skript" data-lang="ar" lang="ar" dir="rtl" hidden>
+          <p><b>لورا:</b> من هو الحزب المسيحي الديمقراطي، سي دي أو؟</p>
+          <p><b>السيد برنهارت:</b> يحكم الحزب المسيحي الديمقراطي على المستوى الاتحادي مع الحزب الاجتماعي المسيحي والحزب الاشتراكي الديمقراطي، ومنه المستشار الاتحادي. كاترينا رايشه من هذا الحزب هي وزيرة الاقتصاد الاتحادية.</p>
+          <p><b>لورا:</b> وما المهم بالنسبة للحزب في موضوع سعر الوقود؟</p>
+          <p><b>السيد برنهارت:</b> يجب أن يتوفر دائمًا ما يكفي من البنزين والديزل في محطات الوقود. ويجب ألا تتدخل الدولة في الأسعار إلا في حالة الطوارئ.</p>
+          <p><b>لورا:</b> وماذا تقول الوزيرة عن السقف؟</p>
+          <p><b>السيد برنهارت:</b> رأت رايشه أن سقف الأسعار هو الطريق الخطأ. ولأن الائتلاف اتفق عليه، كتبت وزارتها مع ذلك مشروعًا. وبحسب هذا المشروع لا يُطبَّق السقف إلا في حالة الطوارئ القصوى.</p>
+          <p><b>لورا:</b> لماذا هذا الحذر؟</p>
+          <p><b>السيد برنهارت:</b> تحذر رايشه: كل سقف يؤدي إلى أن تذهب البضاعة إلى الخارج، وقد يحدث عندنا نقص في الإمدادات. نقص الإمدادات يعني: لا يوجد ما يكفي من الوقود في المحطات.</p>
+          <p><b>لورا:</b> في يوم الفحص الفني تتحدثون باسم الحزب المسيحي الديمقراطي. ضعوا علامة على البطاقة عند ما هو مهم بالنسبة له.</p>
+          <p dir="ltr" lang="de"><b>السيد برنهارت:</b> Wichtige Wörter auf Deutsch: Versorgungsengpass, Notfall, eingreifen, dagegen.</p>
+      </div>
+    </details>
+    <a class="mehr" href="https://www.zdfheute.de/politik/deutschland/reiche-planung-spritpreisdeckel-huerde-100.html" target="_blank" rel="noopener">
+      <span class="mk">Mehr dazu lesen</span>
+      <span class="mt">Spritpreisdeckel nur „krisenbedingt“: Hohe Hürden geplant</span>
+      <span class="mq">ZDFheute, 2. November 2026, etwa 3 Minuten</span>
+      <span class="tipp">Hier steht, was im Entwurf von Ministerin Reiche (CDU) steht.</span>
+    </a>
+  </article>
+  <article class="rolle" id="en2x" data-rolle="en2x" style="--f:#2c6fd6">
+    <div class="rkopf">
+      <svg class="rbild" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="59" fill="#dde8f8"/>
+    <rect x="6" y="98" width="108" height="6" rx="2" fill="#8a9aa6"/>
+    <path d="M31 30 C25 23 30 17 30 9 C38 16 39 24 31 30 Z" fill="#ffc531" stroke="#e8702a" stroke-width="2" stroke-linejoin="round"/>
+    <rect x="23" y="32" width="15" height="66" rx="3" fill="#d3dde4" stroke="#12324a" stroke-width="3"/>
+    <path d="M23 50 H38 M23 66 H38 M23 82 H38" stroke="#12324a" stroke-width="2.2"/>
+    <rect x="44" y="50" width="12" height="48" rx="3" fill="#d3dde4" stroke="#12324a" stroke-width="3"/>
+    <path d="M44 66 H56 M44 82 H56" stroke="#12324a" stroke-width="2.2"/>
+    <path d="M56 90 H62" stroke="#12324a" stroke-width="3"/>
+    <path d="M62 98 V74 Q62 64 84 64 Q106 64 106 74 V98 Z" fill="#2c6fd6" stroke="#12324a" stroke-width="3.2" stroke-linejoin="round"/>
+    <path d="M84 70 C79 77 77 81 77 84.5 A7 7 0 0 0 91 84.5 C91 81 89 77 84 70 Z" fill="#fff"/></svg>
+      <div>
+        <h2>en2x</h2>
+        <p class="wer">Verband der Firmen, die in Deutschland Sprit herstellen und verkaufen</p>
+      </div>
+    </div>
+    <p class="ziel"><b>Ziel:</b> Freie Preise, sichere Lieferungen und Geld für Investitionen.</p>
+    <p class="pos">Position: dagegen</p>
+    
+    <div class="sprache" role="group" aria-label="Sprache der Hörfassung">
+      <button class="lang" type="button" data-lang="de" aria-pressed="true">Deutsch</button>
+      <button class="lang" type="button" data-lang="ar" aria-pressed="false" lang="ar">العربية</button>
+    </div>
+    <div class="player">
+      <button class="play" type="button" aria-label="en2x abspielen"></button>
+      <div class="leiste">
+        <input type="range" min="0" max="100" step="0.1" value="0" aria-label="Position in der Hörfassung en2x">
+        <div class="zeit"><span class="jetzt">0:00</span><span class="gesamt">–</span></div>
+      </div>
+    </div>
+    <div class="steuer">
+      <button class="zurueck" type="button">10 Sekunden zurück</button>
+      <div class="tempo" role="group" aria-label="Tempo"><span>Tempo</span>
+        <button class="chip" type="button" data-rate="0.85" aria-pressed="false">langsamer</button>
+        <button class="chip" type="button" data-rate="1" aria-pressed="true">normal</button>
+      </div>
+    </div>
+    <p class="status" hidden></p>
+    <p class="meta">KI-Stimmen: Laura und Herr Bernhardt (elevenlabs.io)</p>
+    <details class="mitlesen">
+      <summary>Text zum Mitlesen</summary>
+      <div class="skript" data-lang="de" lang="de">
+          <p><b>Laura:</b> en2x? Nie gehört. Wer ist das?</p>
+          <p><b>Herr Bernhardt:</b> en2x ist der Wirtschaftsverband Fuels und Energie. Er vertritt die Firmen, die in Deutschland Sprit herstellen und verkaufen.</p>
+          <p><b>Laura:</b> Was ist denen wichtig?</p>
+          <p><b>Herr Bernhardt:</b> Freie Preise, sichere Lieferungen und Geld für Investitionen.</p>
+          <p><b>Laura:</b> Dann sind sie gegen den Deckel?</p>
+          <p><b>Herr Bernhardt:</b> Ja. Hauptgeschäftsführer Christian Küchen sagt: „Ein Preisdeckel würde tief in den Markt und die unternehmerische Freiheit eingreifen.“ Ist der Höchstpreis zu niedrig, könne das „im schlimmsten Fall die Versorgungssicherheit gefährden“.</p>
+          <p><b>Laura:</b> Und Luxemburg? Da gibt es doch einen Höchstpreis.</p>
+          <p><b>Herr Bernhardt:</b> Luxemburg und Belgien „taugen nicht als Vorbild“, sagt en2x. Besser sei eine niedrigere Energiesteuer, also weniger Steuer auf jeden Liter.</p>
+          <p><b>Laura:</b> Sie sprechen am HU-Tag für en2x. Markieren Sie auf der Karte, was en2x wichtig ist.</p>
+      </div>
+      <div class="skript" data-lang="ar" lang="ar" dir="rtl" hidden>
+          <p><b>لورا:</b> إن تو إكس؟ لم أسمع به من قبل. من هذا؟</p>
+          <p><b>السيد برنهارت:</b> إن تو إكس هو الاتحاد الاقتصادي للوقود والطاقة. يمثل الشركات التي تنتج الوقود وتبيعه في ألمانيا.</p>
+          <p><b>لورا:</b> وما المهم بالنسبة لهم؟</p>
+          <p><b>السيد برنهارت:</b> أسعار حرة، وإمدادات آمنة، وأموال للاستثمار.</p>
+          <p><b>لورا:</b> إذن هم ضد السقف؟</p>
+          <p><b>السيد برنهارت:</b> نعم. يقول المدير التنفيذي كريستيان كوخن: سقف الأسعار سيتدخل بعمق في السوق وفي حرية الشركات. وإذا كان السعر الأقصى منخفضًا جدًا، فقد يهدد ذلك في أسوأ الأحوال أمن الإمدادات.</p>
+          <p><b>لورا:</b> ولوكسمبورغ؟ هناك سعر أقصى.</p>
+          <p><b>السيد برنهارت:</b> يقول الاتحاد إن لوكسمبورغ وبلجيكا لا تصلحان نموذجًا. الأفضل برأيه ضريبة طاقة أقل، أي ضريبة أقل على كل لتر.</p>
+          <p><b>لورا:</b> في يوم الفحص الفني تتحدثون باسم إن تو إكس. ضعوا علامة على البطاقة عند ما هو مهم بالنسبة له.</p>
+          <p dir="ltr" lang="de"><b>السيد برنهارت:</b> Wichtige Wörter auf Deutsch: Versorgungssicherheit, Energiesteuer, Höchstpreis, dagegen.</p>
+      </div>
+    </details>
+    <a class="mehr" href="https://www.presseportal.de/pm/159634/6356177" target="_blank" rel="noopener">
+      <span class="mk">Mehr dazu lesen</span>
+      <span class="mt">Branche lehnt Preisdeckel ab: Versorgung darf nicht gefährdet werden</span>
+      <span class="mq">en2x, Pressemitteilung, 21. September 2026, etwa 3 Minuten</span>
+      <span class="tipp">Das schreibt en2x selbst. Achten Sie auf die Sätze von Christian Küchen.</span>
+    </a>
+  </article>
+  <article class="rolle" id="sovd" data-rolle="sovd" style="--f:#138f89">
+    <div class="rkopf">
+      <svg class="rbild" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="59" fill="#d9edec"/>
+    <path d="M22 12 l-3 6 M37 8 l-3 6 M86 8 l-3 6 M101 12 l-3 6" stroke="#5aa8d6" stroke-width="3" stroke-linecap="round"/>
+    <path d="M60 22 V17" stroke="#12324a" stroke-width="3.2" stroke-linecap="round"/>
+    <path d="M12 58 Q14 24 60 22 Q106 24 108 58 Q100 51 92 58 Q84 51 76 58 Q68 51 60 58 Q52 51 44 58 Q36 51 28 58 Q20 51 12 58 Z" fill="#138f89" stroke="#12324a" stroke-width="3.2" stroke-linejoin="round"/>
+    <path d="M60 58 V98 Q60 104 66 104" stroke="#12324a" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+    <circle cx="39" cy="73" r="7.5" fill="#fff" stroke="#12324a" stroke-width="3"/>
+    <path d="M26 108 Q26 86 39 86 Q52 86 52 108 Z" fill="#95cdca" stroke="#12324a" stroke-width="3" stroke-linejoin="round"/>
+    <circle cx="82" cy="78" r="6.5" fill="#fff" stroke="#12324a" stroke-width="3"/>
+    <path d="M71 108 Q71 90 82 90 Q93 90 93 108 Z" fill="#95cdca" stroke="#12324a" stroke-width="3" stroke-linejoin="round"/></svg>
+      <div>
+        <h2>SoVD</h2>
+        <p class="wer">Sozialverband, setzt sich für Menschen mit wenig Geld ein</p>
+      </div>
+    </div>
+    <p class="ziel"><b>Ziel:</b> Menschen mit wenig Geld vor hohen Preisen schützen.</p>
+    <p class="pos">Position: dafür</p>
+    
+    <div class="sprache" role="group" aria-label="Sprache der Hörfassung">
+      <button class="lang" type="button" data-lang="de" aria-pressed="true">Deutsch</button>
+      <button class="lang" type="button" data-lang="ar" aria-pressed="false" lang="ar">العربية</button>
+    </div>
+    <div class="player">
+      <button class="play" type="button" aria-label="SoVD abspielen"></button>
+      <div class="leiste">
+        <input type="range" min="0" max="100" step="0.1" value="0" aria-label="Position in der Hörfassung SoVD">
+        <div class="zeit"><span class="jetzt">0:00</span><span class="gesamt">–</span></div>
+      </div>
+    </div>
+    <div class="steuer">
+      <button class="zurueck" type="button">10 Sekunden zurück</button>
+      <div class="tempo" role="group" aria-label="Tempo"><span>Tempo</span>
+        <button class="chip" type="button" data-rate="0.85" aria-pressed="false">langsamer</button>
+        <button class="chip" type="button" data-rate="1" aria-pressed="true">normal</button>
+      </div>
+    </div>
+    <p class="status" hidden></p>
+    <p class="meta">KI-Stimmen: Laura und Herr Bernhardt (elevenlabs.io)</p>
+    <details class="mitlesen">
+      <summary>Text zum Mitlesen</summary>
+      <div class="skript" data-lang="de" lang="de">
+          <p><b>Laura:</b> Was ist der SoVD?</p>
+          <p><b>Herr Bernhardt:</b> Der Sozialverband Deutschland, kurz SoVD, ist der älteste Sozialverband in Deutschland. Er setzt sich zum Beispiel für Rentnerinnen und Rentner und für Menschen mit wenig Geld ein.</p>
+          <p><b>Laura:</b> Was ist dem SoVD wichtig?</p>
+          <p><b>Herr Bernhardt:</b> Menschen mit wenig Geld sollen vor hohen Preisen geschützt werden.</p>
+          <p><b>Laura:</b> Also ist der SoVD für den Deckel?</p>
+          <p><b>Herr Bernhardt:</b> Ja, aber für einen, der wirklich wirkt. Vorstandsvorsitzende Michaela Engelmeier sagt: Der Deckel „darf nicht so viele Schlupflöcher haben, dass er am Ende wirkungslos bleibt“.</p>
+          <p><b>Laura:</b> Schlupflöcher?</p>
+          <p><b>Herr Bernhardt:</b> Ein Schlupfloch ist eine Lücke in einer Regel, durch die man sie umgehen kann.</p>
+          <p><b>Laura:</b> Sie sprechen am HU-Tag für den SoVD. Markieren Sie auf der Karte, was dem SoVD wichtig ist.</p>
+      </div>
+      <div class="skript" data-lang="ar" lang="ar" dir="rtl" hidden>
+          <p><b>لورا:</b> ما هو الاتحاد الاجتماعي الألماني، إس أو في دي؟</p>
+          <p><b>السيد برنهارت:</b> الاتحاد الاجتماعي الألماني هو أقدم اتحاد اجتماعي في ألمانيا. يدافع مثلًا عن المتقاعدين والمتقاعدات وعن الناس الذين لديهم مال قليل.</p>
+          <p><b>لورا:</b> وما المهم بالنسبة للاتحاد؟</p>
+          <p><b>السيد برنهارت:</b> يجب حماية الناس الذين لديهم مال قليل من الأسعار المرتفعة.</p>
+          <p><b>لورا:</b> إذن هو مع السقف؟</p>
+          <p><b>السيد برنهارت:</b> نعم، لكن مع سقف يعمل فعلًا. تقول رئيسة مجلس الإدارة ميكائيلا إنغلماير: يجب ألا يكون في السقف ثغرات كثيرة لدرجة أنه يبقى في النهاية بلا تأثير.</p>
+          <p><b>لورا:</b> ثغرات؟</p>
+          <p><b>السيد برنهارت:</b> الثغرة هي فجوة في قاعدة، يمكن من خلالها التحايل عليها.</p>
+          <p><b>لورا:</b> في يوم الفحص الفني تتحدثون باسم الاتحاد الاجتماعي الألماني. ضعوا علامة على البطاقة عند ما هو مهم بالنسبة له.</p>
+          <p dir="ltr" lang="de"><b>السيد برنهارت:</b> Wichtige Wörter auf Deutsch: Schlupfloch, wirkungslos, schützen, dafür.</p>
+      </div>
+    </details>
+    <a class="mehr" href="https://www.sovd.de/aktuelles/meldung/geplanter-tankdeckel-koennte-wirkungslos-bleiben" target="_blank" rel="noopener">
+      <span class="mk">Mehr dazu lesen</span>
+      <span class="mt">Geplanter Tankdeckel könnte wirkungslos bleiben</span>
+      <span class="mq">SoVD, 3. November 2026, etwa 2 Minuten</span>
+      <span class="tipp">Das schreibt der SoVD selbst auf seiner Website.</span>
+    </a>
+  </article>
+  <article class="rolle" id="petra" data-rolle="petra" style="--f:#7a5cff">
+    <div class="rkopf">
+      <svg class="rbild" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="59" fill="#eae5ff"/>
+    <rect x="6" y="98" width="108" height="6" rx="2" fill="#8a9aa6"/>
+    <rect x="8" y="22" width="64" height="13" rx="3" fill="#7a5cff" stroke="#12324a" stroke-width="3"/>
+    <rect x="15" y="35" width="6" height="63" fill="#d3dde4" stroke="#12324a" stroke-width="2.2"/>
+    <rect x="59" y="35" width="6" height="63" fill="#d3dde4" stroke="#12324a" stroke-width="2.2"/>
+    <rect x="28" y="56" width="22" height="42" rx="3" fill="#fff" stroke="#12324a" stroke-width="3"/>
+    <rect x="32" y="61" width="14" height="10" rx="1.5" fill="#cfe8f7" stroke="#12324a" stroke-width="1.6"/>
+    <path d="M50 66 H53 Q56 66 56 69 V86" stroke="#12324a" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+    <rect x="73" y="50" width="38" height="48" fill="#fff" stroke="#12324a" stroke-width="3"/>
+    <path d="M70 50 L92 36 L114 50 Z" fill="#b6a5ff" stroke="#12324a" stroke-width="3" stroke-linejoin="round"/>
+    <rect x="78" y="58" width="13" height="13" fill="#cfe8f7" stroke="#12324a" stroke-width="2"/>
+    <rect x="96" y="72" width="10" height="26" fill="#7a5cff" stroke="#12324a" stroke-width="2.2"/></svg>
+      <div>
+        <h2>Petra</h2>
+        <p class="wer">52, hat eine freie Tankstelle mit vier Angestellten</p>
+      </div>
+    </div>
+    <p class="ziel"><b>Ziel:</b> Den Sprit nie billiger verkaufen müssen, als sie ihn selbst einkauft.</p>
+    <p class="pos">Position: dagegen</p>
+    <p class="erfunden">Petra ist eine erfundene Person.</p>
+    <div class="sprache" role="group" aria-label="Sprache der Hörfassung">
+      <button class="lang" type="button" data-lang="de" aria-pressed="true">Deutsch</button>
+      <button class="lang" type="button" data-lang="ar" aria-pressed="false" lang="ar">العربية</button>
+    </div>
+    <div class="player">
+      <button class="play" type="button" aria-label="Petra abspielen"></button>
+      <div class="leiste">
+        <input type="range" min="0" max="100" step="0.1" value="0" aria-label="Position in der Hörfassung Petra">
+        <div class="zeit"><span class="jetzt">0:00</span><span class="gesamt">–</span></div>
+      </div>
+    </div>
+    <div class="steuer">
+      <button class="zurueck" type="button">10 Sekunden zurück</button>
+      <div class="tempo" role="group" aria-label="Tempo"><span>Tempo</span>
+        <button class="chip" type="button" data-rate="0.85" aria-pressed="false">langsamer</button>
+        <button class="chip" type="button" data-rate="1" aria-pressed="true">normal</button>
+      </div>
+    </div>
+    <p class="status" hidden></p>
+    <p class="meta">KI-Stimmen: Herr Bernhardt und Petra (elevenlabs.io)</p>
+    <details class="mitlesen">
+      <summary>Text zum Mitlesen</summary>
+      <div class="skript" data-lang="de" lang="de">
+          <p><b>Herr Bernhardt:</b> Ich bin heute bei Petra an ihrer Tankstelle. Petra, was machst du hier?</p>
+          <p><b>Petra:</b> Ich habe eine kleine Tankstelle mit Shop und Waschanlage an einer Landstraße. Sie gehört zu keinem großen Konzern. Den Sprit kaufe ich selbst ein. Ich habe vier Angestellte.</p>
+          <p><b>Herr Bernhardt:</b> Was ist dir wichtig?</p>
+          <p><b>Petra:</b> Ich muss den Sprit teurer verkaufen, als ich ihn einkaufe. Sonst kann ich meine Leute nicht bezahlen. Und meine Kundschaft soll nie vor leeren Zapfsäulen stehen.</p>
+          <p><b>Herr Bernhardt:</b> Und was hältst du von einem Spritpreisdeckel?</p>
+          <p><b>Petra:</b> Ich bin dagegen. Liegt der Höchstpreis unter dem, was ich selbst für den Sprit zahle, verliere ich an jedem Liter Geld. Große Konzerne halten das länger durch als ich. Dann macht am Ende meine Tankstelle zu.</p>
+          <p><b>Herr Bernhardt:</b> Sie sprechen am HU-Tag für Petra. Markieren Sie auf der Karte, was ihr wichtig ist.</p>
+      </div>
+      <div class="skript" data-lang="ar" lang="ar" dir="rtl" hidden>
+          <p><b>السيد برنهارت:</b> أنا اليوم عند بيترا في محطة الوقود الخاصة بها. بيترا، ماذا تفعلين هنا؟</p>
+          <p><b>بيترا:</b> عندي محطة وقود صغيرة فيها متجر ومغسلة سيارات على طريق ريفي. هي لا تتبع أي شركة كبيرة. أشتري الوقود بنفسي، وعندي أربعة موظفين.</p>
+          <p><b>السيد برنهارت:</b> ما المهم بالنسبة لك؟</p>
+          <p><b>بيترا:</b> يجب أن أبيع الوقود بسعر أعلى من سعر شرائه، وإلا لا أستطيع أن أدفع رواتب موظفيّ. ولا أريد أبدًا أن يقف زبائني أمام مضخات فارغة.</p>
+          <p><b>السيد برنهارت:</b> وما رأيك في وضع سقف لسعر الوقود؟</p>
+          <p><b>بيترا:</b> أنا ضده. إذا كان السعر الأقصى أقل مما أدفعه أنا ثمنًا للوقود، أخسر مالًا في كل لتر. الشركات الكبيرة تتحمل ذلك وقتًا أطول مني. وفي النهاية تُغلق محطتي.</p>
+          <p><b>السيد برنهارت:</b> في يوم الفحص الفني تتحدثون باسم بيترا. ضعوا علامة على البطاقة عند ما هو مهم بالنسبة لها.</p>
+          <p dir="ltr" lang="de"><b>السيد برنهارت:</b> Wichtige Wörter auf Deutsch: freie Tankstelle, Einkaufspreis, Höchstpreis, dagegen.</p>
+      </div>
+    </details>
+    <a class="mehr" href="https://www.bft.de/aktuelles-presse/pressebereich/spritpreisdeckel-wird-zum-buerokratiemonster" target="_blank" rel="noopener">
+      <span class="mk">Mehr dazu lesen</span>
+      <span class="mt">Spritpreisdeckel wird zum Bürokratiemonster</span>
+      <span class="mq">Bundesverband Freier Tankstellen (bft), 2. November 2026, etwa 4 Minuten</span>
+      <span class="tipp">Der bft spricht für freie Tankstellen wie die von Petra. Lesen Sie den Absatz über freie Tankstellen.</span>
+    </a>
+  </article>
+
+  <nav class="wahlbox" aria-labelledby="wahl-titel">
+    <h2 id="wahl-titel">Alle Rollen</h2>
+    <div class="wahl">
+      <a class="wk" href="?rolle=leon" data-rolle="leon" style="--f:#d99a00"><svg class="mini" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="59" fill="#f9efd6"/>
+    <rect x="6" y="88" width="108" height="14" rx="3" fill="#8a9aa6"/>
+    <path d="M14 95 H28 M42 95 H56 M70 95 H84 M98 95 H108" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M97 48 V88" stroke="#5c6f7e" stroke-width="3.2" stroke-linecap="round"/>
+    <rect x="80" y="26" width="34" height="22" rx="4" fill="#2e7d4f" stroke="#12324a" stroke-width="2.4"/>
+    <text x="97" y="41.5" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="11.5" fill="#fff">35 km</text>
+    <path d="M10 84 V70 Q10 63 17 62 L28 60 L39 47 Q42 44 47 44 H62 Q67 44 70 48 L79 60 Q86 61.5 87 68 V84 Z" fill="#d99a00" stroke="#12324a" stroke-width="3.2" stroke-linejoin="round"/>
+    <path d="M42 49 H53 V60 H32 Z" fill="#cfe8f7" stroke="#12324a" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M57 49 H64 Q66 49 67 51 L73 60 H57 Z" fill="#cfe8f7" stroke="#12324a" stroke-width="2" stroke-linejoin="round"/>
+    <rect x="80" y="66" width="7" height="5" rx="1.5" fill="#ffe08a"/>
+    <circle cx="27" cy="84" r="9" fill="#12324a"/><circle cx="27" cy="84" r="3.8" fill="#d3dde4"/>
+    <circle cx="70" cy="84" r="9" fill="#12324a"/><circle cx="70" cy="84" r="3.8" fill="#d3dde4"/></svg><span>Leon</span></a>
+      <a class="wk" href="?rolle=spd" data-rolle="spd" style="--f:#e5412d"><svg class="mini" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="59" fill="#fbe1dd"/>
+    <path d="M73 14 H104 Q109 14 109 19 V33 Q109 38 104 38 H86 L78 45 V38 H73 Q68 38 68 33 V19 Q68 14 73 14 Z" fill="#fff" stroke="#12324a" stroke-width="2.6" stroke-linejoin="round"/>
+    <path d="M75 22.5 H101 M75 29.5 H93" stroke="#e5412d" stroke-width="3.4" stroke-linecap="round"/>
+    <path d="M60 52 V36 Q60 30 54 28" stroke="#12324a" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <rect x="45" y="19" width="11" height="15" rx="5.5" fill="#12324a" transform="rotate(-24 50 26)"/>
+    <path d="M33 60 H87 L80 106 H40 Z" fill="#e5412d" stroke="#12324a" stroke-width="3.2" stroke-linejoin="round"/>
+    <rect x="27" y="50" width="66" height="11" rx="3" fill="#fff" stroke="#12324a" stroke-width="3"/>
+    <text x="60" y="90" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="17" fill="#fff">SPD</text>
+    <path d="M30 108 H90" stroke="#12324a" stroke-width="3.2" stroke-linecap="round"/></svg><span>SPD</span></a>
+      <a class="wk" href="?rolle=cdu" data-rolle="cdu" style="--f:#3d4650"><svg class="mini" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="59" fill="#e0e1e3"/>
+    <path d="M73 14 H104 Q109 14 109 19 V33 Q109 38 104 38 H86 L78 45 V38 H73 Q68 38 68 33 V19 Q68 14 73 14 Z" fill="#fff" stroke="#12324a" stroke-width="2.6" stroke-linejoin="round"/>
+    <path d="M75 22.5 H101 M75 29.5 H93" stroke="#3d4650" stroke-width="3.4" stroke-linecap="round"/>
+    <path d="M60 52 V36 Q60 30 54 28" stroke="#12324a" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <rect x="45" y="19" width="11" height="15" rx="5.5" fill="#12324a" transform="rotate(-24 50 26)"/>
+    <path d="M33 60 H87 L80 106 H40 Z" fill="#3d4650" stroke="#12324a" stroke-width="3.2" stroke-linejoin="round"/>
+    <rect x="27" y="50" width="66" height="11" rx="3" fill="#fff" stroke="#12324a" stroke-width="3"/>
+    <text x="60" y="90" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="17" fill="#fff">CDU</text>
+    <path d="M30 108 H90" stroke="#12324a" stroke-width="3.2" stroke-linecap="round"/></svg><span>CDU</span></a>
+      <a class="wk" href="?rolle=en2x" data-rolle="en2x" style="--f:#2c6fd6"><svg class="mini" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="59" fill="#dde8f8"/>
+    <rect x="6" y="98" width="108" height="6" rx="2" fill="#8a9aa6"/>
+    <path d="M31 30 C25 23 30 17 30 9 C38 16 39 24 31 30 Z" fill="#ffc531" stroke="#e8702a" stroke-width="2" stroke-linejoin="round"/>
+    <rect x="23" y="32" width="15" height="66" rx="3" fill="#d3dde4" stroke="#12324a" stroke-width="3"/>
+    <path d="M23 50 H38 M23 66 H38 M23 82 H38" stroke="#12324a" stroke-width="2.2"/>
+    <rect x="44" y="50" width="12" height="48" rx="3" fill="#d3dde4" stroke="#12324a" stroke-width="3"/>
+    <path d="M44 66 H56 M44 82 H56" stroke="#12324a" stroke-width="2.2"/>
+    <path d="M56 90 H62" stroke="#12324a" stroke-width="3"/>
+    <path d="M62 98 V74 Q62 64 84 64 Q106 64 106 74 V98 Z" fill="#2c6fd6" stroke="#12324a" stroke-width="3.2" stroke-linejoin="round"/>
+    <path d="M84 70 C79 77 77 81 77 84.5 A7 7 0 0 0 91 84.5 C91 81 89 77 84 70 Z" fill="#fff"/></svg><span>en2x</span></a>
+      <a class="wk" href="?rolle=sovd" data-rolle="sovd" style="--f:#138f89"><svg class="mini" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="59" fill="#d9edec"/>
+    <path d="M22 12 l-3 6 M37 8 l-3 6 M86 8 l-3 6 M101 12 l-3 6" stroke="#5aa8d6" stroke-width="3" stroke-linecap="round"/>
+    <path d="M60 22 V17" stroke="#12324a" stroke-width="3.2" stroke-linecap="round"/>
+    <path d="M12 58 Q14 24 60 22 Q106 24 108 58 Q100 51 92 58 Q84 51 76 58 Q68 51 60 58 Q52 51 44 58 Q36 51 28 58 Q20 51 12 58 Z" fill="#138f89" stroke="#12324a" stroke-width="3.2" stroke-linejoin="round"/>
+    <path d="M60 58 V98 Q60 104 66 104" stroke="#12324a" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+    <circle cx="39" cy="73" r="7.5" fill="#fff" stroke="#12324a" stroke-width="3"/>
+    <path d="M26 108 Q26 86 39 86 Q52 86 52 108 Z" fill="#95cdca" stroke="#12324a" stroke-width="3" stroke-linejoin="round"/>
+    <circle cx="82" cy="78" r="6.5" fill="#fff" stroke="#12324a" stroke-width="3"/>
+    <path d="M71 108 Q71 90 82 90 Q93 90 93 108 Z" fill="#95cdca" stroke="#12324a" stroke-width="3" stroke-linejoin="round"/></svg><span>SoVD</span></a>
+      <a class="wk" href="?rolle=petra" data-rolle="petra" style="--f:#7a5cff"><svg class="mini" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="59" fill="#eae5ff"/>
+    <rect x="6" y="98" width="108" height="6" rx="2" fill="#8a9aa6"/>
+    <rect x="8" y="22" width="64" height="13" rx="3" fill="#7a5cff" stroke="#12324a" stroke-width="3"/>
+    <rect x="15" y="35" width="6" height="63" fill="#d3dde4" stroke="#12324a" stroke-width="2.2"/>
+    <rect x="59" y="35" width="6" height="63" fill="#d3dde4" stroke="#12324a" stroke-width="2.2"/>
+    <rect x="28" y="56" width="22" height="42" rx="3" fill="#fff" stroke="#12324a" stroke-width="3"/>
+    <rect x="32" y="61" width="14" height="10" rx="1.5" fill="#cfe8f7" stroke="#12324a" stroke-width="1.6"/>
+    <path d="M50 66 H53 Q56 66 56 69 V86" stroke="#12324a" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+    <rect x="73" y="50" width="38" height="48" fill="#fff" stroke="#12324a" stroke-width="3"/>
+    <path d="M70 50 L92 36 L114 50 Z" fill="#b6a5ff" stroke="#12324a" stroke-width="3" stroke-linejoin="round"/>
+    <rect x="78" y="58" width="13" height="13" fill="#cfe8f7" stroke="#12324a" stroke-width="2"/>
+    <rect x="96" y="72" width="10" height="26" fill="#7a5cff" stroke="#12324a" stroke-width="2.2"/></svg><span>Petra</span></a>
+    </div>
+  </nav>
+
+  <footer>
+    <p>Die Stimmen sind mit künstlicher Intelligenz erzeugt (elevenlabs.io). Die Stimme von Herrn Bernhardt ist eine KI-Nachbildung seiner echten Stimme. Leon und Petra sind erfundene Personen.</p>
+    <p>Grundlage sind die Rollenkarten. Echte Politikerinnen und Politiker werden nur zitiert. Quellen der Zitate: ZDFheute (2.11.2026), dpa (29.10. und 5.11.2026), Business Insider (6.11.2026), en2x (21.9.2026), SoVD (sovd.de) und AUTO BILD (3.11.2026). Stand: 6. November 2026.</p>
+  </footer>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  var PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg>';
+  var PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="13.5" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg>';
+  var SPRACHE = { de: 'Deutsch', ar: 'Arabisch' };
+  function zeit(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+  var audios = [];
+
+  function Spieler(karte) {
+    var id = karte.dataset.rolle;
+    var name = karte.querySelector('h2').textContent;
+    var audio = document.createElement('audio');
+    audio.preload = 'auto';
+    karte.appendChild(audio);
+    audios.push(audio);
+    var knopf = karte.querySelector('.play');
+    var regler = karte.querySelector('input[type=range]');
+    var jetzt = karte.querySelector('.jetzt');
+    var gesamt = karte.querySelector('.gesamt');
+    var status = karte.querySelector('.status');
+    var player = karte.querySelector('.player');
+    var steuer = karte.querySelector('.steuer');
+    var details = karte.querySelector('.mitlesen');
+    var sprache = 'de', tempo = 1, bereit = false;
+    var cache = {}, versuche = [];
+
+    function melde(t) { status.textContent = t; status.hidden = !t; }
+    function zeichne() {
+      var laeuft = !audio.paused && !audio.ended;
+      knopf.innerHTML = laeuft ? PAUSE : PLAY;
+      knopf.setAttribute('aria-label', name + ' auf ' + SPRACHE[sprache] + (laeuft ? ' pausieren' : ' abspielen'));
+    }
+    function steuerung(an) { player.hidden = !an; steuer.hidden = !an; }
+    function quelle(l) { return '/hoeren/sprit-rollen/' + id + '-' + l + '.mp3'; }
+
+    // Datei ganz holen und als Blob abspielen (auch ohne Range-Anfragen); 404 heißt: noch nicht aufgenommen
+    function holen(l) {
+      if (cache[l]) return;
+      cache[l] = { stand: 'laedt' };
+      fetch(quelle(l)).then(function (r) {
+        if (r.status === 404) { cache[l] = { stand: 'fehlt' }; return null; }
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.blob();
+      }).then(function (blob) {
+        if (blob) cache[l] = { stand: 'da', blob: blob };
+      }).catch(function () {
+        cache[l] = { stand: 'direkt' };
+      }).then(function () { if (l === sprache) anzeigen(); });
+    }
+
+    function anzeigen() {
+      var c = cache[sprache];
+      bereit = false;
+      regler.value = 0; jetzt.textContent = '0:00';
+      if (!c || c.stand === 'laedt') {
+        steuerung(true); melde(''); gesamt.textContent = 'lädt …';
+        if (audio.getAttribute('src')) { audio.removeAttribute('src'); audio.load(); }
+        zeichne(); return;
+      }
+      if (c.stand === 'fehlt') {
+        steuerung(false);
+        if (audio.getAttribute('src')) { audio.removeAttribute('src'); audio.load(); }
+        melde('Die Hörfassung auf ' + SPRACHE[sprache] + ' kommt bald. Bis dahin können Sie den Text unten lesen.');
+        details.open = true;
+        return;
+      }
+      steuerung(true); melde(''); gesamt.textContent = 'lädt …';
+      if (c.stand === 'da') {
+        versuche = [
+          function () { c.url = c.url || URL.createObjectURL(c.blob); audio.src = c.url; },
+          function () { var fr = new FileReader(); fr.onload = function () { audio.src = fr.result; }; fr.readAsDataURL(c.blob); },
+          function () { audio.src = quelle(sprache); }
+        ];
+      } else {
+        versuche = [function () { audio.src = quelle(sprache); }];
+      }
+      versuche.shift()();
+      zeichne();
+    }
+
+    audio.addEventListener('error', function () {
+      if (!audio.getAttribute('src')) return;
+      if (versuche.length) { versuche.shift()(); return; }
+      melde('Die Audiodatei lädt gerade nicht. Bitte die Seite neu laden.');
+      gesamt.textContent = '–';
+    });
+    audio.addEventListener('loadedmetadata', function () {
+      bereit = true;
+      audio.playbackRate = tempo;
+      if (isFinite(audio.duration)) { regler.max = audio.duration; gesamt.textContent = zeit(audio.duration); }
+    });
+    audio.addEventListener('timeupdate', function () { regler.value = audio.currentTime; jetzt.textContent = zeit(audio.currentTime); });
+    audio.addEventListener('play', function () { audios.forEach(function (a) { if (a !== audio) a.pause(); }); zeichne(); });
+    audio.addEventListener('pause', zeichne);
+    audio.addEventListener('ended', function () { audio.currentTime = 0; zeichne(); });
+
+    knopf.addEventListener('click', function () {
+      if (audio.paused) {
+        audio.playbackRate = tempo;
+        if (!bereit) melde('Lädt …');
+        var p = audio.play();
+        if (p && p.then) p.then(function () { melde(''); }).catch(function (err) {
+          if (err && err.name === 'AbortError') return;
+          melde('Wiedergabe nicht möglich. Bitte noch einmal tippen.'); zeichne();
+        });
+      } else { audio.pause(); }
+    });
+    regler.addEventListener('input', function () { audio.currentTime = Number(regler.value); jetzt.textContent = zeit(audio.currentTime); });
+    karte.querySelector('.zurueck').addEventListener('click', function () { audio.currentTime = Math.max(0, audio.currentTime - 10); });
+    karte.querySelectorAll('.chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        tempo = Number(chip.dataset.rate);
+        audio.playbackRate = tempo;
+        karte.querySelectorAll('.chip').forEach(function (c) { c.setAttribute('aria-pressed', String(c === chip)); });
+      });
+    });
+    karte.querySelectorAll('.lang').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (b.dataset.lang === sprache) return;
+        audio.pause();
+        sprache = b.dataset.lang;
+        karte.querySelectorAll('.lang').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+        karte.querySelectorAll('.skript').forEach(function (s) { s.hidden = s.dataset.lang !== sprache; });
+        holen(sprache);
+        anzeigen();
+      });
+    });
+    zeichne();
+    return {
+      name: name,
+      start: function () { holen(sprache); anzeigen(); },
+      stopp: function () { audio.pause(); }
+    };
+  }
+
+  var karten = Array.prototype.slice.call(document.querySelectorAll('.rolle'));
+  var spieler = {};
+  karten.forEach(function (k) { spieler[k.dataset.rolle] = Spieler(k); });
+  var wahlTitel = document.getElementById('wahl-titel');
+
+  function zeige(id, merken) {
+    var gueltig = Object.prototype.hasOwnProperty.call(spieler, id);
+    document.body.classList.toggle('ohne-rolle', !gueltig);
+    karten.forEach(function (k) { k.hidden = !gueltig || k.dataset.rolle !== id; });
+    document.querySelectorAll('.wk').forEach(function (a) {
+      if (a.dataset.rolle === id) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    Object.keys(spieler).forEach(function (k) { spieler[k].stopp(); });
+    wahlTitel.textContent = gueltig ? 'Andere Rolle anhören' : 'Welche Rolle haben Sie?';
+    if (gueltig) {
+      spieler[id].start();
+      document.title = spieler[id].name + ': Rolle zum Spritpreisdeckel';
+    } else {
+      document.title = 'Rollen zum Spritpreisdeckel';
+    }
+    if (merken) { try { history.replaceState(null, '', '?rolle=' + id); } catch (e) { /* egal */ } }
+  }
+
+  document.querySelectorAll('.wk').forEach(function (a) {
+    a.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      zeige(a.dataset.rolle, true);
+      window.scrollTo(0, 0);
+    });
+  });
+
+  var wunsch = '';
+  try { wunsch = new URLSearchParams(location.search).get('rolle') || ''; } catch (e) { wunsch = ''; }
+  if (!wunsch && location.hash) wunsch = location.hash.slice(1);
+  zeige(wunsch.toLowerCase(), false);
+})();
+</script>
+</body>
+</html>
