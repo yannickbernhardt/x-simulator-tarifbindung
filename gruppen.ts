@@ -4,9 +4,11 @@
  * Schüler*innen öffnen /gruppen/<code> (QR-Code am Beamer), geben ihren Vornamen ein und bekommen einen
  * zufälligen Decknamen mit zufällig aussehender Figur. Sie füllen ein kurzes Profil aus (vier Fragen zur
  * Gruppenarbeit, zwei zum Spaß) und ziehen ihre Figur danach an einen Tisch – nur nach den Profilen der anderen.
- * Beim Auflösen stehen die Vornamen unter den Figuren. Vorher verlässt kein Vorname den Server.
+ * Beim Auflösen stehen die Vornamen unter den Figuren. Vorher verlässt kein Vorname den Server (außer mit Rollen, s. u.).
  * Die Lehrkraft steuert am Beamer unter /gruppen/<code>?lehrer=<TOKEN>; der Token steht nie im QR-Code.
  * Gespeichert wird nur der Vorname. Alles liegt in Deno KV und läuft nach 12 Stunden ab.
+ * Mit Rollen-Tischen (KFZ, 18.11.2026) ohne Profilfragen und mit Klarnamen: Die Vornamen sind von Anfang an
+ * sichtbar, gesetzt wird ohne Profil.
  *
  * Sparsam mit KV-Lesezugriffen: Raum pro Instanz kurz zwischengespeichert, Teilnehmende und Sitzplan
  * werden nur neu gelesen, wenn sich der Versionsschlüssel ["gruppen",code,"v"] geändert hat.
@@ -45,6 +47,8 @@ type RollenSet = { rollen: unknown[] };
 const rollenSet = (id: unknown): RollenSet | null =>
   typeof id === "string" && Object.hasOwn(ROLLENSETS, id) ? (ROLLENSETS as Record<string, RollenSet>)[id] : null;
 const maxTische = (r: Raum) => Math.min(TISCHE.max, rollenSet(r.rollen)?.rollen.length ?? TISCHE.max);
+/* Rollen an: keine Profilfragen, Vornamen offen */
+const klar = (r: Raum) => !!rollenSet(r.rollen);
 
 /* Personen je Tisch (Index 0 = Tisch 1), ohne eine bestimmte Figur */
 function belegung(s: Sitze, tische: number, ohne?: string): number[] {
@@ -54,7 +58,7 @@ function belegung(s: Sitze, tische: number, ohne?: string): number[] {
 }
 
 /*
- * Gruppen ausgleichen (Knopf der Lehrkraft): Wer ein Profil hat und noch steht, kommt an den kleinsten Tisch,
+ * Gruppen ausgleichen (Knopf der Lehrkraft): Wer ein Profil hat (mit Rollen: alle) und noch steht, kommt an den kleinsten Tisch,
  * bei mehreren gleich kleinen an den, vor dem die Figur gerade steht (orte: Füße in Bühnen-Pixeln, mitte: Tische).
  * Danach gibt der größte Tisch an den kleinsten ab, bis alle Tische höchstens eine Person auseinander sind.
  * Wechseln muss immer, wer sich zuletzt gesetzt hat. Ergebnis: Zahl der umgesetzten Figuren.
@@ -256,7 +260,7 @@ export async function gruppenRoute(req: Request, url: URL, pfad: string, lehrer:
       leute: stamm.leute.map((t) => ({
         fid: t.fid, name: t.name, aussehen: t.aussehen, profil: t.profil,
         tisch: stamm.sitze[t.fid]?.[0] ?? null, platz: stamm.sitze[t.fid]?.[1] ?? null,
-        ...(aufgeloest ? { vorname: t.vorname } : {}),
+        ...(aufgeloest || klar(raum) ? { vorname: t.vorname } : {}),
       })),
       sig,
     });
@@ -306,7 +310,9 @@ export async function gruppenRoute(req: Request, url: URL, pfad: string, lehrer:
       const mitte = berechneLayout(neu.tische, neu.plaetze).tische.map((T: { cx: number; cy: number }) => [T.cx, T.cy] as [number, number]);
       let umgesetzt = 0;
       const problem = await aendereSitze(kv, code, (s) => {
-        umgesetzt = ausgleichen(s, stamm.leute, neu.tische, neu.plaetze, orte, mitte);
+        /* Mit Rollen gibt es keine Profile: Dann zählen alle, die angemeldet sind */
+        const leute = klar(neu) ? stamm.leute.map((t) => (t.profil ? t : { ...t, profil: {} })) : stamm.leute;
+        umgesetzt = ausgleichen(s, leute, neu.tische, neu.plaetze, orte, mitte);
         return umgesetzt ? null : "gleich";
       });
       if (problem) return h.fehler(problem, 503);
@@ -398,7 +404,7 @@ export async function gruppenRoute(req: Request, url: URL, pfad: string, lehrer:
     if (!fid || tisch > 0) {
       const t = (await kv.get<Teilnehmer>(k.tn(code, pid))).value;
       if (!t) return h.fehler("Du bist hier nicht angemeldet. Bitte die Seite neu laden.", 404);
-      if (tisch > 0 && !t.profil) return h.fehler("Bitte erst das Profil ausfüllen.", 409);
+      if (tisch > 0 && !t.profil && !klar(raum)) return h.fehler("Bitte erst das Profil ausfüllen.", 409);
       fid = t.fid;
       fidVon.set(`${code}:${pid}`, fid);
     }

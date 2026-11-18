@@ -262,7 +262,7 @@ function angemeldet(j) {
   pid = j.pid; speicher.set("gruppen-" + code, pid);
   ich = { fid: j.fid, name: j.name, vorname: j.vorname, aussehen: j.aussehen, profil: j.profil };
   entwurf = { ...(ich.profil ?? {}) };
-  ansicht = ich.profil ? null : speicher.get("gruppen-gesehen-" + code) === pid ? "fragen" : "ausweis";
+  ansicht = fertig() ? null : speicher.get("gruppen-gesehen-" + code) === pid ? "fragen" : "ausweis";
   letztesHtml = "";
   ladeDrei();
   darstellen();
@@ -273,9 +273,9 @@ function nameHtml() {
     <h1>Wie heißt du?</h1>
     <form id="nameForm" style="display:grid;gap:12px">
       <input class="name" id="vorname" name="vorname" maxlength="20" autocomplete="given-name" autocapitalize="words" placeholder="Vorname" required>
-      <p class="leise">Nur dein Vorname. Er bleibt geheim und steht erst ganz am Ende am Beamer unter deiner Figur.</p>
+      <p class="leise">${rollenAn() ? "Nur dein Vorname. Er steht am Beamer bei deiner Figur, so sehen alle, wer welche Rolle nimmt." : "Nur dein Vorname. Er bleibt geheim und steht erst ganz am Ende am Beamer unter deiner Figur."}</p>
       ${meldung ? `<p class="fehler">${esc(meldung)}</p>` : ""}
-      <button class="knopf">Geheime Identität holen</button>
+      <button class="knopf">${rollenAn() ? "Los geht's" : "Geheime Identität holen"}</button>
     </form>`;
 }
 app.addEventListener("submit", async (e) => {
@@ -317,7 +317,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && ic
 
 /* ---------- Bausteine ---------- */
 function chips(p) {
-  if (!p) return `<span class="leer">füllt noch das Profil aus …</span>`;
+  if (!p) return rollenAn() ? "" : `<span class="leer">füllt noch das Profil aus …</span>`;
   return `<div class="chips">${FRAGEN.map((f) => {
     const a = ANTWORT[f.id][p[f.id]];
     return a ? `<span class="chip${f.art === "spass" ? " spass" : ""}">${a.e} ${esc(a.kurz)}</span>` : "";
@@ -325,7 +325,7 @@ function chips(p) {
 }
 function person(p, farbe, mitKlarnamen) {
   const du = p.fid === ich.fid ? `<span class="du" style="background:${farbe}">du</span>` : "";
-  const kopf = mitKlarnamen && p.vorname
+  const kopf = rollenAn() ? `<div class="pname">${esc(p.vorname || p.name)}${du}</div>` : mitKlarnamen && p.vorname
     ? `<div class="klar">${esc(p.vorname)}${du}</div><div class="pname">${esc(p.name)}</div>`
     : `<div class="pname">${esc(p.name)}${du}</div>`;
   return `<div class="person"><span class="mini">${figurSvg(p.aussehen, { getraenk: p.profil?.getraenk })}</span>
@@ -335,11 +335,13 @@ const amTisch = (t) => stand.leute.filter((p) => p.tisch === t).sort((a, b) => a
 const meinTisch = () => stand.leute.find((p) => p.fid === ich.fid)?.tisch ?? null;
 function ichLeiste(text) {
   return `<div class="ich"><span class="mini">${figurSvg(ich.aussehen, { getraenk: ich.profil?.getraenk })}</span>
-    <div class="wer"><small>${esc(text)}</small><b>${esc(ich.name)}</b></div></div>`;
+    <div class="wer"><small>${esc(text)}</small><b>${esc(rollenAn() ? ich.vorname : ich.name)}</b></div></div>`;
 }
 
 /* ---------- Rollen-Tische ---------- */
 const rollenAn = () => !!(stand?.raum.rollen && ROLLENSETS[stand.raum.rollen]);
+/* Mit Rollen gibt es keine Profilfragen und alle sehen die Vornamen (KFZ, 18.11.2026) */
+const fertig = () => !!ich?.profil || rollenAn();
 const farbeT = (t) => tischFarbe(stand.raum, t);
 const kopfName = (t) => rolleVon(stand.raum, t)?.name ?? `Tisch ${t}`; // Überschrift: „SPD“ oder „Tisch 3“
 /* Mit Rollen sieht man die Tische schon beim Anmelden: So kann man die Rollen lesen, bevor die Wahl losgeht. */
@@ -379,7 +381,7 @@ function tischKarte(t, knoepfe, mitKlarnamen) {
   const leute = amTisch(t), farbe = farbeT(t);
   const meiner = meinTisch() === t, voll = !kannSitzen(t);
   const profile = leute.map((p) => p.profil);
-  const spruch = tischSpruch(profile), gesucht = leute.length ? nochGesucht(profile) : [];
+  const spruch = rollenAn() ? null : tischSpruch(profile), gesucht = !rollenAn() && leute.length ? nochGesucht(profile) : [];
   let knopf = "";
   if (knoepfe) knopf = meiner ? `<button class="knopf hell" data-tisch="0">Hier sitzt du ✓ · aufstehen</button>` : voll ? "" : `<button class="knopf" data-tisch="${t}">Hierhin laufen</button>`;
   return `<section class="tisch${meiner ? " meiner" : ""}" style="--t:${farbe}">
@@ -446,7 +448,7 @@ function spielAufbauen() {
   document.body.classList.add("im-spiel");
   app.innerHTML = `<div class="spiel${mitDrei ? " drei" : ""}" id="spiel">
     ${mitDrei ? `<canvas class="leinwand" id="leinwand"></canvas>` : `<div class="welt" id="welt"></div>`}
-    <div class="hud"><span class="mini" id="hudFig"></span><div class="wer"><small id="hudStatus"></small><b>${esc(ich.name)}</b></div><button class="hudknopf" data-a="aendern">✏️ Profil</button></div>
+    <div class="hud"><span class="mini" id="hudFig"></span><div class="wer"><small id="hudStatus"></small><b>${esc(rollenAn() ? ich.vorname : ich.name)}</b></div>${rollenAn() ? "" : `<button class="hudknopf" data-a="aendern">✏️ Profil</button>`}</div>
     <div class="info" id="info"></div>
     <div class="geist"><i></i></div>
     <div class="stick" id="stick"><i></i></div>
@@ -591,7 +593,7 @@ function figurenAktualisieren() {
       G.welt.appendChild(el);
       e = { el }; G.fig.set(p.fid, e); neu = true;
     }
-    const denkt = !p.profil;
+    const denkt = !p.profil && !rollenAn();
     const k = JSON.stringify([p.aussehen, p.profil?.getraenk, denkt]);
     if (e.k !== k) { e.k = k; e.el.firstElementChild.innerHTML = figurSvg(p.aussehen, { getraenk: p.profil?.getraenk, denkt }); }
     if (p.fid === ich.fid) {
@@ -614,14 +616,14 @@ function figurenAktualisieren() {
   });
 }
 
-/* 3D: dieselben Angaben an den Platz geben. Orte bleiben Bühnen-Pixel, Vornamen gibt es hier nicht. */
+/* 3D: dieselben Angaben an den Platz geben. Orte bleiben Bühnen-Pixel, Vornamen nur mit Rollen (Klarnamen). */
 function figurenDrei(eingang) {
   const leute = stand.leute;
   G.drei.setzeFiguren(leute.map((p) => {
     const selbst = p.fid === ich.fid;
     const o = selbst && G.ich ? { x: G.ich.x, fuss: G.ich.y } : ortVon(p, eingang);
     const amEingang = eingang.indexOf(p.fid); // wer dicht nebeneinander am Eingang steht, trägt sein Schild auf wechselnder Höhe
-    return { fid: p.fid, name: p.name, aussehen: p.aussehen, getraenk: p.profil?.getraenk, denkt: !p.profil, ich: selbst, sitz: sitzVon(p), x: o.x, y: o.fuss, stufe: amEingang >= 0 ? amEingang % 3 : 0 };
+    return { fid: p.fid, name: p.name, vorname: rollenAn() ? p.vorname : undefined, aussehen: p.aussehen, getraenk: p.profil?.getraenk, denkt: !p.profil && !rollenAn(), ich: selbst, sitz: sitzVon(p), x: o.x, y: o.fuss, stufe: amEingang >= 0 ? amEingang % 3 : 0 };
   }), G.erstesBild);
   G.erstesBild = false;
   const belegt = belegung(false), grenze = grenzen(belegt);
@@ -637,7 +639,7 @@ function setzeHtml(id, html) {
 function infoHtml(t) {
   const r = stand.raum, leute = amTisch(t);
   const voll = !kannSitzen(t), profile = leute.map((p) => p.profil);
-  const spruch = tischSpruch(profile), gesucht = leute.length && !voll ? nochGesucht(profile) : [];
+  const spruch = rollenAn() ? null : tischSpruch(profile), gesucht = !rollenAn() && leute.length && !voll ? nochGesucht(profile) : [];
   return `<h3>${esc(kopfName(t))}<span>${r.phase === "anmelden" ? "öffnet gleich" : freiText(t)}</span></h3>
     ${rollenKarte(t)}
     ${spruch ? `<div class="spruch">${esc(spruch)}</div>` : ""}
@@ -863,11 +865,11 @@ function darstellen() {
   if (!ich || !stand) return;
   const r = stand.raum, ph = r.phase;
   const offen = ph === "anmelden" || ph === "wahl";
-  if (!offen && (ansicht === "fragen" || ansicht === "ausweis")) ansicht = null;
+  if ((!offen || rollenAn()) && (ansicht === "fragen" || ansicht === "ausweis")) ansicht = null;
   if (ansicht === "ausweis") return zeigeHtml(ausweisHtml());
   if (ansicht === "fragen") return zeigeHtml(frageHtml());
-  if (!ich.profil && offen) { ansicht = "fragen"; return zeigeHtml(frageHtml()); }
-  if (!ich.profil) return zeigeHtml(`${ichLeiste("Du bist")}<h1>Die Gruppenwahl ist schon vorbei.</h1><p class="leise">Sag deiner Lehrkraft Bescheid.</p>`);
+  if (!fertig() && offen) { ansicht = "fragen"; return zeigeHtml(frageHtml()); }
+  if (!fertig()) return zeigeHtml(`${ichLeiste("Du bist")}<h1>Die Gruppenwahl ist schon vorbei.</h1><p class="leise">Sag deiner Lehrkraft Bescheid.</p>`);
   if (ph === "aufloesen") return zeigeHtml(aufgeloestHtml());
   /* anmelden (Profil fertig) oder wahl: das Spiel */
   if (DREI === null) {

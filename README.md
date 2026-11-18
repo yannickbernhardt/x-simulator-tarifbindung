@@ -103,6 +103,8 @@ fehlende Rollen, ein Spruch pro Tisch bei auffälliger Mischung. Die Geometrie d
 Phasen am Beamer (Tasten 1–3): Anmelden · Tische öffnen · Auflösen (die Vornamen erscheinen unter den Figuren).
 Tische 2–8 und Plätze 2–6 stellt man in der Leiste ein. H blendet die Leiste aus.
 Vornamen verlassen den Server erst in der Phase „Auflösen“. Alles läuft nach 12 Stunden ab.
+Ausnahme mit „🎭 Rollen an“ (seit 18.11.2026, KFZ-Klasse): keine Profilfragen und keine Ausweisseite, die Vornamen
+stehen von Anfang an bei den Figuren, Hinsetzen und „Ausgleichen“ gehen ohne Profil.
 Figuren ohne Profil (z. B. doppelt gescannt) verschwinden beim Auflösen. Fragen und Decknamen in
 `public/gruppen/daten.js`, Figuren in `public/gruppen/figur.js`, Server in `gruppen.ts` (Sitzplan in einem
 KV-Schlüssel mit `kv.atomic()`, damit kein Platz doppelt vergeben wird).
